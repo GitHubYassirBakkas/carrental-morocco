@@ -1,0 +1,166 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Storage;
+
+
+class Car extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'brand',
+        'model',
+        'year',
+        'type',
+        'transmission',
+        'fuel_type',
+        'seats',
+        'doors',
+        'luggage',
+        'price_per_day',
+        'image',
+        'gallery',
+        'description',
+        'features',
+        'is_available',
+        'location_id',
+        
+        // 📋 Rental Conditions
+        'minimum_age',
+        'fuel_policy',
+        'cancellation_policy',
+        'deposit_amount',
+        'required_documents',
+    ];
+
+    protected $casts = [
+        'features' => 'array', // ✅ IMPORTANT: Convert JSON to array
+        'gallery' => 'array',
+        'required_documents' => 'array',
+        'is_available' => 'boolean',
+        'price_per_day' => 'decimal:2',
+        'deposit_amount' => 'decimal:2',
+        'year' => 'integer',
+        'seats' => 'integer',
+        'doors' => 'integer',
+        'luggage' => 'integer',
+        'minimum_age' => 'integer',
+    ];
+
+    public function location()
+    {
+        return $this->belongsTo(Location::class);
+    }
+    /*
+public function search(Request $request)
+{
+    return redirect()->route('cars.index');
+}
+    */
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
+
+   /**
+ * Insurance options available for this car
+ */
+public function insurances()
+{
+    return $this->belongsToMany(Insurance::class, 'car_insurance')
+        ->withPivot('is_default')
+        ->withTimestamps()
+        ->orderBy('sort_order');
+}
+
+/**
+ * Get available insurances or default all if none assigned
+ */
+public function getAvailableInsurancesAttribute()
+{
+    // If car has specific insurances assigned, use those
+    if ($this->insurances()->count() > 0) {
+        return $this->insurances;
+    }
+    
+    // Otherwise, return all active insurances
+    return Insurance::active()->ordered()->get();
+}
+    public function scopeAvailable(Builder $query): Builder
+    {
+        return $query->where('is_available', true);
+    }
+
+    /**
+     * ✅ Full car name (e.g., "2024 BMW X5")
+     */
+    public function getFullNameAttribute(): string
+    {
+        return "{$this->year} {$this->brand} {$this->model}";
+    }
+
+    /**
+     * ✅ Check if car is available for given date range
+     */
+    public function isAvailableForDates($startDate, $endDate): bool
+    {
+        return !$this->bookings()
+            ->where(function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('start_date', [$startDate, $endDate])
+                    ->orWhereBetween('end_date', [$startDate, $endDate])
+                    ->orWhere(function ($q) use ($startDate, $endDate) {
+                        $q->where('start_date', '<=', $startDate)
+                            ->where('end_date', '>=', $endDate);
+                    });
+            })
+            ->exists();
+    }
+
+    /**
+     * ✅ Get all images (main + gallery)
+     */
+   public function getAllImagesAttribute(): array
+{
+    $images = [];
+
+    if ($this->image) {
+        $images[] = Storage::url('cars/' . $this->image);
+    }
+
+    if (is_array($this->gallery)) {
+        foreach ($this->gallery as $img) {
+            $images[] = Storage::url('cars/' . $img);
+        }
+    }
+
+    return array_unique($images);
+}
+
+
+    /**
+     * ✅ Get average rating
+     */
+    public function getAverageRatingAttribute(): float
+    {
+        return (float) $this->reviews()->avg('rating') ?? 0;
+    }
+
+    /**
+     * ✅ Format price with currency
+     */
+    public function getFormattedPriceAttribute(): string
+    {
+        return number_format($this->price_per_day, 2) . ' MAD';
+    }
+}

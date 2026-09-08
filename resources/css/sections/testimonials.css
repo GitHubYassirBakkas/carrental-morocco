@@ -1,0 +1,109 @@
+
+/*
+.testimonials-section {
+    padding: 80px 0;
+    background: #0c0e14;
+    text-align: center;
+}
+
+.section-title {
+    font-size: 42px;
+    color: #fff;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.section-subtitle {
+    color: #aaa;
+    margin-bottom: 50px;
+    font-size: 18px;
+}
+*/
+
+/* CARD */
+/*
+.testimonial-card {
+    position: relative;
+    background: #11131a;
+    padding: 70px 30px 120px;
+    border-radius: 22px;
+    border: 1px solid #1f1f1f;
+    overflow: hidden;
+}
+*/
+/* TOP CURVE */
+/*
+.top-shape {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 95px;
+    background: #0c0e14;
+    border-bottom-left-radius: 50%;
+    border-bottom-right-radius: 50%;
+}
+*/
+/* BOTTOM CURVE */
+/*
+.bottom-shape {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 110px;
+    background: #0c0e14;
+    border-top-left-radius: 50%;
+    border-top-right-radius: 50%;
+}
+
+.stars {
+    font-size: 20px;
+    color: #ffd057;
+    margin-bottom: 25px;
+    position: relative;
+    z-index: 2;
+}
+
+.testimonial-text {
+    color: #ccc;
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+    position: relative;
+    z-index: 2;
+}
+*/
+/* PROFILE AREA (floating inside bottom curve) */
+/*
+.profile-box {
+    position: absolute;
+    bottom: 25px;
+    left: 30px;
+    right: 30px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    z-index: 10;
+}
+
+.profile-box img {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #11131a;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+}
+
+.profile-box h4 {
+    margin: 0;
+    color: #fff;
+    font-size: 18px;
+}
+
+.profile-box span {
+    color: #aaa;
+    font-size: 14px;
+}
+    */

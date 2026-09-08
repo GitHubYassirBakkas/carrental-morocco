@@ -1,0 +1,527 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Car;
+
+class CarSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $cars = [
+            // Lamborghini Urus
+            [
+                'brand' => 'Lamborghini',
+                'model' => 'Urus',
+                'year' => 2024,
+                'type' => 'SUV',
+                'transmission' => 'automatic', // ✅ lowercase
+                'fuel_type' => 'petrol',       // ✅ lowercase
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 2500.00,
+                'image' => 'lamborghini-urus.jpg',
+                'gallery' => [ // ✅ AJOUTÉ
+                    'lamborghini-urus.jpg',
+                    'lamborghini-urus.jpg',
+                    'lamborghini-urus.jpg',
+                    'lamborghini-urus.jpg',
+                ],
+                'description' => 'The Lamborghini Urus is a high-performance luxury SUV that combines the soul of a super sports car with the functionality of an SUV.',
+                'features' => [ // ✅ Array direct (sans json_encode)
+                    'GPS Navigation',
+                    'Leather Seats',
+                    'Bluetooth',
+                    'Air Conditioning',
+                    'Backup Camera',
+                    'USB Port',
+                    'Apple CarPlay',
+                    'Heated Seats',
+                    'Sport Mode',
+                    'Carbon Fiber Interior'
+                ],
+                'minimum_age' => 28,
+                'fuel_policy' => 'Full to Full - Return with full tank',
+                'cancellation_policy' => 'Free cancellation up to 72 hours before pickup',
+                'deposit_amount' => 15000.00,
+                'required_documents' => [
+                    'Valid driving license (3+ years)',
+                    'Passport or National ID',
+                    'Credit card in driver name',
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Aston Martin DBX
+            [
+                'brand' => 'Aston Martin',
+                'model' => 'DBX',
+                'year' => 2024,
+                'type' => 'SUV',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 2200.00,
+                'image' => 'aston-martin-dbx.jpg',
+                'gallery' => [
+                    'aston-martin-dbx -1.jpg',
+                    'aston-martin-dbx -2.jpg',
+                    'aston-martin-dbx -3.jpg',
+                    'aston-martin-dbx -4.jpg',
+                ],
+                'description' => 'The Aston Martin DBX is a luxury SUV that delivers bold design, exceptional performance, and unmatched comfort.',
+                'features' => [
+                    'GPS Navigation',
+                    'Leather Seats',
+                    'Bluetooth',
+                    'Air Conditioning',
+                    'Panoramic Sunroof',
+                    'Premium Sound System',
+                    'Adaptive Cruise Control',
+                    'Lane Assist'
+                ],
+                'minimum_age' => 27,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 48h before',
+                'deposit_amount' => 12000.00,
+                'required_documents' => [
+                    'Driving license (2+ years)',
+                    'ID or Passport',
+                    'Credit card'
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Bugatti Mistral
+            [
+                'brand' => 'Bugatti',
+                'model' => 'Mistral W16',
+                'year' => 2024,
+                'type' => 'Sport',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 2,
+                'doors' => 2,
+                'luggage' => 0,
+                'price_per_day' => 8000.00,
+                'image' => 'bugatti-mistral.jpg',
+                'gallery' => [
+                    'bugatti-mistral.jpg',
+                    'bugatti-mistral-2.jpg',
+                    'bugatti-mistral-3.jpg',
+                    'bugatti-mistral-4.jpg',
+                ],
+                'description' => 'The Bugatti Mistral W16 is an ultra-exclusive roadster that represents the pinnacle of automotive engineering and luxury.',
+                'features' => [
+                    'Carbon Fiber Body',
+                    'Racing Seats',
+                    'Advanced Aerodynamics',
+                    'Premium Audio',
+                    'Track Mode',
+                    'Launch Control',
+                    'Sport Exhaust',
+                    'Custom Paint'
+                ],
+                'minimum_age' => 30,
+                'fuel_policy' => 'Full to Full with premium fuel',
+                'cancellation_policy' => 'No refund within 7 days',
+                'deposit_amount' => 50000.00,
+                'required_documents' => [
+                    'International driving license',
+                    'Passport',
+                    'Premium credit card',
+                    'Racing experience certificate'
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Bentley Bentayga
+            [
+                'brand' => 'Bentley',
+                'model' => 'Bentayga',
+                'year' => 2024,
+                'type' => 'SUV',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 2800.00,
+                'image' => 'bentley-bentayga.jpg',
+                'gallery' => [
+                    'bentley-bentayga -1.jpg',
+                    'bentley-bentayga -2.jpg',
+                    'bentley-bentayga -3.jpg',
+                    'bentley-bentayga -4.jpg',
+                    
+                ],
+                'description' => 'The Bentley Bentayga combines extraordinary performance with unrivaled luxury and cutting-edge technology.',
+                'features' => [
+                    'Massage Seats',
+                    'Naim Audio System',
+                    'Night Vision',
+                    'Head-Up Display',
+                    'Wireless Charging',
+                    'Champagne Cooler',
+                    '4-Zone Climate',
+                    'Executive Seats'
+                ],
+                'minimum_age' => 28,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 72h before',
+                'deposit_amount' => 18000.00,
+                'required_documents' => [
+                    'Driving license (3+ years)',
+                    'Passport',
+                    'Platinum credit card'
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Rolls-Royce Cullinan
+            [
+                'brand' => 'Rolls-Royce',
+                'model' => 'Cullinan',
+                'year' => 2024,
+                'type' => 'Luxury',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 3,
+                'price_per_day' => 3500.00,
+                'image' => 'rolls-royce-cullinan.jpg',
+                'gallery' => [
+                    'rolls-royce-cullinan.jpg',
+                    'rolls-royce-cullinan.jpg',
+                    'rolls-royce-cullinan.jpg',
+                    'rolls-royce-cullinan.jpg',
+                ],
+                'description' => 'The Rolls-Royce Cullinan is the ultimate luxury SUV, offering peerless comfort and refinement for the most discerning clients.',
+                'features' => [
+                    'Starlight Headliner',
+                    'Picnic Tables',
+                    'Champagne Fridge',
+                    'Theatre Config',
+                    'Lambswool Carpets',
+                    'Self-leveling',
+                    'Silent Cabin',
+                    'Bespoke Audio'
+                ],
+                'minimum_age' => 30,
+                'fuel_policy' => 'Full to Full with premium fuel',
+                'cancellation_policy' => 'No refund within 5 days',
+                'deposit_amount' => 25000.00,
+                'required_documents' => [
+                    'International driving license',
+                    'Passport',
+                    'Black credit card',
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Mercedes C-Class
+            [
+                'brand' => 'Mercedes-Benz',
+                'model' => 'C-Class',
+                'year' => 2024,
+                'type' => 'Luxury',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 3,
+                'price_per_day' => 650.00,
+                'image' => 'mercedes-c-class.jpg',
+                'gallery' => [
+                    'mercedes-c-class.jpg',
+                    'mercedes-c-class.jpg',
+                    'mercedes-c-class.jpg',
+                    'mercedes-c-class.jpg',
+                ],
+                'description' => 'Luxury sedan offering premium comfort, advanced technology and smooth performance.',
+                'features' => [
+                    'Leather Seats',
+                    'Digital Cockpit',
+                    'Ambient Lighting',
+                    'Parking Sensors',
+                    'Apple CarPlay'
+                ],
+                'minimum_age' => 23,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 24h before',
+                'deposit_amount' => 3000.00,
+                'required_documents' => [
+                    'Driving license',
+                    'ID card',
+                    'Credit card'
+                ],
+                'location_id' => 1,
+                'is_available' => true,
+            ],
+
+            // Dacia Logan
+            [
+                'brand' => 'Dacia',
+                'model' => 'Logan',
+                'year' => 2022,
+                'type' => 'Economy',
+                'transmission' => 'manual',
+                'fuel_type' => 'diesel',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 250.00,
+                'image' => 'dacia-logan.jpg',
+                'gallery' => [
+                    'dacia-logan-1.jpg',
+                    'dacia-logan-2.jpg',
+                    'dacia-logan-3.jpg',
+                    'dacia-logan-4.jpg',
+                ],
+                'description' => 'Reliable and economical sedan, perfect for city and long-distance travel.',
+                'features' => [
+                    'Air Conditioning',
+                    'Bluetooth',
+                    'USB Port',
+                    'ABS',
+                    'Airbags'
+                ],
+                'minimum_age' => 21,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 12h before',
+                'deposit_amount' => 1000.00,
+                'required_documents' => [
+                    'Driving license',
+                    'ID card'
+                ],
+                'location_id' => 1,
+                'is_available' => true,
+            ],
+
+            // Audi RS7
+            [
+                'brand' => 'Audi',
+                'model' => 'RS7',
+                'year' => 2024,
+                'type' => 'Luxury',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 1800.00,
+                'image' => 'audi-rs7.jpg',
+                'gallery' => [
+                    'audi-rs7 -1.jpg',
+                    'audi-rs7 -2.jpg',
+                    'audi-rs7 -3.jpg',
+                    'audi-rs7 -4.jpg',
+                ],
+                'description' => 'The Audi RS7 is a high-performance luxury sedan that delivers exhilarating performance with everyday practicality.',
+                'features' => [
+                    'Quattro AWD',
+                    'Virtual Cockpit',
+                    'Matrix LED',
+                    'Bang & Olufsen',
+                    'Sport Differential',
+                    'Ceramic Brakes',
+                    'Carbon Package',
+                    'RS Mode'
+                ],
+                'minimum_age' => 26,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 48h before',
+                'deposit_amount' => 8000.00,
+                'required_documents' => [
+                    'Driving license (2+ years)',
+                    'Passport',
+                    'Credit card'
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Renault Clio
+            [
+                'brand' => 'Renault',
+                'model' => 'Clio',
+                'year' => 2023,
+                'type' => 'Economy',
+                'transmission' => 'manual',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 300.00,
+                'image' => 'renault-clio.jpg',
+                'gallery' => [
+                    'renault-clio.jpg',
+                    'renault-clio.jpg',
+                    'renault-clio.jpg',
+                    'renault-clio.jpg',
+                ],
+                'description' => 'Compact and stylish car ideal for urban driving with excellent fuel efficiency.',
+                'features' => [
+                    'Touchscreen',
+                    'Bluetooth',
+                    'Cruise Control',
+                    'Lane Assist',
+                    'Air Conditioning'
+                ],
+                'minimum_age' => 21,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 12h before',
+                'deposit_amount' => 1200.00,
+                'required_documents' => [
+                    'Driving license',
+                    'ID card'
+                ],
+                'location_id' => 1,
+                'is_available' => true,
+            ],
+
+            // Porsche Cayenne
+            [
+                'brand' => 'Porsche',
+                'model' => 'Cayenne Turbo',
+                'year' => 2024,
+                'type' => 'SUV',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 1600.00,
+                'image' => 'porsche-cayenne.jpg',
+                'gallery' => [
+                    'porsche-cayenne.jpg',
+                    'porsche-cayenne.jpg',
+                    'porsche-cayenne.jpg',
+                    'porsche-cayenne.jpg',
+                ],
+                'description' => 'The Porsche Cayenne Turbo delivers genuine sports car performance in a luxurious SUV package.',
+                'features' => [
+                    'Sport Chrono',
+                    'Air Suspension',
+                    'Burmester Audio',
+                    'Night Vision',
+                    'PASM',
+                    'Porsche Crest',
+                    'Sport Exhaust',
+                    'LED Matrix'
+                ],
+                'minimum_age' => 26,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 48h before',
+                'deposit_amount' => 7000.00,
+                'required_documents' => [
+                    'Driving license (2+ years)',
+                    'Passport',
+                    'Credit card'
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // Range Rover
+            [
+                'brand' => 'Land Rover',
+                'model' => 'Range Rover Autobiography',
+                'year' => 2024,
+                'type' => 'SUV',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 5,
+                'doors' => 4,
+                'luggage' => 2,
+                'price_per_day' => 1900.00,
+                'image' => 'range-rover.jpg',
+                'gallery' => [
+                    'range-rover.jpg',
+                    'range-rover.jpg',
+                    'range-rover.jpg',
+                    'range-rover.jpg',
+                ],
+                'description' => 'The Range Rover Autobiography represents the pinnacle of British luxury and all-terrain capability.',
+                'features' => [
+                    'Terrain Response',
+                    'Windsor Leather',
+                    'Meridian Audio',
+                    'Executive Seats',
+                    'Panoramic Roof',
+                    'Adaptive Dynamics',
+                    'Climate Comfort',
+                    'Powered Doors'
+                ],
+                'minimum_age' => 27,
+                'fuel_policy' => 'Full to Full',
+                'cancellation_policy' => 'Free cancellation 48h before',
+                'deposit_amount' => 9000.00,
+                'required_documents' => [
+                    'Driving license (2+ years)',
+                    'Passport',
+                    'Premium credit card'
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+
+            // McLaren 720S
+            [
+                'brand' => 'McLaren',
+                'model' => '720S',
+                'year' => 2024,
+                'type' => 'Sport',
+                'transmission' => 'automatic',
+                'fuel_type' => 'petrol',
+                'seats' => 2,
+                'doors' => 2,
+                'luggage' => 1,
+                'price_per_day' => 3200.00,
+                'image' => 'mclaren-720s.jpg',
+                'gallery' => [
+                    'mclaren-720s.jpg',
+                    'mclaren-720s.jpg',
+                    'mclaren-720s.jpg',
+                    'mclaren-720s.jpg',
+                ],
+                'description' => 'The McLaren 720S is a supercar that delivers astonishing performance with everyday usability.',
+                'features' => [
+                    'Dihedral Doors',
+                    'Carbon Fiber Monocoque',
+                    'Proactive Chassis',
+                    'Track Mode',
+                    'Variable Drift Control',
+                    'Launch Control',
+                    'Racing Seats',
+                    'McLaren Track Telemetry'
+                ],
+                'minimum_age' => 28,
+                'fuel_policy' => 'Full to Full with premium fuel',
+                'cancellation_policy' => 'No refund within 3 days',
+                'deposit_amount' => 20000.00,
+                'required_documents' => [
+                    'International driving license',
+                    'Passport',
+                    'Premium credit card',
+                ],
+                'location_id' => 1,
+                'is_available' => true
+            ],
+        ];
+
+        foreach ($cars as $car) {
+            Car::create($car);
+        }
+    }
+}

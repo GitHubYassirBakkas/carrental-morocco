@@ -1,0 +1,45 @@
+/*
+.brands-section {
+    background: #0b0d12;
+    padding: 60px 0;
+    overflow: hidden;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.brands-track-wrapper {
+    width: 100%;
+    overflow: hidden;
+}
+
+.brands-track {
+    display: flex;
+    align-items: center;
+    gap: 80px;
+    width: max-content;
+    animation: brandsScroll 35s linear infinite;
+}
+
+.brands-track img {
+    height: 100px;
+    filter: grayscale(100%) brightness(1.2);
+    opacity: 0.7;
+    transition: 0.3s ease;
+}
+
+.brands-track img:hover {
+    filter: grayscale(0);
+    opacity: 1;
+    transform: translateY(-4px);
+}
+
+/* ANIMATION */
+/*
+@keyframes brandsScroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+    */

@@ -1,0 +1,111 @@
+/*
+.rent-cta {
+     position: relative;
+    width: 100%;
+    min-height: 520px;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.rent-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to right,
+        rgba(0,0,0,0.85),
+        rgba(0,0,0,0.45)
+    );
+}
+
+.rent-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    color: #fff;
+    max-width: 700px;
+    padding: 0 20px;
+}
+
+.rent-content h2 {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 15px;
+}
+
+.rent-content p {
+    font-size: 18px;
+    color: #d1d1d1;
+    margin-bottom: 40px;
+    line-height: 1.6;
+}
+*/
+/* BUTTONS */
+/*
+.rent-buttons {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-whatsapp {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: #f5b34d;
+    color: #000;
+    padding: 15px 34px;
+    border-radius: 50px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: 0.3s ease;
+}
+
+.btn-whatsapp i {
+    font-size: 20px;
+}
+
+.btn-whatsapp:hover {
+    background: #ffc86a;
+}
+
+.btn-rent {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 34px;
+    border-radius: 50px;
+    border: 2px solid #f5b34d;
+    color: #fff;
+    font-weight: 600;
+    text-decoration: none;
+    transition: 0.3s ease;
+}
+
+.btn-rent span {
+    font-size: 18px;
+    transition: transform 0.3s ease;
+}
+
+.btn-rent:hover {
+    background: #f5b34d;
+    color: #000;
+}
+
+.btn-rent:hover span {
+    transform: translateX(4px);
+}
+*/
+/* RESPONSIVE */
+/*
+@media (max-width: 768px) {
+    .rent-content h2 {
+        font-size: 36px;
+    }
+}
+    */
