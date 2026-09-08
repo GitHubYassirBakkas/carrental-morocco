@@ -26,7 +26,12 @@
                 @endif
 
               @if($booking->status == 'confirmed')
-                @if($booking->checkinInspection)
+                @php($driverVerifiedForStart = $booking->user?->customerProfile?->isDriverVerified() ?? false)
+                @if(! $driverVerifiedForStart)
+                    <div class="px-6 py-3 bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-xl text-sm font-semibold">
+                        Driver verification required before start
+                    </div>
+                @elseif($booking->checkinInspection)
                     <form method="POST" action="{{ route('admin.bookings.start', $booking) }}">
                         @csrf
                         <button class="px-6 py-3 bg-gradient-to-r from-[#C89D66] to-[#d4ab76] text-black font-semibold rounded-xl">

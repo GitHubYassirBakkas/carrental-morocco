@@ -16,7 +16,7 @@ return new class extends Migration
         ])->first(fn (string $column): bool => Schema::hasColumn('bookings', $column));
 
         Schema::table('bookings', function (Blueprint $table) use ($afterColumn) {
-            if (!Schema::hasColumn('bookings', 'security_deposit_refund_id')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_refund_id')) {
                 $column = $table->string('security_deposit_refund_id')->nullable();
 
                 if ($afterColumn) {

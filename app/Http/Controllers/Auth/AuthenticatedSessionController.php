@@ -4,12 +4,11 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Providers\RouteServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
-use App\Providers\RouteServiceProvider;
-
 
 class AuthenticatedSessionController extends Controller
 {
@@ -24,19 +23,17 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-   
-   public function store(LoginRequest $request)
-{
-    $request->authenticate();
-    $request->session()->regenerate();
+    public function store(LoginRequest $request)
+    {
+        $request->authenticate();
+        $request->session()->regenerate();
 
-    if (auth()->user()->isAdmin()) {
-        return redirect('/admin');
+        if (auth()->user()->isAdmin()) {
+            return redirect('/admin');
+        }
+
+        return redirect()->intended(RouteServiceProvider::HOME);
     }
-
-    return redirect()->intended(RouteServiceProvider::HOME);
-}
-
 
     /**
      * Destroy an authenticated session.

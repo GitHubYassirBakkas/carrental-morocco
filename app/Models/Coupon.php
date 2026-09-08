@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class Coupon extends Model
 {
@@ -35,7 +36,7 @@ class Coupon extends Model
         'valid_from',
         'valid_until',
         'is_active',
-        'description'
+        'description',
     ];
 
     protected $casts = [
@@ -45,7 +46,7 @@ class Coupon extends Model
         'allowed_car_types' => 'array',
         'valid_from' => 'date',
         'valid_until' => 'date',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
     ];
 
     // ==========================================
@@ -74,6 +75,7 @@ class Coupon extends Model
     public function scopeValid(Builder $query): Builder
     {
         $now = now();
+
         return $query->where('is_active', true)
             ->where('valid_from', '<=', $now)
             ->where('valid_until', '>=', $now);
@@ -83,7 +85,7 @@ class Coupon extends Model
     {
         return $query->where(function ($q) use ($userId) {
             $q->whereNull('user_id')
-              ->orWhere('user_id', $userId);
+                ->orWhere('user_id', $userId);
         });
     }
 
@@ -94,10 +96,10 @@ class Coupon extends Model
     /**
      * Check if coupon can be used
      */
-    public function canBeUsed(?int $userId = null, ?float $bookingAmount = null): array
+    public function canBeUsed(?int $userId = null, ?float $bookingAmount = null, ?string $carType = null): array
     {
         // Not active
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return ['valid' => false, 'message' => 'This coupon is not active.'];
         }
 
@@ -132,21 +134,33 @@ class Coupon extends Model
         // Minimum booking amount
         if ($this->min_booking_amount && $bookingAmount && $bookingAmount < $this->min_booking_amount) {
             return [
-                'valid' => false, 
-                'message' => 'Minimum booking amount of ' . number_format($this->min_booking_amount, 2) . ' MAD required.'
+                'valid' => false,
+                'message' => 'Minimum booking amount of '.number_format($this->min_booking_amount, 2).' MAD required.',
             ];
+        }
+
+        $allowedCarTypes = $this->normalizedAllowedCarTypes();
+        if ($allowedCarTypes !== []) {
+            $normalizedCarType = $this->normalizeCarType($carType);
+
+            if ($normalizedCarType === null || ! in_array($normalizedCarType, $allowedCarTypes, true)) {
+                return [
+                    'valid' => false,
+                    'message' => 'This coupon is not valid for the selected vehicle type.',
+                ];
+            }
         }
 
         // Check user qualifications (bookings count, total spent)
         if ($userId) {
             $user = User::find($userId);
-            
+
             if ($this->min_bookings) {
                 $userBookingsCount = $user->bookings()->whereIn('status', [Booking::STATUS_COMPLETED, Booking::STATUS_CONFIRMED])->count();
                 if ($userBookingsCount < $this->min_bookings) {
                     return [
                         'valid' => false,
-                        'message' => 'You need at least ' . $this->min_bookings . ' completed bookings to use this coupon.'
+                        'message' => 'You need at least '.$this->min_bookings.' completed bookings to use this coupon.',
                     ];
                 }
             }
@@ -156,7 +170,7 @@ class Coupon extends Model
                 if ($userTotalSpent < $this->min_total_spent) {
                     return [
                         'valid' => false,
-                        'message' => 'You need to have spent at least ' . number_format($this->min_total_spent, 2) . ' MAD to use this coupon.'
+                        'message' => 'You need to have spent at least '.number_format($this->min_total_spent, 2).' MAD to use this coupon.',
                     ];
                 }
             }
@@ -181,11 +195,29 @@ class Coupon extends Model
     /**
      * Apply coupon to booking
      */
-    public function apply(int $userId, int $bookingId, float $originalAmount): array
+    public function apply(int $userId, int $bookingId, float $originalAmount, ?string $carType = null): array
     {
-        $validation = $this->canBeUsed($userId, $originalAmount);
-        
-        if (!$validation['valid']) {
+        return DB::transaction(function () use ($userId, $bookingId, $originalAmount, $carType) {
+            $coupon = static::whereKey($this->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $coupon) {
+                return [
+                    'valid' => false,
+                    'message' => 'This coupon is no longer available.',
+                ];
+            }
+
+            return $coupon->applyAfterFinalValidation($userId, $bookingId, $originalAmount, $carType);
+        }, 3);
+    }
+
+    private function applyAfterFinalValidation(int $userId, int $bookingId, float $originalAmount, ?string $carType = null): array
+    {
+        $validation = $this->canBeUsed($userId, $originalAmount, $carType);
+
+        if (! $validation['valid']) {
             return $validation;
         }
 
@@ -224,6 +256,23 @@ class Coupon extends Model
         ];
     }
 
+    private function normalizedAllowedCarTypes(): array
+    {
+        return collect($this->allowed_car_types ?? [])
+            ->map(fn ($type) => $this->normalizeCarType($type))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeCarType(mixed $type): ?string
+    {
+        $normalized = strtolower(trim((string) $type));
+
+        return $normalized === '' ? null : $normalized;
+    }
+
     // ==========================================
     // ATTRIBUTES
     // ==========================================
@@ -231,14 +280,15 @@ class Coupon extends Model
     public function getDiscountDisplayAttribute(): string
     {
         if ($this->discount_type === 'percentage') {
-            return $this->discount_value . '%';
+            return $this->discount_value.'%';
         }
-        return number_format($this->discount_value, 0) . ' MAD';
+
+        return number_format($this->discount_value, 0).' MAD';
     }
 
     public function getCategoryLabelAttribute(): string
     {
-        return match($this->category) {
+        return match ($this->category) {
             'welcome' => 'Welcome Offer',
             'loyalty' => 'Loyalty Reward',
             'seasonal' => 'Seasonal Promotion',

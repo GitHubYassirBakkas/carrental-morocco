@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -35,7 +35,7 @@
     @include('partials.footer')
 
     <!-- ✅ Scroll To Top Button -->
-    <button id="scrollTopBtn"
+    <button id="scrollTopBtn" type="button" aria-label="{{ __('messages.scroll_to_top') }}"
     style="
         position: fixed;
         bottom: 24px;

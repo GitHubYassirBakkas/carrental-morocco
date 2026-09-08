@@ -36,7 +36,7 @@ return new class extends Migration
                 'pickup_instructions',
                 'return_instructions',
                 'coupon_id',
-                'discount_amount'
+                'discount_amount',
             ]);
         });
     }

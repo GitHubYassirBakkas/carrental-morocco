@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\PublicSiteDataService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\View\View;
 
 class ContactController extends Controller
 {
-    public function index()
+    public function index(PublicSiteDataService $publicSiteData): View
     {
-        return view('contact.index');
+        return view('contact.index', [
+            'contact' => $publicSiteData->contactData(),
+            'primaryLocation' => $publicSiteData->primaryLocation(),
+        ]);
     }
 
     public function send(Request $request)
@@ -28,7 +33,7 @@ class ContactController extends Controller
             function ($mail) use ($data, $recipient) {
                 $mail->to($recipient)
                     ->replyTo($data['email'], $data['name'])
-                    ->subject('Contact Form: ' . $data['subject']);
+                    ->subject('Contact Form: '.$data['subject']);
             }
         );
 

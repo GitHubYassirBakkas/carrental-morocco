@@ -10,7 +10,7 @@ trait ProtectsHistoricalRecords
     protected static function bootProtectsHistoricalRecords(): void
     {
         static::deleting(function (Model $model): void {
-            if (method_exists($model, 'isForceDeleting') && !$model->isForceDeleting()) {
+            if (method_exists($model, 'isForceDeleting') && ! $model->isForceDeleting()) {
                 return;
             }
 
@@ -20,6 +20,6 @@ trait ProtectsHistoricalRecords
 
     protected static function historicalRecordDeleteMessage(): string
     {
-        return class_basename(static::class) . ' records are historical business records and cannot be deleted.';
+        return class_basename(static::class).' records are historical business records and cannot be deleted.';
     }
 }

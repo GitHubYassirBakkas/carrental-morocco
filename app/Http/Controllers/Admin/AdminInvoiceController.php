@@ -4,25 +4,34 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\Payment;
 use App\Services\AdvancePaymentService;
 use App\Services\PaymentService;
+use App\Services\RefundReceiptService;
 use App\Services\RefundService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminInvoiceController extends Controller
 {
     private PaymentService $paymentService;
+
     private AdvancePaymentService $advancePaymentService;
+
     private RefundService $refundService;
+
+    private RefundReceiptService $refundReceiptService;
 
     public function __construct(
         PaymentService $paymentService,
         AdvancePaymentService $advancePaymentService,
-        RefundService $refundService
+        RefundService $refundService,
+        RefundReceiptService $refundReceiptService
     ) {
         $this->paymentService = $paymentService;
         $this->advancePaymentService = $advancePaymentService;
         $this->refundService = $refundService;
+        $this->refundReceiptService = $refundReceiptService;
     }
 
     public function index()
@@ -56,7 +65,7 @@ class AdminInvoiceController extends Controller
         $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'method' => 'required|in:cash,card,online,bank_transfer',
-            'notes' => 'nullable|string|max:500'
+            'notes' => 'nullable|string|max:500',
         ]);
 
         try {
@@ -75,7 +84,12 @@ class AdminInvoiceController extends Controller
 
             return back()->with('success', $message);
         } catch (\Exception $e) {
-            return back()->withErrors($e->getMessage());
+            Log::error('Admin invoice payment recording failed.', [
+                'exception' => $e,
+                'invoice_id' => $invoice->id,
+            ]);
+
+            return back()->withErrors('Unable to record this payment. Please try again or review the logs.');
         }
     }
 
@@ -83,7 +97,7 @@ class AdminInvoiceController extends Controller
     {
         $request->validate([
             'amount' => 'required|numeric|min:1',
-            'reason' => 'nullable|string|max:500'
+            'reason' => 'nullable|string|max:500',
         ]);
 
         try {
@@ -95,7 +109,20 @@ class AdminInvoiceController extends Controller
 
             return back()->with('success', 'Refund processed successfully.');
         } catch (\Exception $e) {
-            return back()->withErrors($e->getMessage());
+            Log::error('Admin invoice refund failed.', [
+                'exception' => $e,
+                'invoice_id' => $invoice->id,
+            ]);
+
+            return back()->withErrors('Unable to process this refund. Please try again or review the logs.');
         }
+    }
+
+    /**
+     * Generate refund receipt PDF
+     */
+    public function refundReceipt(Payment $payment)
+    {
+        return $this->refundReceiptService->downloadRefundReceipt($payment);
     }
 }

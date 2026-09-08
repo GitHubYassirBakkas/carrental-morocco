@@ -13,7 +13,7 @@ class LanguageController extends Controller
     {
         // Validate locale
         $availableLocales = ['en', 'fr', 'ar'];
-        
+
         if (in_array($locale, $availableLocales)) {
             Session::put('locale', $locale);
         }

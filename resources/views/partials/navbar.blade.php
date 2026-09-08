@@ -65,6 +65,7 @@
                 <div class="relative" x-data>
                     <button @click="langOpen = !langOpen"
                             type="button"
+                            aria-label="{{ __('messages.language') }}"
                             class="lang-toggle">
                         @if(app()->getLocale() == 'en')
                             <span>🇬🇧</span><span class="hidden lg:inline text-xs font-semibold">EN</span>
@@ -94,7 +95,7 @@
                             <span class="text-base">🇬🇧</span>
                             <span>English</span>
                             @if(app()->getLocale() == 'en')
-                                <svg class="w-3.5 h-3.5 ml-auto text-[#C89D66]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                <svg class="w-3.5 h-3.5 ml-auto rtl:ml-0 rtl:mr-auto text-[#C89D66]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                             @endif
                         </a>
 
@@ -103,7 +104,7 @@
                             <span class="text-base">🇫🇷</span>
                             <span>Français</span>
                             @if(app()->getLocale() == 'fr')
-                                <svg class="w-3.5 h-3.5 ml-auto text-[#C89D66]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                <svg class="w-3.5 h-3.5 ml-auto rtl:ml-0 rtl:mr-auto text-[#C89D66]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                             @endif
                         </a>
 
@@ -112,7 +113,7 @@
                             <span class="text-base">🇲🇦</span>
                             <span>العربية</span>
                             @if(app()->getLocale() == 'ar')
-                                <svg class="w-3.5 h-3.5 ml-auto text-[#C89D66]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                <svg class="w-3.5 h-3.5 ml-auto rtl:ml-0 rtl:mr-auto text-[#C89D66]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                             @endif
                         </a>
                     </div>
@@ -133,10 +134,15 @@
                 @endguest
 
                 @auth
+                    @php
+                        $navbarUnreadNotificationCount = $navbarUnreadNotificationCount ?? 0;
+                        $navbarUnreadNotificationDisplay = $navbarUnreadNotificationCount >= 100 ? '99+' : (string) $navbarUnreadNotificationCount;
+                    @endphp
                     {{-- Profile dropdown --}}
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open"
-                                class="profile-btn group">
+                                type="button"
+                                class="profile-btn group relative">
                             @if(auth()->user()->profile_photo_path)
                                 <img src="{{ asset('storage/'.auth()->user()->profile_photo_path) }}"
                                      class="w-8 h-8 rounded-full object-cover border border-[#C89D66]/30 group-hover:border-[#C89D66] transition-all">
@@ -154,6 +160,13 @@
                                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
                             </svg>
+                            @if($navbarUnreadNotificationCount > 0)
+                                <span class="notification-avatar-badge"
+                                      aria-label="{{ __('messages.unread_notifications_count', ['count' => $navbarUnreadNotificationCount]) }}"
+                                      title="{{ __('messages.unread_notifications_count', ['count' => $navbarUnreadNotificationCount]) }}">
+                                    {{ $navbarUnreadNotificationDisplay }}
+                                </span>
+                            @endif
                         </button>
 
                         <div x-show="open"
@@ -207,15 +220,38 @@
                                     </div>
                                 </a>
 
-                                <a href="#" class="dropdown-item">
+                                <a href="{{ route('notifications.index') }}" class="dropdown-item">
                                     <div class="dropdown-item-icon">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                                        </svg>
                                     </div>
                                     <div>
-                                        <p class="text-sm font-medium text-white">{{ __('messages.settings') }}</p>
-                                        <p class="text-xs text-gray-500">{{ __('messages.preferences') }}</p>
+                                        <p class="text-sm font-medium text-white">{{ __('messages.notifications') }}</p>
+                                        <p class="text-xs text-gray-500">
+                                            {{ $navbarUnreadNotificationDisplay }} {{ __('messages.unread_notifications') }}
+                                        </p>
                                     </div>
                                 </a>
+
+                                <a href="{{ route('wishlist.index') }}" class="dropdown-item">
+                                    <div class="dropdown-item-icon">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  stroke-width="2"
+                                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                        </svg>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm font-medium text-white">{{ __('messages.dashboard_wishlist') }}</p>
+                                        <p class="text-xs text-gray-500">
+                                            {{ __('messages.favorites_count', ['count' => auth()->user()->wishlists()->count()]) }}
+                                        </p>
+                                    </div>
+                                </a>
+
                             </div>
 
                             {{-- Logout --}}
@@ -240,6 +276,8 @@
 
             {{-- ── Mobile burger ── --}}
             <button @click="mobileMenuOpen = !mobileMenuOpen"
+                    type="button"
+                    aria-label="{{ __('messages.menu') }}"
                     class="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-gray-300 hover:border-[#C89D66]/40 hover:text-[#C89D66] transition-all duration-200">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path x-show="!mobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
@@ -263,7 +301,7 @@
                 <a href="{{ route('home') }}"       class="mobile-link">{{ __('messages.home') }}</a>
                 <a href="{{ route('cars.index') }}" class="mobile-link">{{ __('messages.cars') }}</a>
                 <a href="{{ route('about') }}"      class="mobile-link">{{ __('messages.about') }}</a>
-                <a href="#"                         class="mobile-link">{{ __('messages.contact') }}</a>
+                <a href="{{ route('contact') }}"    class="mobile-link">{{ __('messages.contact') }}</a>
             </div>
 
             {{-- Mobile lang --}}
@@ -297,6 +335,15 @@
                 <div class="px-3 pt-3 space-y-0.5">
                     <a href="{{ route('profile.edit') }}"    class="mobile-link">{{ __('messages.my_account') }}</a>
                     <a href="{{ route('my_booking.index') }}" class="mobile-link">{{ __('messages.my_bookings') }}</a>
+                    <a href="{{ route('notifications.index') }}" class="mobile-link flex items-center justify-between gap-3">
+                        <span>{{ __('messages.notifications') }}</span>
+                        @if($navbarUnreadNotificationCount > 0)
+                            <span class="notification-mobile-badge"
+                                  aria-label="{{ __('messages.unread_notifications_count', ['count' => $navbarUnreadNotificationCount]) }}">
+                                {{ $navbarUnreadNotificationDisplay }}
+                            </span>
+                        @endif
+                    </a>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button class="mobile-link text-red-400 hover:text-red-300 w-full text-left">{{ __('messages.logout') }}</button>
@@ -372,6 +419,7 @@
     overflow: hidden;
     box-shadow: 0 20px 40px rgba(0,0,0,0.5);
 }
+[dir="rtl"] .lang-dropdown { right: auto; left: 0; }
 
 .lang-item {
     display: flex;
@@ -401,6 +449,43 @@
 }
 .profile-btn:hover { border-color: rgba(200,157,102,0.3); background: rgba(200,157,102,0.05); }
 
+.notification-avatar-badge {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    border: 2px solid #0a0a0a;
+    font-size: 0.65rem;
+    line-height: 14px;
+    font-weight: 800;
+    text-align: center;
+    pointer-events: none;
+    box-shadow: 0 6px 14px rgba(220,38,38,0.35);
+}
+[dir="rtl"] .notification-avatar-badge {
+    right: auto;
+    left: -7px;
+}
+
+.notification-mobile-badge {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.68rem;
+    line-height: 20px;
+    font-weight: 800;
+    text-align: center;
+    flex-shrink: 0;
+}
+
 /* Profile dropdown */
 .profile-dropdown {
     position: absolute;
@@ -412,6 +497,9 @@
     overflow: hidden;
     box-shadow: 0 24px 48px rgba(0,0,0,0.6);
 }
+[dir="rtl"] .profile-dropdown { right: auto; left: 0; }
+[dir="rtl"] .profile-btn .text-left,
+[dir="rtl"] .dropdown-item--danger .text-left { text-align: right; }
 
 /* Dropdown items */
 .dropdown-item {

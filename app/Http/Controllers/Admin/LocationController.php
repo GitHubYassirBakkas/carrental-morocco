@@ -14,7 +14,7 @@ class LocationController extends Controller
     public function index()
     {
         $locations = Location::latest()->paginate(15);
-        
+
         $stats = [
             'total' => Location::count(),
             'active' => Location::where('is_active', true)->count(),
@@ -124,7 +124,7 @@ class LocationController extends Controller
     public function toggleStatus(Location $location)
     {
         $location->update([
-            'is_active' => !$location->is_active
+            'is_active' => ! $location->is_active,
         ]);
 
         $status = $location->is_active ? 'activated' : 'deactivated';

@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Setting;
+use Illuminate\Database\Seeder;
 
 class SettingsSeeder extends Seeder
 {
@@ -48,11 +48,47 @@ class SettingsSeeder extends Seeder
             ],
             [
                 'key' => 'site_address',
-                'value' => 'Avenue Mohammed V, Meknès',
+                'value' => 'Avenue Mohammed V, Meknes',
                 'type' => 'textarea',  // ← This is OK
                 'group' => 'general',
                 'label' => 'Website Address',
                 'description' => 'Company address displayed on website',
+                'autoload' => true,
+                'is_public' => true,
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | SOCIAL MEDIA SETTINGS
+            |--------------------------------------------------------------------------
+            */
+            [
+                'key' => 'social_instagram_url',
+                'value' => '',
+                'type' => 'text',
+                'group' => 'social',
+                'label' => 'Instagram URL',
+                'description' => 'Public Instagram profile URL. Leave blank to hide the icon.',
+                'autoload' => true,
+                'is_public' => true,
+            ],
+            [
+                'key' => 'social_whatsapp_url',
+                'value' => '',
+                'type' => 'text',
+                'group' => 'social',
+                'label' => 'WhatsApp URL',
+                'description' => 'Public WhatsApp link such as https://wa.me/212.... Leave blank to hide the icon.',
+                'autoload' => true,
+                'is_public' => true,
+            ],
+            [
+                'key' => 'social_facebook_url',
+                'value' => '',
+                'type' => 'text',
+                'group' => 'social',
+                'label' => 'Facebook URL',
+                'description' => 'Public Facebook page URL. Leave blank to hide the icon.',
                 'autoload' => true,
                 'is_public' => true,
             ],
@@ -178,6 +214,57 @@ class SettingsSeeder extends Seeder
                 'group' => 'booking',
                 'label' => 'Max Advance Booking (Days)',
                 'description' => 'Maximum days in advance a booking can be made',
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | REFUND POLICY SETTINGS
+            |--------------------------------------------------------------------------
+            */
+            [
+                'key' => 'refund_free_cancellation_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'refund',
+                'label' => 'Free Cancellation',
+                'description' => 'Allow customers to receive a full refund when cancellation is made within the configured free-cancellation period',
+                'autoload' => true,
+            ],
+            [
+                'key' => 'refund_cancellation_window_hours',
+                'value' => '48',
+                'type' => 'number',
+                'group' => 'refund',
+                'label' => 'Cancellation Window (Hours)',
+                'description' => 'Number of hours before pickup during which free cancellation is allowed',
+                'autoload' => true,
+            ],
+            [
+                'key' => 'refund_partial_percentage',
+                'value' => '50',
+                'type' => 'number',
+                'group' => 'refund',
+                'label' => 'Partial Refund Percentage',
+                'description' => 'Percentage of the eligible rental amount refunded when the partial-refund policy applies (0-100)',
+                'autoload' => true,
+            ],
+            [
+                'key' => 'refund_no_refund_enabled',
+                'value' => 'true',
+                'type' => 'boolean',
+                'group' => 'refund',
+                'label' => 'No Refund',
+                'description' => 'Enable the no-refund outcome when cancellation falls outside the configured refund conditions',
+                'autoload' => true,
+            ],
+            [
+                'key' => 'refund_default_method',
+                'value' => 'cash',
+                'type' => 'text',
+                'group' => 'refund',
+                'label' => 'Default Refund Method',
+                'description' => 'Preferred refund method for cancellations (cash or card)',
+                'autoload' => true,
             ],
         ];
 

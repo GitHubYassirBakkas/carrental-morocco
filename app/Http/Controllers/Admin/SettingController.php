@@ -15,7 +15,7 @@ class SettingController extends Controller
     {
         // Get all settings grouped
         $settings = Setting::orderBy('group')->orderBy('id')->get()->groupBy('group');
-        
+
         return view('admin.settings.index', compact('settings'));
     }
 
@@ -33,6 +33,7 @@ class SettingController extends Controller
 
             if ($type === 'boolean') {
                 Setting::set($key, $request->boolean($key), $type);
+
                 continue;
             }
 
@@ -40,7 +41,7 @@ class SettingController extends Controller
                 Setting::set($key, $request->input($key), $type);
             }
         }
-        
+
         return back()->with('success', 'Settings updated successfully!');
     }
 
@@ -57,6 +58,24 @@ class SettingController extends Controller
                 'array', 'json' => ['nullable'],
                 default => ['nullable', 'string', 'max:5000'],
             };
+
+            // Add specific validation for refund policy settings
+            if ($setting->key === 'refund_default_method') {
+                $rules[] = 'in:cash,card';
+            }
+
+            if ($setting->key === 'refund_partial_percentage') {
+                $rules[] = 'min:0';
+                $rules[] = 'max:100';
+            }
+
+            if (in_array($setting->key, [
+                'social_instagram_url',
+                'social_whatsapp_url',
+                'social_facebook_url',
+            ], true)) {
+                $rules = ['nullable', 'url:http,https', 'max:2048'];
+            }
 
             return [$key => $rules];
         })->toArray();

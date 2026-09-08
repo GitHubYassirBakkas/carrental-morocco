@@ -1,6 +1,6 @@
 <?php
 
-$phpunitConfig = dirname(__DIR__) . '/phpunit.xml';
+$phpunitConfig = dirname(__DIR__).'/phpunit.xml';
 
 if (is_file($phpunitConfig)) {
     $phpunit = simplexml_load_file($phpunitConfig);
@@ -10,7 +10,7 @@ if (is_file($phpunitConfig)) {
 
         if (in_array($name, ['DB_CONNECTION', 'DB_DATABASE'], true)) {
             $value = (string) $server['value'];
-            putenv($name . '=' . $value);
+            putenv($name.'='.$value);
             $_ENV[$name] = $value;
             $_SERVER[$name] = $value;
         }
@@ -74,7 +74,7 @@ function something()
 function stripeWebhookSignature(string $payload, string $secret = 'whsec_test', ?int $timestamp = null): string
 {
     $timestamp ??= time();
-    $signature = hash_hmac('sha256', $timestamp . '.' . $payload, $secret);
+    $signature = hash_hmac('sha256', $timestamp.'.'.$payload, $secret);
 
     return "t={$timestamp},v1={$signature}";
 }

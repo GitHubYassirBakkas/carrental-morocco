@@ -15,12 +15,11 @@ class CouponRewardMail extends Mailable
     use Queueable, SerializesModels;
 
     public $user;
+
     public $coupon;
+
     public $milestone;
 
-    /**
-     * Create a new message instance.
-     */
     public function __construct(User $user, Coupon $coupon, int $milestone = 10)
     {
         $this->user = $user;
@@ -28,19 +27,13 @@ class CouponRewardMail extends Mailable
         $this->milestone = $milestone;
     }
 
-    /**
-     * Get the message envelope.
-     */
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '🎉 Congratulations! You\'ve Unlocked ' . $this->coupon->discount_display . ' OFF!',
+            subject: "You've completed {$this->milestone} rentals - enjoy {$this->coupon->discount_display} off your next booking.",
         );
     }
 
-    /**
-     * Get the message content definition.
-     */
     public function content(): Content
     {
         return new Content(
@@ -48,9 +41,6 @@ class CouponRewardMail extends Mailable
         );
     }
 
-    /**
-     * Get the attachments for the message.
-     */
     public function attachments(): array
     {
         return [];

@@ -32,16 +32,16 @@ class InsuranceController extends Controller
 
         // Save to session
         session([
-            'insurance_id'         => $insurance->id,
-            'insurance_name'       => $insurance->name,
-            'insurance_type'       => $insurance->type,
-            'insurance_price'      => $insurance->fixed_price,
+            'insurance_id' => $insurance->id,
+            'insurance_name' => $insurance->name,
+            'insurance_type' => $insurance->type,
+            'insurance_price' => $insurance->fixed_price,
             'insurance_max_coverage' => $insurance->max_coverage,
             'insurance_deductible' => $insurance->deductible,
-            'insurance_features'   => $insurance->features,
+            'insurance_features' => $insurance->features,
         ]);
 
         return redirect()->route('cars.details', $car)
-            ->with('success', 'Insurance selected: ' . $insurance->name);
+            ->with('success', 'Insurance selected: '.$insurance->name);
     }
 }

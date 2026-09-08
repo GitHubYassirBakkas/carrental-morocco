@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\TicketCreatedMail;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Mail\TicketCreatedMail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class TicketController extends Controller
@@ -17,43 +18,54 @@ class TicketController extends Controller
     public function index()
     {
         $tickets = Ticket::where('user_id', Auth::id())
-                         ->with('latestMessage')
-                         ->latest()
-                         ->get();
+            ->with('latestMessage')
+            ->latest()
+            ->get();
+
         return view('tickets.index', compact('tickets'));
     }
 
     // إنشاء ticket جديد
-   public function store(Request $request)
-{
-    $request->validate([
-        'subject'  => 'required|string|max:200',
-        'category' => 'required|in:booking,payment,complaint,other',
-        'message'  => 'required|string|min:10',
-    ]);
+    public function store(Request $request)
+    {
+        $request->validate([
+            'subject' => 'required|string|max:200',
+            'category' => 'required|in:booking,payment,complaint,other',
+            'message' => 'required|string|min:10',
+        ]);
 
-    $ticket = Ticket::create([
-        'user_id'       => Auth::id(),
-        'ticket_number' => Ticket::generateTicketNumber(),
-        'subject'       => $request->subject,
-        'category'      => $request->category,
-        'status'        => 'open',
-        'priority'      => 'medium',
-    ]);
+        $ticket = Ticket::create([
+            'user_id' => Auth::id(),
+            'ticket_number' => Ticket::generateTicketNumber(),
+            'subject' => $request->subject,
+            'category' => $request->category,
+            'status' => 'open',
+            'priority' => 'medium',
+        ]);
 
-    TicketMessage::create([
-        'ticket_id' => $ticket->id,
-        'user_id'   => Auth::id(),
-        'message'   => $request->message,
-        'is_admin'  => false,
-    ]);
+        TicketMessage::create([
+            'ticket_id' => $ticket->id,
+            'user_id' => Auth::id(),
+            'message' => $request->message,
+            'is_admin' => false,
+        ]);
 
-    // ✅ Send confirmation email to user
-    Mail::to($ticket->user->email)->send(new TicketCreatedMail($ticket));
+        // ✅ Send confirmation email to user
+        try {
+            Mail::to($ticket->user->email)->send(new TicketCreatedMail($ticket));
+        } catch (\Throwable $e) {
+            Log::warning('Ticket creation email failed.', [
+                'ticket_id' => $ticket->id,
+                'user_id' => $ticket->user_id,
+                'mailable' => TicketCreatedMail::class,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+        }
 
-    return redirect()->route('tickets.index')
-                     ->with('success', __('messages.ticket_created'));
-}
+        return redirect()->route('tickets.index')
+            ->with('success', __('messages.ticket_created'));
+    }
 
     // صفحة conversation ديال ticket واحد
     public function show(Ticket $ticket)
@@ -82,9 +94,9 @@ class TicketController extends Controller
 
         TicketMessage::create([
             'ticket_id' => $ticket->id,
-            'user_id'   => Auth::id(),
-            'message'   => $request->message,
-            'is_admin'  => false,
+            'user_id' => Auth::id(),
+            'message' => $request->message,
+            'is_admin' => false,
         ]);
 
         // نرجعو status لـ open إذا كان in_progress

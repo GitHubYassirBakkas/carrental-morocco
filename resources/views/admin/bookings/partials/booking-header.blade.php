@@ -12,16 +12,7 @@
             <div>
                 <div class="flex items-center gap-4 mb-2">
                     <h1 class="text-4xl font-bold text-white">Booking #{{ str_pad($booking->id, 4, '0', STR_PAD_LEFT) }}</h1>
-                    <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold
-                        @class([
-                            'bg-yellow-900/30 text-yellow-400 border border-yellow-700/50' => $booking->status=='pending',
-                            'bg-blue-900/30 text-blue-400 border border-blue-700/50' => $booking->status=='confirmed',
-                            'bg-emerald-900/30 text-emerald-400 border border-emerald-700/50' => $booking->status=='active',
-                            'bg-gray-700 text-gray-300 border border-gray-600' => $booking->status=='completed',
-                            'bg-red-900/30 text-red-400 border border-red-700/50' => $booking->status=='cancelled',
-                        ])">
-                        {{ ucfirst($booking->status) }}
-                    </span>
+                    <x-admin.booking-status-badge :status="$booking->status" class="text-sm px-3 py-1.5" />
                 </div>
                 <p class="text-gray-400 text-sm">{{ $booking->car->full_name ?? 'Vehicle not assigned' }} • Created {{ $booking->created_at->diffForHumans() }}</p>
             </div>
@@ -99,7 +90,7 @@
                         </div>
 
                         <span class="text-xs mt-2 font-medium {{ $isCurrent ? 'text-orange-400' : 'text-gray-400' }}">
-                            {{ ucfirst($stage) }}
+                            {{ __('messages.statuses.'.$stage) }}
                         </span>
                     </div>
                 @endforeach

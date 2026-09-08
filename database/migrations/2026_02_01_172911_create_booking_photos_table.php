@@ -11,14 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-            Schema::create('booking_photos', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('booking_inspection_id')
-                    ->constrained()
-                    ->restrictOnDelete();
-                $table->string('path');
-                $table->timestamps();
-});
+        Schema::create('booking_photos', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('booking_inspection_id')
+                ->constrained()
+                ->restrictOnDelete();
+            $table->string('path');
+            $table->timestamps();
+        });
 
     }
 

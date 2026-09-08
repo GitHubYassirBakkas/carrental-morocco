@@ -9,8 +9,11 @@ use Illuminate\Support\Facades\Log;
 class PaymentIdempotencyService
 {
     public const RESULT_STARTED = 'started';
+
     public const RESULT_COMPLETED = PaymentIdempotencyKey::STATUS_COMPLETED;
+
     public const RESULT_RETRY_STARTED = 'retry_started';
+
     public const RESULT_PROCESSING_TIMEOUT = 'processing_timeout';
 
     public function begin(
@@ -32,15 +35,16 @@ class PaymentIdempotencyService
 
                 return ['status' => self::RESULT_STARTED, 'record' => $record];
             } catch (QueryException $e) {
-                if (!$this->isUniqueConstraintViolation($e)) {
+                if (! $this->isUniqueConstraintViolation($e)) {
                     throw $e;
                 }
             }
 
             $record = PaymentIdempotencyKey::where('idempotency_key', $idempotencyKey)->first();
 
-            if (!$record) {
+            if (! $record) {
                 usleep(50_000);
+
                 continue;
             }
 

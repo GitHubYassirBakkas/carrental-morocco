@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            if (!Schema::hasColumn('bookings', 'security_deposit_capturable_amount')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_capturable_amount')) {
                 $table->decimal('security_deposit_capturable_amount', 10, 2)->default(0)
                     ->after('security_deposit_amount');
             }

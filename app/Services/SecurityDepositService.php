@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Booking;
+use App\Models\Notification;
 use App\Models\OutboxEvent;
 use App\Models\PaymentEventAudit;
 use App\Models\PaymentIdempotencyKey;
@@ -23,7 +24,8 @@ class SecurityDepositService
 
     public function __construct(
         private readonly PaymentIdempotencyService $idempotency,
-        private readonly PaymentStateTransitionValidator $transitionValidator
+        private readonly PaymentStateTransitionValidator $transitionValidator,
+        private readonly NotificationService $notificationService
     ) {}
 
     public function getSecurityDepositEffectiveState(Booking $booking): string
@@ -321,6 +323,37 @@ class SecurityDepositService
                 if ($amount !== null) {
                     $freshBooking = $booking->fresh();
                     $this->recordSecurityDepositCapturedAudit($freshBooking, $penaltyReason);
+
+                    // ✅ CREATE NOTIFICATION FOR SECURITY DEPOSIT CHARGED (sync case)
+                    $chargedAmount = (float) ($freshBooking->security_deposit_charged_amount ?: $this->centsToAmount($intent->amount_received ?? $intent->amount ?? 0));
+                    if ($chargedAmount > 0) {
+                        $notificationExists = Notification::where('user_id', $freshBooking->user_id)
+                            ->where('type', 'security_deposit_charged')
+                            ->whereJsonContains('data->booking_id', $freshBooking->id)
+                            ->exists();
+
+                        if (! $notificationExists) {
+                            $this->notificationService->create(
+                                $freshBooking->user_id,
+                                'security_deposit_charged',
+                                __('messages.notification_security_deposit_charged'),
+                                __('messages.notification_security_deposit_charged_message', [
+                                    'amount' => number_format($chargedAmount, 2),
+                                    'currency' => 'MAD',
+                                ]),
+                                [
+                                    'booking_id' => $freshBooking->id,
+                                    'payment_id' => $intent->id,
+                                    'amount' => $chargedAmount,
+                                    'currency' => 'MAD',
+                                    'transaction_id' => $intent->id,
+                                    'charged_at' => $freshBooking->security_deposit_charged_at ?? now(),
+                                    'reason' => $penaltyReason,
+                                ]
+                            );
+                        }
+                    }
+
                     $this->applyPenaltyAndRefundRemainder($freshBooking, $intent, $penaltyAmount, $penaltyReason);
                 }
                 $this->markAdminAudit($audit, 'processed');
@@ -393,6 +426,37 @@ class SecurityDepositService
 
             $freshBooking = $booking->fresh();
             $this->recordSecurityDepositCapturedAudit($freshBooking, $penaltyReason);
+
+            // ✅ CREATE NOTIFICATION FOR SECURITY DEPOSIT CHARGED
+            $chargedAmount = (float) ($freshBooking->security_deposit_charged_amount ?: $this->centsToAmount($capturedIntent->amount_received ?? $capturedIntent->amount ?? 0));
+            if ($chargedAmount > 0) {
+                $notificationExists = Notification::where('user_id', $freshBooking->user_id)
+                    ->where('type', 'security_deposit_charged')
+                    ->whereJsonContains('data->booking_id', $freshBooking->id)
+                    ->exists();
+
+                if (! $notificationExists) {
+                    $this->notificationService->create(
+                        $freshBooking->user_id,
+                        'security_deposit_charged',
+                        __('messages.notification_security_deposit_charged'),
+                        __('messages.notification_security_deposit_charged_message', [
+                            'amount' => number_format($chargedAmount, 2),
+                            'currency' => 'MAD',
+                        ]),
+                        [
+                            'booking_id' => $freshBooking->id,
+                            'payment_id' => $capturedIntent->id,
+                            'amount' => $chargedAmount,
+                            'currency' => 'MAD',
+                            'transaction_id' => $capturedIntent->id,
+                            'charged_at' => $freshBooking->security_deposit_charged_at ?? now(),
+                            'reason' => $penaltyReason,
+                        ]
+                    );
+                }
+            }
+
             $this->applyPenaltyAndRefundRemainder($freshBooking, $capturedIntent, $penaltyAmount, $penaltyReason);
 
             if ($idempotencyRecord instanceof PaymentIdempotencyKey) {
@@ -953,6 +1017,35 @@ class SecurityDepositService
                     ? ($lockedBooking->security_deposit_released_at ?? now())
                     : null,
             ], $newRefundedAmount), $penaltyKept), $stripeRefund->id ?? null)), null));
+
+            // ✅ CREATE NOTIFICATION FOR SECURITY DEPOSIT RELEASED
+            if ($newStatus === Booking::SECURITY_DEPOSIT_STATUS_REFUNDED) {
+                $freshBooking = $lockedBooking->fresh();
+                $notificationExists = Notification::where('user_id', $freshBooking->user_id)
+                    ->where('type', 'security_deposit_released')
+                    ->whereJsonContains('data->booking_id', $freshBooking->id)
+                    ->exists();
+
+                if (! $notificationExists) {
+                    $this->notificationService->create(
+                        $freshBooking->user_id,
+                        'security_deposit_released',
+                        __('messages.notification_security_deposit_released'),
+                        __('messages.notification_security_deposit_released_message', [
+                            'amount' => number_format($refundAmount, 2),
+                            'currency' => 'MAD',
+                        ]),
+                        [
+                            'booking_id' => $freshBooking->id,
+                            'payment_id' => $intent->id,
+                            'amount' => $refundAmount,
+                            'currency' => 'MAD',
+                            'released_at' => $freshBooking->security_deposit_released_at ?? now(),
+                            'transaction_id' => $stripeRefund->id ?? null,
+                        ]
+                    );
+                }
+            }
 
             $traceId = (string) Str::uuid();
 

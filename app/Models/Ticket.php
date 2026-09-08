@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Ticket extends Model
 {
     protected $fillable = [
-        'user_id', 'ticket_number', 'subject', 
-        'category', 'status', 'priority'
+        'user_id', 'ticket_number', 'subject',
+        'category', 'status', 'priority',
     ];
 
     // العلاقات
@@ -41,29 +41,30 @@ class Ticket extends Model
     {
         $last = self::latest()->first();
         $number = $last ? (int) substr($last->ticket_number, 4) + 1 : 1;
-        return 'TKT-' . str_pad($number, 4, '0', STR_PAD_LEFT);
+
+        return 'TKT-'.str_pad($number, 4, '0', STR_PAD_LEFT);
     }
 
     // Status colors للـ UI
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
-            'open'        => 'blue',
+        return match ($this->status) {
+            'open' => 'blue',
             'in_progress' => 'yellow',
-            'resolved'    => 'green',
-            'closed'      => 'gray',
-            default       => 'gray',
+            'resolved' => 'green',
+            'closed' => 'gray',
+            default => 'gray',
         };
     }
 
     // Priority colors
     public function getPriorityColorAttribute(): string
     {
-        return match($this->priority) {
-            'low'    => 'green',
+        return match ($this->priority) {
+            'low' => 'green',
             'medium' => 'yellow',
-            'high'   => 'red',
-            default  => 'gray',
+            'high' => 'red',
+            default => 'gray',
         };
     }
 

@@ -59,7 +59,7 @@
                     @if($booking->checkinInspection->photos->count() > 0)
                     <div class="grid grid-cols-3 gap-2">
                         @foreach($booking->checkinInspection->photos as $photo)
-                            <img src="{{ asset('storage/'.$photo->path) }}" class="rounded-lg h-20 object-cover border border-gray-700">
+                            <img src="{{ route('admin.bookings.inspection.photos.show', $photo) }}" class="rounded-lg h-20 object-cover border border-gray-700">
                         @endforeach
                     </div>
                     @endif
@@ -77,6 +77,7 @@
                                    name="photos[]"
                                    multiple
                                    required
+                                   accept="image/jpeg,image/png,image/webp"
                                    class="w-full text-sm bg-black/40 border border-gray-700 rounded-lg p-2 text-white">
                             <input type="text"
                                    name="type"
@@ -96,7 +97,7 @@
                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
                                 @foreach($booking->checkinInspection->photos as $photo)
                                     <div>
-                                        <img src="{{ asset('storage/'.$photo->path) }}"
+                                        <img src="{{ route('admin.bookings.inspection.photos.show', $photo) }}"
                                              class="rounded-lg h-28 w-full object-cover border border-gray-700">
                                         <p class="text-xs text-gray-400 mt-1">
                                             {{ $photo->type ?? '—' }}

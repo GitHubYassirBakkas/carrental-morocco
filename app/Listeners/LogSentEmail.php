@@ -12,22 +12,22 @@ class LogSentEmail
     {
         $message = $event->sent->getSymfonySentMessage();
         $email = $message->getOriginalMessage();
-        
+
         // Get recipient
         $to = collect($email->getTo())->keys()->first();
-        
+
         // Get subject
         $subject = $email->getSubject();
-        
+
         // Get body (handle both text and html)
         $body = $email->getTextBody() ?? $email->getHtmlBody() ?? '';
-        
+
         // Get user_id from session if logged in
         $userId = auth()->check() ? auth()->id() : null;
-        
+
         // Get message ID (from headers if available)
         $messageId = $message->getMessageId() ?? null;
-        
+
         // Create log
         EmailLog::create([
             'user_id' => $userId,

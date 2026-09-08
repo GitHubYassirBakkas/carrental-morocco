@@ -17,7 +17,7 @@ return new class extends Migration
             $table->decimal('original_amount', 10, 2); // Before discount
             $table->decimal('final_amount', 10, 2);    // After discount
             $table->timestamps();
-            
+
             $table->index(['coupon_id', 'user_id']);
             $table->index('booking_id');
         });

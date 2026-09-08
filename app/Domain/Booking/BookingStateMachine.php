@@ -65,7 +65,7 @@ class BookingStateMachine
         ]);
 
         $logMethod = $allowed ? 'info' : 'warning';
-        Log::$logMethod('booking.state_transition.' . ($allowed ? 'accepted' : 'rejected'), [
+        Log::$logMethod('booking.state_transition.'.($allowed ? 'accepted' : 'rejected'), [
             'booking_id' => $booking->id,
             'from_status' => $from,
             'to_status' => $to,
@@ -74,11 +74,17 @@ class BookingStateMachine
             'accepted' => $allowed,
         ]);
 
-        if (!$allowed) {
+        if (! $allowed) {
             throw new RuntimeException("Illegal booking state transition from {$from} to {$to}.");
         }
 
-        $booking->forceFill(['status' => $to])->save();
+        $updates = ['status' => $to];
+
+        if ($to === Booking::STATUS_COMPLETED && $booking->completed_at === null) {
+            $updates['completed_at'] = now();
+        }
+
+        $booking->forceFill($updates)->save();
 
         return true;
     }

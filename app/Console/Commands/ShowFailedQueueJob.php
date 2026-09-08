@@ -14,7 +14,7 @@ class ShowFailedQueueJob extends Command
 
     public function handle(): int
     {
-        if (!DB::getSchemaBuilder()->hasTable('failed_jobs')) {
+        if (! DB::getSchemaBuilder()->hasTable('failed_jobs')) {
             $this->warn('No failed_jobs table exists.');
 
             return self::SUCCESS;
@@ -22,7 +22,7 @@ class ShowFailedQueueJob extends Command
 
         $id = $this->argument('id');
 
-        if (!$id) {
+        if (! $id) {
             $this->call('queue:failed');
 
             return self::SUCCESS;
@@ -32,17 +32,17 @@ class ShowFailedQueueJob extends Command
             ->when(Str::isUuid($id), fn ($query) => $query->where('uuid', $id), fn ($query) => $query->where('id', $id))
             ->first();
 
-        if (!$job) {
+        if (! $job) {
             $this->warn('Failed job not found.');
 
             return self::SUCCESS;
         }
 
-        $this->line('ID: ' . $job->id);
-        $this->line('UUID: ' . ($job->uuid ?? 'n/a'));
-        $this->line('Connection: ' . ($job->connection ?? 'n/a'));
-        $this->line('Queue: ' . ($job->queue ?? 'n/a'));
-        $this->line('Failed At: ' . ($job->failed_at ?? $job->created_at ?? 'n/a'));
+        $this->line('ID: '.$job->id);
+        $this->line('UUID: '.($job->uuid ?? 'n/a'));
+        $this->line('Connection: '.($job->connection ?? 'n/a'));
+        $this->line('Queue: '.($job->queue ?? 'n/a'));
+        $this->line('Failed At: '.($job->failed_at ?? $job->created_at ?? 'n/a'));
         $this->newLine();
         $this->line((string) ($job->exception ?? ''));
 

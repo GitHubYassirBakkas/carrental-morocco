@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('booking_id')->nullable()->after('user_id')->constrained()->restrictOnDelete();
             $table->string('type')->nullable()->after('subject'); // booking, payment, damage
             $table->timestamp('sent_at')->nullable()->after('status');
-            
+
             // Rename 'content' to 'body' for consistency (optional)
             // $table->renameColumn('content', 'body');
         });

@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::table('cars', function (Blueprint $table) {
-    $table->decimal('fuel_tank_capacity', 5, 2)->default(50); // liters
-    $table->decimal('fuel_price_per_liter', 6, 2)->default(13); // MAD
-});
+        Schema::table('cars', function (Blueprint $table) {
+            $table->decimal('fuel_tank_capacity', 5, 2)->default(50); // liters
+            $table->decimal('fuel_price_per_liter', 6, 2)->default(13); // MAD
+        });
 
     }
 
@@ -23,7 +23,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-            Schema::table('cars', function (Blueprint $table) {
+        Schema::table('cars', function (Blueprint $table) {
             $table->dropColumn([
                 'fuel_tank_capacity',
                 'fuel_price_per_liter',

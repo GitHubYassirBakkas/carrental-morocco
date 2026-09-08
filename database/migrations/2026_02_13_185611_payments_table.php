@@ -9,44 +9,43 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up(): void
-{
-    Schema::create('payments', function (Blueprint $table) {
-        $table->id();
+    public function up(): void
+    {
+        Schema::create('payments', function (Blueprint $table) {
+            $table->id();
 
-        $table->foreignId('invoice_id')
-              ->constrained()
-              ->restrictOnDelete();
+            $table->foreignId('invoice_id')
+                ->constrained()
+                ->restrictOnDelete();
 
-        $table->foreignId('user_id')
-              ->constrained()
-              ->restrictOnDelete();
+            $table->foreignId('user_id')
+                ->constrained()
+                ->restrictOnDelete();
 
-        $table->decimal('amount', 10, 2);
+            $table->decimal('amount', 10, 2);
 
-        $table->enum('method', ['cash', 'card', 'online', 'bank_transfer','stripe'])
-              ->default('cash');
+            $table->enum('method', ['cash', 'card', 'online', 'bank_transfer', 'stripe'])
+                ->default('cash');
 
-        $table->enum('type', ['payment', 'refund', 'security_deposit_charge'])->default('payment');
+            $table->enum('type', ['payment', 'refund', 'security_deposit_charge'])->default('payment');
 
-        $table->enum('status', ['pending', 'completed', 'failed'])
-              ->default('pending');
+            $table->enum('status', ['pending', 'completed', 'failed'])
+                ->default('pending');
 
-        $table->string('transaction_id')->nullable();
-        $table->index('transaction_id');
+            $table->string('transaction_id')->nullable();
+            $table->index('transaction_id');
 
-        $table->timestamp('paid_at')->nullable();
-        $table->text('notes')->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->text('notes')->nullable();
 
-        $table->timestamps();
+            $table->timestamps();
 
-        $table->index('status');
-        $table->index('type');
-        $table->index(['invoice_id', 'status']);
+            $table->index('status');
+            $table->index('type');
+            $table->index(['invoice_id', 'status']);
 
-
-    });
-}
+        });
+    }
 
     /**
      * Reverse the migrations.

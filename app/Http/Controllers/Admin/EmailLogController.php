@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\EmailLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class EmailLogController extends Controller
@@ -18,9 +19,9 @@ class EmailLogController extends Controller
 
         // Search by recipient or subject
         if ($request->search) {
-            $query->where(function($q) use ($request) {
+            $query->where(function ($q) use ($request) {
                 $q->where('to', 'like', "%{$request->search}%")
-                  ->orWhere('subject', 'like', "%{$request->search}%");
+                    ->orWhere('subject', 'like', "%{$request->search}%");
             });
         }
 
@@ -57,7 +58,7 @@ class EmailLogController extends Controller
     public function show(EmailLog $emailLog)
     {
         $emailLog->load('user');
-        
+
         return view('admin.email-logs.show', compact('emailLog'));
     }
 
@@ -74,7 +75,7 @@ class EmailLogController extends Controller
             // Send email
             Mail::raw($emailLog->content, function ($message) use ($emailLog) {
                 $message->to($emailLog->to)
-                        ->subject($emailLog->subject);
+                    ->subject($emailLog->subject);
             });
 
             // Update log
@@ -84,7 +85,7 @@ class EmailLogController extends Controller
             ]);
 
             return back()->with('success', 'Email resent successfully!');
-            
+
         } catch (\Exception $e) {
             // Update with new error
             $emailLog->update([
@@ -92,7 +93,12 @@ class EmailLogController extends Controller
                 'error_message' => $e->getMessage(),
             ]);
 
-            return back()->with('error', 'Failed to resend email: ' . $e->getMessage());
+            Log::error('Admin email resend failed.', [
+                'exception' => $e,
+                'email_log_id' => $emailLog->id,
+            ]);
+
+            return back()->with('error', 'Failed to resend email. Please try again or review the logs.');
         }
     }
 

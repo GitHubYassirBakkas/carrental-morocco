@@ -2,11 +2,18 @@
 @section('title', __('messages.payment'))
 
 @section('content')
-@php($rentalPaymentAlreadySettled = $rentalPaymentAlreadySettled ?? ($amountToPay <= 0))
+@php
+    $rentalPaymentAlreadySettled = $rentalPaymentAlreadySettled ?? ($amountToPay <= 0);
+    $rentalAmountLabel = number_format($amountToPay, 0);
+    $securityDepositAmountLabel = number_format($securityDepositAmount, 0);
+    $cardCtaLabel = __('messages.pay_amount', ['amount' => $rentalAmountLabel]);
+    $cardCtaNote = __('messages.deposit_hold_secondary', ['amount' => $securityDepositAmountLabel]);
+    $pickupCtaLabel = __('messages.confirm_pay_at_pickup');
+    $pickupCtaNote = __('messages.pay_at_pickup_subtitle');
+@endphp
+
 <div class="min-h-screen bg-[#0a0a0a] py-12">
     <div class="max-w-6xl mx-auto px-6">
-
-        {{-- Header --}}
         <div class="mb-10">
             <h1 class="text-4xl font-bold text-white mb-2">{{ __('messages.secure_payment') }}</h1>
             <p class="text-gray-400">{{ __('messages.payment_subtitle') }}</p>
@@ -21,10 +28,7 @@
         @endif
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-            {{-- LEFT: Payment Form --}}
             <div class="lg:col-span-2 space-y-6">
-
                 <div class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-3xl border border-gray-800 overflow-hidden">
                     <div class="bg-gradient-to-r from-[#C89D66]/20 to-[#C89D66]/10 px-8 py-5 border-b border-gray-800">
                         <h2 class="text-xl font-bold text-white flex items-center gap-3">
@@ -35,7 +39,7 @@
                         </h2>
                     </div>
 
-                    <form id="payment-form" class="p-8">
+                    <form id="payment-form" class="p-5 sm:p-8">
                         @if($rentalPaymentAlreadySettled)
                             <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6">
                                 <div class="flex items-start gap-4">
@@ -45,232 +49,244 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <p class="text-white font-bold mb-1">Rental payment already completed</p>
-                                        <p class="text-sm text-gray-400">No additional rental payment is due for this booking.</p>
+                                        <p class="text-white font-bold mb-1">{{ __('messages.rental_payment_completed') }}</p>
+                                        <p class="text-sm text-gray-400">{{ __('messages.no_rental_payment_due') }}</p>
                                     </div>
                                 </div>
                             </div>
                         @else
-                        @csrf
+                            @csrf
 
-                        {{-- Hidden fields --}}
-                        <input type="hidden" name="_method" value="POST">
-                        <input type="hidden" id="rental_payment_intent" name="rental_payment_intent" value="{{ $rentalIntent->client_secret }}">
-                        @if($securityDepositIntent)
-                            <input type="hidden" id="security_deposit_intent" name="security_deposit_intent" value="{{ $securityDepositIntent->client_secret }}">
-                        @endif
-
-                        {{-- Payment Methods --}}
-                        <div class="space-y-4 mb-6">
-
-                            {{-- Card --}}
-                            <label class="flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all border-[#C89D66] bg-[#C89D66]/10" id="cardLabel">
-                                <input type="radio" name="payment_method" value="card" id="payCard" class="mt-1 w-5 h-5 accent-[#C89D66]" checked>
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-3 mb-2">
-                                        <div class="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
-                                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                                            </svg>
-                                        </div>
-                                        <p class="text-white font-bold">{{ __('messages.card_payment') }}</p>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg" alt="Visa" class="h-5">
-                                        <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="MC" class="h-5">
-                                    </div>
-                                </div>
-                            </label>
-
-                            {{-- Cash --}}
-                            <label class="flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all border-gray-800 hover:border-gray-600" id="cashLabel">
-                                <input type="radio" name="payment_method" value="cash" id="payCash" class="mt-1 w-5 h-5 accent-[#C89D66]">
-                                <div>
-                                    <div class="flex items-center gap-3 mb-1">
-                                        <div class="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center">
-                                            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                            </svg>
-                                        </div>
-                                        <p class="text-white font-bold">{{ __('messages.cash_payment') }}</p>
-                                    </div>
-                                    <p class="text-sm text-gray-500">{{ __('messages.pay_on_arrival') }}</p>
-                                </div>
-                            </label>
-                        </div>
-
-                        {{-- ✅ زيد هنا --}}
-@if($securityDepositAmount > 0)
-<div id="cashSecurityDepositNotice" style="display:none;"
-     class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mt-2">
-    <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        <div>
-            <p class="text-amber-300 font-bold text-sm mb-2">
-                {{ __('messages.security_deposit_cash_notice_title') }}
-            </p>
-            <ul class="text-gray-400 text-xs space-y-1.5">
-                <li class="flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0"></span>
-                    {{ __('messages.pay_on_arrival') }}: 
-                    <strong class="text-white">{{ number_format($amountToPay, 0) }} MAD</strong>
-                </li>
-                <li class="flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-purple-400 rounded-full flex-shrink-0"></span>
-                    {{ __('messages.security_deposit_title') }}: 
-                    <strong class="text-purple-300">{{ number_format($securityDepositAmount, 0) }} MAD</strong>
-                    <span class="text-gray-500">{{ __('messages.security_deposit_cash_note') }}</span>
-                </li>
-            </ul>
-        </div>
-    </div>
-</div>
-@endif
-                        {{-- Stripe Card Form --}}
-                        <div id="cardForm" class="bg-[#0f0f0f] rounded-2xl p-6 border border-gray-800 space-y-5">
-                            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                                <svg class="w-5 h-5 text-[#C89D66]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                                </svg>
-                                {{ __('messages.card_information') }}
-                            </h3>
-
-                            <div>
-                                <label class="block text-sm font-semibold text-gray-400 mb-2">{{ __('messages.card_details') }}</label>
-                                <div id="card-element" class="bg-black text-white"></div>
-                                <div id="card-errors" class="text-red-400 text-sm mt-2"></div>
-                            </div>
-
-                            {{-- Security Deposit Notice --}}
-                            @if($securityDepositAmount > 0)
-                            <div class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
-                                <div class="flex items-start gap-3">
-                                    <svg class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                                    </svg>
-                                    <div>
-                                        <p class="text-purple-300 font-bold text-sm mb-1">
-                                            {{ __('messages.security_deposit_title') }}: {{ number_format($securityDepositAmount, 0) }} MAD
-                                        </p>
-                                        <p class="text-gray-400 text-xs leading-relaxed">
-                                            {{ __('messages.security_deposit_stripe_notice') }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            <input type="hidden" name="_method" value="POST">
+                            <input type="hidden" id="rental_payment_intent" name="rental_payment_intent" value="{{ $rentalIntent->client_secret }}">
+                            @if($securityDepositIntent)
+                                <input type="hidden" id="security_deposit_intent" name="security_deposit_intent" value="{{ $securityDepositIntent->client_secret }}">
                             @endif
 
-                            <div class="flex items-center gap-3 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                                <svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                <label class="payment-method-card flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all min-w-0" id="cardLabel" data-selected="true">
+                                    <input type="radio" name="payment_method" value="card" id="payCard" class="mt-1 w-5 h-5 accent-[#C89D66]" checked>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-3 mb-2 min-w-0">
+                                            <div class="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-white font-bold break-words">{{ __('messages.card_payment') }}</p>
+                                                <p class="text-sm text-gray-400 break-words">{{ __('messages.card_payment_subtitle') }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-2" aria-label="{{ __('messages.card_brand_indicators') }}">
+                                            <span class="inline-flex h-7 items-center rounded-md border border-sky-400/30 bg-sky-500/10 px-2.5 text-[11px] font-bold uppercase tracking-wide text-sky-200">Visa</span>
+                                            <span class="inline-flex h-7 items-center rounded-md border border-rose-400/30 bg-rose-500/10 px-2.5 text-[11px] font-bold uppercase tracking-wide text-rose-200">Mastercard</span>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label class="payment-method-card flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all min-w-0" id="cashLabel" data-selected="false">
+                                    <input type="radio" name="payment_method" value="cash" id="payCash" class="mt-1 w-5 h-5 accent-[#C89D66]">
+                                    <div class="min-w-0">
+                                        <div class="flex items-center gap-3 mb-1 min-w-0">
+                                            <div class="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                                                <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                                </svg>
+                                            </div>
+                                            <div class="min-w-0">
+                                                <p class="text-white font-bold break-words">{{ __('messages.cash_payment') }}</p>
+                                                <p class="text-sm text-gray-400 break-words">{{ __('messages.pay_at_pickup_subtitle') }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+
+                            @if($securityDepositAmount > 0)
+                                <div id="cashSecurityDepositNotice" style="display:none;" class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mt-2 mb-6">
+                                    <div class="flex items-start gap-3">
+                                        <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                        <div class="min-w-0">
+                                            <p class="text-amber-300 font-bold text-sm mb-2">{{ __('messages.security_deposit_cash_notice_title') }}</p>
+                                            <ul class="text-gray-400 text-xs space-y-1.5">
+                                                <li class="flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0"></span>
+                                                    {{ __('messages.rental_total') }}:
+                                                    <strong class="text-white">{{ $rentalAmountLabel }} MAD</strong>
+                                                </li>
+                                                <li class="flex items-center gap-2">
+                                                    <span class="w-1.5 h-1.5 bg-purple-400 rounded-full flex-shrink-0"></span>
+                                                    {{ __('messages.security_deposit_title') }}:
+                                                    <strong class="text-purple-300">{{ $securityDepositAmountLabel }} MAD</strong>
+                                                    <span class="text-gray-500">{{ __('messages.security_deposit_cash_note') }}</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div id="cardForm" class="bg-[#0f0f0f] rounded-2xl p-5 sm:p-6 border border-gray-800 space-y-5" aria-hidden="false">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                        <svg class="w-5 h-5 text-[#C89D66]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                                        </svg>
+                                        {{ __('messages.card_information') }}
+                                    </h3>
+                                    <span class="text-xs text-gray-500">{{ __('messages.secure_payment_powered_by_stripe') }}</span>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-400 mb-2">{{ __('messages.card_details') }}</label>
+                                    <div id="card-element" class="bg-black text-white"></div>
+                                    <div id="card-errors" class="text-red-400 text-sm mt-2 min-h-[1.25rem]" role="alert" aria-live="polite"></div>
+                                </div>
+
+                                @if($securityDepositAmount > 0)
+                                    <div class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
+                                        <div class="flex items-start gap-3">
+                                            <svg class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                            </svg>
+                                            <div class="min-w-0">
+                                                <p class="text-purple-300 font-bold text-sm mb-1">{{ __('messages.security_deposit_title') }}</p>
+                                                <p class="text-white font-semibold text-sm mb-2">
+                                                    {{ __('messages.security_deposit_authorization_hold', ['amount' => $securityDepositAmountLabel]) }}
+                                                </p>
+                                                <p class="text-gray-400 text-xs leading-relaxed">{{ __('messages.security_deposit_stripe_notice') }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endif
+
+                                <div class="flex items-center gap-3 p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                                    <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <span class="text-emerald-300 text-xs">{{ __('messages.stripe_card_details_secure') }}</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" id="submit-button"
+                                    class="w-full mt-6 bg-gradient-to-r from-[#C89D66] to-[#B8935E] hover:from-[#B8935E] hover:to-[#A8835E] text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-[#C89D66]/30 flex items-center justify-center gap-3">
+                                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                <span id="btnText" class="min-w-0 text-center break-words">{{ $cardCtaLabel }}</span>
+                            </button>
+
+                            <p id="paymentCtaNote" class="text-center text-gray-500 text-xs mt-3 leading-relaxed break-words">
+                                @if($securityDepositAmount > 0)
+                                    {{ $cardCtaNote }}
+                                @else
+                                    {{ __('messages.stripe_card_details_secure') }}
+                                @endif
+                            </p>
+
+                            <p class="text-center text-gray-600 text-xs mt-4 flex items-center justify-center gap-2">
+                                <svg class="w-3 h-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
                                 </svg>
-                                <span class="text-emerald-300 text-xs">{{ __('messages.payment_stripe_ssl') }}</span>
-                            </div>
-                        </div>
-
-                        {{-- Submit --}}
-                        <button type="submit" id="submit-button"
-                                class="w-full mt-6 bg-gradient-to-r from-[#C89D66] to-[#B8935E] hover:from-[#B8935E] hover:to-[#A8835E] text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-[#C89D66]/30 flex items-center justify-center gap-3">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                            </svg>
-                            <span id="btnText">
-                                {{ __('messages.pay_now') }} {{ number_format($amountToPay, 0) }} MAD
-                                @if($securityDepositAmount > 0)
-                                    + {{ __('messages.security_deposit_title') }} {{ number_format($securityDepositAmount, 0) }} MAD
-                                @endif
-                            </span>
-                        </button>
-
-                        <p class="text-center text-gray-600 text-xs mt-4 flex items-center justify-center gap-2">
-                            <svg class="w-3 h-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
-                            </svg>
-                            {{ __('messages.payment_stripe_ssl') }}
-                        </p>
+                                {{ __('messages.payment_stripe_ssl') }}
+                            </p>
                         @endif
                     </form>
                 </div>
             </div>
 
-            {{-- RIGHT: Summary --}}
             <div class="lg:col-span-1">
                 <div class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-3xl border border-gray-800 sticky top-24">
                     <div class="bg-gradient-to-r from-[#C89D66]/20 to-[#C89D66]/10 px-6 py-5 border-b border-gray-800">
-                        <h3 class="text-lg font-bold text-white">Order Summary</h3>
+                        <h3 class="text-lg font-bold text-white">{{ __('messages.order_summary') }}</h3>
                     </div>
 
-                    <div class="p-6 space-y-4">
-                        {{-- Car --}}
+                    <div class="p-6 space-y-5">
                         <div>
                             <p class="text-xs text-gray-500 uppercase mb-1">{{ __('messages.car_details') }}</p>
-                            <p class="text-white font-bold">{{ $booking->car->brand }} {{ $booking->car->model }}</p>
+                            <p class="text-white font-bold break-words">{{ $booking->car->brand }} {{ $booking->car->model }}</p>
                             <p class="text-gray-500 text-sm">{{ $booking->car->year }}</p>
                         </div>
 
-                        {{-- Dates --}}
                         <div>
                             <p class="text-xs text-gray-500 uppercase mb-1">{{ __('messages.rental_period') }}</p>
                             <p class="text-gray-300 text-sm">{{ \Carbon\Carbon::parse($booking->start_date)->format('d M Y') }}</p>
-                            <p class="text-gray-600 text-xs">→</p>
+                            <p class="text-gray-600 text-xs">&rarr;</p>
                             <p class="text-gray-300 text-sm">{{ \Carbon\Carbon::parse($booking->end_date)->format('d M Y') }}</p>
                         </div>
 
-                        <div class="border-t border-gray-800 pt-4 space-y-2">
-                            {{-- Rental --}}
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-400">{{ __('messages.rental_period') }}</span>
-                                <span class="text-white font-semibold">{{ number_format($amountToPay, 0) }} MAD</span>
+                        <div class="border-t border-gray-800 pt-4 space-y-4">
+                            <div class="flex items-start justify-between gap-4">
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-white">{{ __('messages.rental_total') }}</p>
+                                    <p class="text-xs text-gray-500">{{ __('messages.rental_total_note') }}</p>
+                                </div>
+                                <span class="text-white text-xl font-bold whitespace-nowrap">{{ $rentalAmountLabel }} MAD</span>
                             </div>
 
-                            {{-- Security Deposit --}}
                             @if($securityDepositAmount > 0)
-                            <div class="flex justify-between text-sm">
-                                <span class="text-purple-400">{{ __('messages.security_deposit_title') }} 🔒</span>
-                                <span class="text-purple-300 font-semibold">{{ number_format($securityDepositAmount, 0) }} MAD</span>
-                            </div>
-                            <p class="text-xs text-gray-600">{{ __('messages.security_deposit_refundable') }}</p>
+                                <div class="rounded-xl border border-purple-500/25 bg-purple-500/10 p-4">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-semibold text-purple-200">{{ __('messages.refundable_security_deposit') }}</p>
+                                            <p class="text-xs text-gray-400">{{ __('messages.authorization_hold_not_rental_total') }}</p>
+                                        </div>
+                                        <span class="text-purple-200 font-semibold whitespace-nowrap">{{ $securityDepositAmountLabel }} MAD</span>
+                                    </div>
+                                </div>
                             @endif
                         </div>
 
-                        {{-- Total --}}
                         <div class="bg-gradient-to-r from-[#C89D66]/20 to-[#C89D66]/10 rounded-2xl p-4 border border-[#C89D66]/20">
-                            <p class="text-xs text-gray-400 mb-1">{{ __('messages.total_price') }}</p>
-                            <p class="text-3xl font-bold text-[#C89D66]">{{ number_format($amountToPay, 0) }} MAD</p>
-                            @if($securityDepositAmount > 0)
-                                <p class="text-xs text-purple-400 mt-1">
-                                    + {{ number_format($securityDepositAmount, 0) }} MAD {{ __('messages.security_deposit_held') }}
-                                </p>
-                            @endif
+                            <p id="summaryPaymentLabel" class="text-xs text-gray-400 mb-1">{{ __('messages.amount_charged_today') }}</p>
+                            <p class="text-3xl font-bold text-[#C89D66]">{{ $rentalAmountLabel }} MAD</p>
+                            <p class="text-xs text-gray-500 mt-1">{{ __('messages.deposit_not_included_in_total') }}</p>
                         </div>
 
-                        {{-- Benefits --}}
                         <div class="space-y-2 pt-2 border-t border-gray-800">
                             <div class="flex items-center gap-2 text-xs text-gray-500">
-                                <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                <svg class="w-3 h-3 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                 {{ __('messages.free_cancellation') }}
                             </div>
                             <div class="flex items-center gap-2 text-xs text-gray-500">
-                                <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                                {{ __('messages.security_deposit_refundable') }}
+                                <svg class="w-3 h-3 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                                {{ __('messages.authorization_hold_not_rental_total') }}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 </div>
 
 <style>
+.payment-method-card {
+    border-color: rgb(31 41 55);
+    background: rgba(15, 15, 15, 0.72);
+}
+.payment-method-card[data-selected="true"] {
+    border-color: #C89D66;
+    background: rgba(200, 157, 102, 0.12);
+    box-shadow: 0 18px 40px rgba(200, 157, 102, 0.10), 0 0 0 1px rgba(200, 157, 102, 0.22);
+}
+.payment-method-card[data-selected="false"]:hover {
+    border-color: rgb(75 85 99);
+    background: rgba(31, 41, 55, 0.22);
+}
+.payment-method-card:focus-within {
+    outline: 2px solid rgba(200, 157, 102, 0.75);
+    outline-offset: 3px;
+}
 #card-element {
-    min-height: 50px;
-    background-color: #111827; /* dark */
+    min-height: 54px;
+    background-color: #050505;
+    border: 1px solid rgb(55 65 81);
     border-radius: 12px;
-    padding: 12px;
+    padding: 16px;
 }
 #card-element .StripeElement {
     width: 100%;
@@ -281,86 +297,92 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-
     const stripeKey = '{{ config('services.stripe.key') }}';
     if (!window.Stripe || !stripeKey) {
-        document.getElementById('card-errors').textContent = 'Payment form failed to load. Please refresh and try again.';
+        document.getElementById('card-errors').textContent = @js(__('messages.payment_form_load_failed'));
         return;
     }
 
-    const stripe   = Stripe(stripeKey);
+    const stripe = Stripe(stripeKey);
     const elements = stripe.elements();
 
-    // ── Card Element ──
-   const cardElement = elements.create('card', {
-    style: {
-        base: {
-            color: '#ffffff',
-            fontSize: '16px',
-            '::placeholder': {
-                color: '#9ca3af'
+    const cardElement = elements.create('card', {
+        style: {
+            base: {
+                color: '#ffffff',
+                fontSize: '16px',
+                '::placeholder': {
+                    color: '#9ca3af'
+                }
+            },
+            invalid: {
+                color: '#ef4444'
             }
-        },
-        invalid: {
-            color: '#ef4444'
         }
-    }
-});
+    });
     cardElement.mount('#card-element');
 
     cardElement.on('change', e => {
         document.getElementById('card-errors').textContent = e.error ? e.error.message : '';
     });
 
-    // ── Payment method toggle ──
+    const cardForm = document.getElementById('cardForm');
+    const cashNotice = document.getElementById('cashSecurityDepositNotice');
+    const ctaNote = document.getElementById('paymentCtaNote');
+    const summaryPaymentLabel = document.getElementById('summaryPaymentLabel');
+    const submitIcon = `<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>`;
+    const cardCtaLabel = @js($cardCtaLabel);
+    const cardCtaNote = @js($securityDepositAmount > 0 ? $cardCtaNote : __('messages.stripe_card_details_secure'));
+    const pickupCtaLabel = @js($pickupCtaLabel);
+    const pickupCtaNote = @js($pickupCtaNote);
+    const amountChargedTodayLabel = @js(__('messages.amount_charged_today'));
+    const pickupPaymentLabel = @js(__('messages.rental_payment_due_at_pickup'));
+
+    function restoreSubmitButton(isCard) {
+        const btn = document.getElementById('submit-button');
+        btn.innerHTML = `${submitIcon}<span id="btnText" class="min-w-0 text-center break-words"></span>`;
+        document.getElementById('btnText').textContent = isCard ? cardCtaLabel : pickupCtaLabel;
+        ctaNote.textContent = isCard ? cardCtaNote : pickupCtaNote;
+    }
+
     document.querySelectorAll('input[name="payment_method"]').forEach(radio => {
         radio.addEventListener('change', () => {
             const isCard = radio.value === 'card';
 
-            // Show/hide card form
-            document.getElementById('cardForm').style.display = isCard ? 'block' : 'none';
+            cardForm.style.display = isCard ? 'block' : 'none';
+            cardForm.setAttribute('aria-hidden', isCard ? 'false' : 'true');
 
-            // Show/hide cash security deposit notice
-            const cashNotice = document.getElementById('cashSecurityDepositNotice');
             if (cashNotice) cashNotice.style.display = isCard ? 'none' : 'block';
 
-            // Update label styles
-            document.getElementById('cardLabel').className = isCard
-                ? 'flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all border-[#C89D66] bg-[#C89D66]/10'
-                : 'flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all border-gray-800 hover:border-gray-600';
+            document.getElementById('cardLabel').dataset.selected = isCard ? 'true' : 'false';
+            document.getElementById('cashLabel').dataset.selected = !isCard ? 'true' : 'false';
 
-            document.getElementById('cashLabel').className = !isCard
-                ? 'flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all border-[#C89D66] bg-[#C89D66]/10'
-                : 'flex items-start gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all border-gray-800 hover:border-gray-600';
-
-            // Update button text
-            const btnText = document.getElementById('btnText');
-            if (isCard) {
-                btnText.textContent = '{{ __("messages.pay_now") }} {{ number_format($amountToPay, 0) }} MAD{{ $securityDepositAmount > 0 ? " + " . __("messages.security_deposit_title") . " " . number_format($securityDepositAmount, 0) . " MAD" : "" }}';
-            } else {
-                btnText.textContent = '{{ __("messages.pay_on_arrival") }}';
-            }
+            document.getElementById('btnText').textContent = isCard ? cardCtaLabel : pickupCtaLabel;
+            ctaNote.textContent = isCard ? cardCtaNote : pickupCtaNote;
+            summaryPaymentLabel.textContent = isCard ? amountChargedTodayLabel : pickupPaymentLabel;
         });
     });
 
-    // ── Form submission ──
     document.getElementById('payment-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const method = document.querySelector('input[name="payment_method"]:checked').value;
-        const btn    = document.getElementById('submit-button');
+        const btn = document.getElementById('submit-button');
 
-        // ── CASH ──
         if (method === 'cash') {
-            const form  = document.createElement('form');
+            const form = document.createElement('form');
             form.method = 'POST';
             form.action = '{{ route('payments.store', $booking) }}';
 
             const csrf = document.createElement('input');
-            csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
+            csrf.type = 'hidden';
+            csrf.name = '_token';
+            csrf.value = '{{ csrf_token() }}';
             form.appendChild(csrf);
 
             const pm = document.createElement('input');
-            pm.type = 'hidden'; pm.name = 'payment_method'; pm.value = 'cash';
+            pm.type = 'hidden';
+            pm.name = 'payment_method';
+            pm.value = 'cash';
             form.appendChild(pm);
 
             document.body.appendChild(form);
@@ -368,7 +390,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // ── CARD ──
         btn.disabled = true;
         btn.innerHTML = `
             <svg class="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
@@ -379,7 +400,6 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
 
         try {
-            // 1. Confirm rental payment (charges immediately)
             const { paymentIntent: rentalResult, error: rentalError } = await stripe.confirmCardPayment(
                 document.getElementById('rental_payment_intent').value,
                 { payment_method: { card: cardElement } }
@@ -388,64 +408,69 @@ document.addEventListener('DOMContentLoaded', function () {
             if (rentalError) {
                 document.getElementById('card-errors').textContent = rentalError.message;
                 btn.disabled = false;
-                btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
+                restoreSubmitButton(true);
                 return;
             }
 
             @if($securityDepositIntent)
-            // 2. Authorize security deposit (blocks but doesn't charge)
             const { paymentIntent: securityDepositResult, error: securityDepositError } = await stripe.confirmCardPayment(
                 document.getElementById('security_deposit_intent').value,
                 { payment_method: { card: cardElement } }
             );
 
             if (securityDepositError) {
-                document.getElementById('card-errors').textContent = 'Security deposit authorization failed: ' + securityDepositError.message;
+                document.getElementById('card-errors').textContent = @js(__('messages.security_deposit_authorization_failed')) + ' ' + securityDepositError.message;
                 btn.disabled = false;
-                btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
+                restoreSubmitButton(true);
                 return;
             }
 
             if (securityDepositResult?.status !== 'requires_capture') {
-                document.getElementById('card-errors').textContent = 'Security deposit authorization was not completed. Please try again.';
+                document.getElementById('card-errors').textContent = @js(__('messages.security_deposit_authorization_incomplete'));
                 btn.disabled = false;
-                btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
+                restoreSubmitButton(true);
                 return;
             }
             @endif
 
-            // 3. Submit to server
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = '{{ route('payments.store', $booking) }}';
 
             const csrf = document.createElement('input');
-            csrf.type = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
+            csrf.type = 'hidden';
+            csrf.name = '_token';
+            csrf.value = '{{ csrf_token() }}';
             form.appendChild(csrf);
 
             const pm = document.createElement('input');
-            pm.type = 'hidden'; pm.name = 'payment_method'; pm.value = 'card';
+            pm.type = 'hidden';
+            pm.name = 'payment_method';
+            pm.value = 'card';
             form.appendChild(pm);
 
             const rpi = document.createElement('input');
-            rpi.type = 'hidden'; rpi.name = 'rental_payment_intent'; rpi.value = rentalResult.id;
+            rpi.type = 'hidden';
+            rpi.name = 'rental_payment_intent';
+            rpi.value = rentalResult.id;
             form.appendChild(rpi);
 
             @if($securityDepositIntent)
             if (securityDepositResult?.status === 'requires_capture') {
                 const dpi = document.createElement('input');
-                dpi.type = 'hidden'; dpi.name = 'security_deposit_intent'; dpi.value = securityDepositResult.id;
+                dpi.type = 'hidden';
+                dpi.name = 'security_deposit_intent';
+                dpi.value = securityDepositResult.id;
                 form.appendChild(dpi);
             }
             @endif
 
             document.body.appendChild(form);
             form.submit();
-
         } catch (err) {
-            document.getElementById('card-errors').textContent = 'An error occurred. Please try again.';
+            document.getElementById('card-errors').textContent = @js(__('messages.generic_try_again'));
             btn.disabled = false;
-            btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
+            restoreSubmitButton(true);
         }
     });
 });

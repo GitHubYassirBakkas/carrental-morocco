@@ -110,6 +110,90 @@ class PaymentService
         ]);
     }
 
+    public function recordPendingCashRequestForBooking(Booking $booking, int $userId, ?string $notes = null): array
+    {
+        return DB::transaction(function () use ($booking, $userId, $notes) {
+            $booking = Booking::whereKey($booking->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $invoice = $this->invoiceService->firstOrCreateForPaymentProcessing($booking);
+            $invoice = Invoice::whereKey($invoice->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $existingPayment = $invoice->payments()
+                ->where('user_id', $userId)
+                ->where('method', 'cash')
+                ->where('type', Payment::TYPE_PAYMENT)
+                ->where('status', Payment::STATUS_PENDING)
+                ->whereNull('transaction_id')
+                ->lockForUpdate()
+                ->oldest('id')
+                ->first();
+
+            if ($existingPayment) {
+                if ($booking->isPending()) {
+                    $this->markBookingPendingPayment($booking);
+                }
+
+                return [
+                    'payment' => $existingPayment,
+                    'invoice' => $invoice->fresh(),
+                    'booking' => $booking->fresh(),
+                    'amount' => (float) $existingPayment->amount,
+                    'created' => false,
+                    'already_pending' => true,
+                    'already_paid' => false,
+                ];
+            }
+
+            $amount = (float) $invoice->balance;
+
+            if ($amount <= 0.0) {
+                $this->updateInvoiceStatus($invoice);
+
+                return [
+                    'payment' => null,
+                    'invoice' => $invoice->fresh(),
+                    'booking' => $booking->fresh(),
+                    'amount' => 0.0,
+                    'created' => false,
+                    'already_pending' => false,
+                    'already_paid' => true,
+                ];
+            }
+
+            $payment = $this->createPaymentRecord($invoice, [
+                'invoice_id' => $invoice->id,
+                'user_id' => $userId,
+                'amount' => $amount,
+                'method' => 'cash',
+                'type' => Payment::TYPE_PAYMENT,
+                'status' => Payment::STATUS_PENDING,
+                'transaction_id' => null,
+                'paid_at' => null,
+                'notes' => $notes ?? 'Cash on delivery',
+            ]);
+
+            $this->updateInvoiceStatus($invoice);
+
+            if ($booking->isPending()) {
+                $this->markBookingPendingPayment($booking);
+            }
+
+            return [
+                'payment' => $payment,
+                'invoice' => $invoice->fresh(),
+                'booking' => $booking->fresh(),
+                'amount' => $amount,
+                'created' => true,
+                'already_pending' => false,
+                'already_paid' => false,
+            ];
+        }, 3);
+    }
+
     public function recordCompletedPayment(Invoice $invoice, int $userId, float $amount, string $method, ?string $transactionId, ?string $notes): Payment
     {
         return $this->createPaymentRecord($invoice, [
@@ -124,18 +208,106 @@ class PaymentService
         ]);
     }
 
-    public function recordRefund(Invoice $invoice, float $amount, ?string $reason = null): Payment
+    public function recordRemainingCashPaymentForBooking(Booking $booking, int $userId, ?string $notes = null): array
+    {
+        return DB::transaction(function () use ($booking, $userId, $notes) {
+            $booking = Booking::whereKey($booking->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $invoice = $this->invoiceService->firstOrCreateForPaymentProcessing($booking);
+            $invoice = Invoice::whereKey($invoice->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $amount = (float) $invoice->balance;
+
+            if ($amount <= 0.0) {
+                $this->updateInvoiceStatus($invoice);
+
+                $hasCompletedCashRentalPayment = $invoice->payments()
+                    ->where('method', 'cash')
+                    ->where('type', Payment::TYPE_PAYMENT)
+                    ->where('status', Payment::STATUS_COMPLETED)
+                    ->exists();
+                $bookingWasPending = $booking->isPending();
+
+                if ($hasCompletedCashRentalPayment && $bookingWasPending) {
+                    $this->markBookingPaidByCash($booking);
+                }
+
+                $freshBooking = $booking->fresh();
+
+                return [
+                    'payment' => null,
+                    'invoice' => $invoice->fresh(),
+                    'booking' => $freshBooking,
+                    'amount' => 0.0,
+                    'already_paid' => true,
+                    'booking_confirmed' => $bookingWasPending && ! $freshBooking->isPending(),
+                ];
+            }
+
+            $payment = $this->createPaymentRecord($invoice, [
+                'invoice_id' => $invoice->id,
+                'user_id' => $userId,
+                'amount' => $amount,
+                'method' => 'cash',
+                'type' => Payment::TYPE_PAYMENT,
+                'status' => Payment::STATUS_COMPLETED,
+                'transaction_id' => $this->generateTransactionId('CASH'),
+                'paid_at' => now(),
+                'notes' => $notes ?? 'Cash payment recorded by admin',
+            ]);
+
+            $this->updateInvoiceStatus($invoice);
+            $this->markBookingPaidByCash($booking);
+
+            return [
+                'payment' => $payment,
+                'invoice' => $invoice->fresh(),
+                'booking' => $booking->fresh(),
+                'amount' => $amount,
+                'already_paid' => false,
+                'booking_confirmed' => true,
+            ];
+        }, 3);
+    }
+
+    public function recordRefund(Invoice $invoice, float $amount, ?string $reason = null, ?string $method = null): Payment
     {
         $payment = $this->createPaymentRecord($invoice, [
             'invoice_id' => $invoice->id,
-            'user_id' => auth()->id(),
+            'user_id' => auth()->id() ?? $invoice->user_id,
             'amount' => $amount,
-            'method' => 'bank_transfer',
+            'method' => $method ?? 'bank_transfer',
             'type' => Payment::TYPE_REFUND,
             'status' => Payment::STATUS_COMPLETED,
-            'transaction_id' => $this->generateTransactionId('REF'),
+            'transaction_id' => $method === 'stripe' ? null : $this->generateTransactionId('REF'),
             'paid_at' => now(),
             'notes' => $reason ?? 'Refund processed',
+        ]);
+
+        $this->invoiceService->syncRefundStatus($invoice);
+
+        return $payment;
+    }
+
+    /**
+     * Record a cash refund (for Cash on Delivery bookings)
+     */
+    public function recordCashRefund(Invoice $invoice, float $amount, ?string $reason = null): Payment
+    {
+        $payment = $this->createPaymentRecord($invoice, [
+            'invoice_id' => $invoice->id,
+            'user_id' => auth()->id() ?? $invoice->user_id,
+            'amount' => $amount,
+            'method' => 'cash',
+            'type' => Payment::TYPE_REFUND,
+            'status' => Payment::STATUS_COMPLETED,
+            'transaction_id' => $this->generateTransactionId('CASH-REF'),
+            'paid_at' => now(),
+            'notes' => $reason ?? 'Cash refund processed',
         ]);
 
         $this->invoiceService->syncRefundStatus($invoice);

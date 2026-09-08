@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('label')->nullable();
             $table->text('description')->nullable();
             $table->timestamps();
-            
+
             $table->index('key');
             $table->index('group');
         });

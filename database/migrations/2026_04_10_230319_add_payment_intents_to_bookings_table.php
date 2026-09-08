@@ -9,13 +9,14 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up(): void
-{
-    Schema::table('bookings', function (Blueprint $table) {
-        $table->string('rental_payment_intent_id')->nullable();
-        
-    });
-}
+    public function up(): void
+    {
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->string('rental_payment_intent_id')->nullable();
+
+        });
+    }
+
     /**
      * Reverse the migrations.
      */

@@ -19,20 +19,19 @@ return new class extends Migration
             $table->decimal('tax_amount', 12, 2)->default(0);
             $table->decimal('total_amount', 12, 2);
 
-
             $table->enum('status', [
                 'pending',
                 'partial',
                 'paid',
                 'refunded',
-                'cancelled'
+                'cancelled',
             ])->default('pending');
 
             $table->timestamp('issued_at')->nullable();
             $table->timestamp('due_date')->nullable();
 
             $table->timestamps();
-});
+        });
 
     }
 

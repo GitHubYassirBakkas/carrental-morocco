@@ -7,7 +7,7 @@ use Tests\TestCase;
 uses(TestCase::class, RefreshDatabase::class);
 
 test('booking pricing service returns a stable breakdown', function () {
-    $service = new BookingPricingService();
+    $service = new BookingPricingService;
 
     $breakdown = $service->breakdownForPreview(
         rentalPricePerDay: 400,

@@ -15,12 +15,12 @@ class VerificationToken extends Model
         'token',
         'type',
         'expires_at',
-        'used_at'
+        'used_at',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
-        'used_at' => 'datetime'
+        'used_at' => 'datetime',
     ];
 
     public static function boot()
@@ -40,7 +40,7 @@ class VerificationToken extends Model
     public function scopeValid($query)
     {
         return $query->where('expires_at', '>', now())
-                    ->whereNull('used_at');
+            ->whereNull('used_at');
     }
 
     public function scopeOfType($query, $type)
@@ -74,7 +74,7 @@ class VerificationToken extends Model
         return static::create([
             'user_id' => $user->id,
             'type' => $type,
-            'expires_at' => now()->addHours($expiresInHours)
+            'expires_at' => now()->addHours($expiresInHours),
         ]);
     }
 }

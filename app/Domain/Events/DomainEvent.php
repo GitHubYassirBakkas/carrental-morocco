@@ -10,8 +10,7 @@ abstract class DomainEvent
         public readonly array $payload,
         public readonly ?string $traceId = null,
         public readonly ?string $sourceEventId = null,
-    ) {
-    }
+    ) {}
 
     public function name(): string
     {

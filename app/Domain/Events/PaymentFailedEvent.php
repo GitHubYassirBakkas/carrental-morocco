@@ -2,6 +2,4 @@
 
 namespace App\Domain\Events;
 
-class PaymentFailedEvent extends DomainEvent
-{
-}
+class PaymentFailedEvent extends DomainEvent {}

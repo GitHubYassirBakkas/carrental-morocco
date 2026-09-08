@@ -19,9 +19,9 @@
         <div class="hero-stats">
             <div class="hstat"><strong>{{ $cars->total() }}</strong><span>{{ __('messages.results_found') }}</span></div>
             <div class="hstat-div"></div>
-            <div class="hstat"><strong>500+</strong><span>{{ __('messages.stat_cars') }}</span></div>
+            <div class="hstat"><strong>{{ number_format($availableCarsCount) }}</strong><span>{{ __('messages.stat_cars') }}</span></div>
             <div class="hstat-div"></div>
-            <div class="hstat"><strong>24/7</strong><span>{{ __('messages.stat_support') }}</span></div>
+            <div class="hstat"><strong>{{ __('messages.stat_support') }}</strong><span>{{ __('messages.stat_customer_support') }}</span></div>
         </div>
     </div>
 </div>
@@ -99,7 +99,7 @@
                             @php $isActive = in_array($type, (array) request('type', [])); @endphp
                             <label class="type-chip {{ $isActive ? 'type-chip--active' : '' }}">
                                 <input type="checkbox" name="type[]" value="{{ $type }}" {{ $isActive ? 'checked' : '' }} class="hidden" onchange="document.getElementById('filterForm').submit()">
-                                <span>{{ $type }}</span>
+                                <span>{{ ui_car_type($type) }}</span>
                             </label>
                         @endforeach
                     </div>
@@ -184,7 +184,7 @@
                                 loading="lazy"
                                 onerror="this.onerror=null;this.src='{{ asset('images/cars/Route.jpg') }}'">
  
-                            <div class="car-badge">{{ $car->type }}</div>
+                            <div class="car-badge">{{ ui_car_type($car->type) }}</div>
  
                             {{-- Hover overlay --}}
                             <div class="car-img-overlay">
@@ -215,7 +215,7 @@
                                 </div>
                                 <div class="spec">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1z"/></svg>
-                                    <span>{{ $car->transmission }}</span>
+                                    <span>{{ ui_transmission($car->transmission) }}</span>
                                 </div>
                                 <div class="spec">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 2a2 2 0 00-2 2v1H5a3 3 0 00-3 3v9a2 2 0 002 2h12a2 2 0 002-2V8a3 3 0 00-3-3h-1V4a2 2 0 00-2-2H8zm0 2h4v1H8V4z"/></svg>

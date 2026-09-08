@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('payments') || !Schema::hasColumn('payments', 'transaction_id')) {
+        if (! Schema::hasTable('payments') || ! Schema::hasColumn('payments', 'transaction_id')) {
             return;
         }
 
@@ -22,7 +22,7 @@ return new class extends Migration
 
         if ($duplicate) {
             throw new RuntimeException(
-                'Cannot add unique payments.transaction_id index while duplicate transaction IDs exist: ' .
+                'Cannot add unique payments.transaction_id index while duplicate transaction IDs exist: '.
                 $duplicate->transaction_id
             );
         }
@@ -42,7 +42,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('payments') || !Schema::hasColumn('payments', 'transaction_id')) {
+        if (! Schema::hasTable('payments') || ! Schema::hasColumn('payments', 'transaction_id')) {
             return;
         }
 
@@ -51,7 +51,7 @@ return new class extends Migration
                 $table->dropUnique('payments_transaction_id_unique');
             }
 
-            if (!$this->indexExists('payments', 'payments_transaction_id_index')) {
+            if (! $this->indexExists('payments', 'payments_transaction_id_index')) {
                 $table->index('transaction_id', 'payments_transaction_id_index');
             }
         });

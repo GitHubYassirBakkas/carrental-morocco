@@ -334,16 +334,9 @@ class Booking extends Model
             return 0;
         }
 
-        $graceMinutes = (int) config('rental.late_grace_minutes', 60);
-
-        if ($this->late_minutes <= $graceMinutes) {
-            return 0;
-        }
-
-        $chargeableMinutes = $this->late_minutes - $graceMinutes;
-        $hours = ceil($chargeableMinutes / 60);
-
-        return $hours * (float) config('rental.late_fee_per_hour', 50);
+        // Use settings-driven calculation from BookingPricingService
+        return app(BookingPricingService::class)
+            ->calculateLateCharge($this)['fee'];
     }
 
     /* ================= PROGRESS ================= */
@@ -461,53 +454,6 @@ class Booking extends Model
             + $this->damages()->sum('estimated_cost');
     }
 
-    public function calculateFuelCharge()
-    {
-        if (
-            $this->fuel_at_pickup_percent === null ||
-            $this->fuel_at_return_percent === null
-        ) {
-            return 0;
-        }
-
-        $missingPercent = $this->fuel_at_pickup_percent - $this->fuel_at_return_percent;
-
-        if ($missingPercent <= 0) {
-            return 0;
-        }
-
-        $tankCapacity = $this->car->fuel_tank_capacity;
-        $pricePerLiter = $this->car->fuel_price_per_liter;
-
-        $missingLiters = $tankCapacity * ($missingPercent / 100);
-
-        return round($missingLiters * $pricePerLiter, 2);
-    }
-
-    public function calculateLate()
-    {
-        if ($this->isCompleted()) {
-            return [
-                'minutes' => $this->late_minutes,
-                'fee' => $this->late_fee,
-            ];
-        }
-
-        if (now()->lte($this->end_date)) {
-            return [
-                'minutes' => 0,
-                'fee' => 0,
-            ];
-        }
-
-        $minutes = now()->diffInMinutes($this->end_date);
-
-        return [
-            'minutes' => $minutes,
-            'fee' => $minutes * 5,
-        ];
-    }
-
     public function calculateFuel()
     {
         return [
@@ -567,6 +513,13 @@ class Booking extends Model
     {
         return app(SecurityDepositService::class)
             ->isSecurityDepositActionable($this);
+    }
+
+    public function hasVerifiedDriverProfile(): bool
+    {
+        $this->loadMissing('user.customerProfile');
+
+        return (bool) $this->user?->customerProfile?->isDriverVerified();
     }
 
     public function isSecurityDepositRefundable(): bool

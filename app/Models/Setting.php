@@ -18,7 +18,7 @@ class Setting extends Model
         'label',
         'description',
         'autoload',      // ← NEW
-        'is_public'      // ← NEW
+        'is_public',      // ← NEW
     ];
 
     protected $casts = [
@@ -45,25 +45,21 @@ class Setting extends Model
     /**
      * Get single setting value with caching
      *
-     * @param string $key
-     * @param mixed $default
+     * @param  string  $key
+     * @param  mixed  $default
      * @return mixed
      */
     public static function get($key, $default = null)
     {
         return Cache::rememberForever("setting_{$key}", function () use ($key, $default) {
             $setting = static::where('key', $key)->first();
+
             return $setting ? $setting->value : $default;
         });
     }
 
     /**
      * Set/Update setting value
-     *
-     * @param string $key
-     * @param mixed $value
-     * @param string $type
-     * @return void
      */
     public static function set(string $key, mixed $value, ?string $type = null): void
     {
@@ -91,7 +87,7 @@ class Setting extends Model
             ['key' => $key],
             [
                 'value' => $value,
-                'type' => $type
+                'type' => $type,
             ]
         );
 
@@ -103,8 +99,6 @@ class Setting extends Model
 
     /**
      * Get all autoload settings (for performance)
-     *
-     * @return array
      */
     public static function getAutoloadSettings(): array
     {
@@ -120,8 +114,6 @@ class Setting extends Model
 
     /**
      * Get all public settings (safe for frontend)
-     *
-     * @return array
      */
     public static function getPublicSettings(): array
     {
@@ -137,9 +129,6 @@ class Setting extends Model
 
     /**
      * Get all settings by group
-     *
-     * @param string $group
-     * @return array
      */
     public static function getByGroup(string $group): array
     {
@@ -155,15 +144,13 @@ class Setting extends Model
 
     /**
      * Clear all settings cache
-     *
-     * @return void
      */
     public static function clearCache(): void
     {
         // Clear main caches
         Cache::forget('autoload_settings');
         Cache::forget('public_settings');
-        
+
         // Clear individual setting caches
         static::all()->each(function ($setting) {
             Cache::forget("setting_{$setting->key}");
@@ -177,9 +164,6 @@ class Setting extends Model
 
     /**
      * Refresh cache for a specific setting
-     *
-     * @param string $key
-     * @return void
      */
     public static function refreshCache(string $key): void
     {
@@ -189,9 +173,6 @@ class Setting extends Model
 
     /**
      * Check if setting exists
-     *
-     * @param string $key
-     * @return bool
      */
     public static function has(string $key): bool
     {
@@ -200,14 +181,11 @@ class Setting extends Model
 
     /**
      * Delete a setting
-     *
-     * @param string $key
-     * @return bool
      */
     public static function remove(string $key): bool
     {
         $deleted = static::where('key', $key)->delete();
-        
+
         if ($deleted) {
             Cache::forget("setting_{$key}");
             static::clearCache();
@@ -218,9 +196,6 @@ class Setting extends Model
 
     /**
      * Get multiple settings at once
-     *
-     * @param array $keys
-     * @return array
      */
     public static function getMany(array $keys): array
     {

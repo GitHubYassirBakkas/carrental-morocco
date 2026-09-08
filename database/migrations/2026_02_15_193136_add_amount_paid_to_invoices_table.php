@@ -9,17 +9,17 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up()
-{
-    Schema::table('invoices', function (Blueprint $table) {
-        $table->decimal('amount_paid', 12, 2)->default(0)->after('total_amount');
-    });
-}
+    public function up()
+    {
+        Schema::table('invoices', function (Blueprint $table) {
+            $table->decimal('amount_paid', 12, 2)->default(0)->after('total_amount');
+        });
+    }
 
-public function down()
-{
-    Schema::table('invoices', function (Blueprint $table) {
-        $table->dropColumn('amount_paid');
-    });
-}
+    public function down()
+    {
+        Schema::table('invoices', function (Blueprint $table) {
+            $table->dropColumn('amount_paid');
+        });
+    }
 };

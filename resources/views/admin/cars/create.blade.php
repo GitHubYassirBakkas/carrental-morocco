@@ -202,7 +202,7 @@
                         Main Photo <span class="cf-req">*</span>
                     </div>
                     <div class="cf-dropzone" id="mainDrop">
-                        <input type="file" name="image" accept="image/*" required id="mainImg">
+                        <input type="file" name="image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" required id="mainImg">
                         <div class="cf-drop-content" id="mainPreview">
                             <div class="cf-drop-icon">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
@@ -220,7 +220,7 @@
                         Gallery Images <span class="cf-optional">optional</span>
                     </div>
                     <div class="cf-dropzone cf-dropzone--gallery">
-                        <input type="file" name="gallery[]" multiple accept="image/*" id="galleryImgs">
+                        <input type="file" name="gallery[]" multiple accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" id="galleryImgs">
                         <div class="cf-drop-content">
                             <div class="cf-drop-icon">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>

@@ -49,10 +49,7 @@
     locOpen: false,
     locSearch: '',
 
-    cities: [
-        { val: 'meknes', label: 'Meknès', active: true },
-        { val: 'casablanca', label: 'Casablanca', active: false }
-    ],
+    cities: @js($locationOptions),
 
     /* 🧠 Normalize */
     normalize(str) {
@@ -255,13 +252,13 @@
 
     {{-- Stats bar --}}
     <div class="hero-stats-bar">
-        <div class="hs-item"><strong>500+</strong><span>{{ __('messages.stat_cars') }}</span></div>
+        <div class="hs-item"><strong>{{ number_format($stats['available_cars']) }}</strong><span>{{ __('messages.stat_cars') }}</span></div>
         <div class="hs-div"></div>
-        <div class="hs-item"><strong>10K+</strong><span>{{ __('messages.stat_customers') }}</span></div>
+        <div class="hs-item"><strong>{{ number_format($stats['completed_customers']) }}</strong><span>{{ __('messages.stat_customers') }}</span></div>
         <div class="hs-div"></div>
-        <div class="hs-item"><strong>12</strong><span>{{ __('messages.home_cities') }}</span></div>
+        <div class="hs-item"><strong>{{ number_format($stats['active_locations']) }}</strong><span>{{ __('messages.home_cities') }}</span></div>
         <div class="hs-div"></div>
-        <div class="hs-item"><strong>24/7</strong><span>{{ __('messages.stat_support') }}</span></div>
+        <div class="hs-item"><strong>{{ number_format($stats['active_brands']) }}</strong><span>{{ __('messages.stat_brands') }}</span></div>
     </div>
 
 </section>
@@ -274,8 +271,8 @@
         <div class="ha-img-wrap">
             <img src="/images/hero/CEO-1.jpg" alt="CarRental Morocco">
             <div class="ha-img-badge">
-                <strong>6+</strong>
-                <span>{{ __('messages.home_years') }}</span>
+                <strong>{{ number_format($stats['active_locations']) }}</strong>
+                <span>{{ __('messages.home_cities') }}</span>
             </div>
         </div>
         <div class="ha-content">
@@ -303,50 +300,49 @@
         <h2 class="section-h2">{{ __('messages.home_cars_title') }} <span>{{ __('messages.home_cars_highlight') }}</span></h2>
     </div>
 
-    <div class="hc-slider-wrap">
-        <div class="hc-slider" id="carSlider">
-            @php
-            $featuredCars = [
-                ['name'=>'Lamborghini Urus',     'img'=>asset('images/cars/Lamborghini-Urus.jpg'),     'seats'=>4,'price'=>7500],
-                ['name'=>'Mercedes C-Class',     'img'=>asset('images/cars/mercedes-c-class.jpg'),     'seats'=>5,'price'=>6800],
-                ['name'=>'Audi RS7',             'img'=>asset('images/cars/audi-rs7.jpg'),             'seats'=>4,'price'=>5400],
-                ['name'=>'Range Rover',          'img'=>asset('images/cars/range-rover.jpg'),          'seats'=>5,'price'=>6000],
-                ['name'=>'Bentley Bentayga',     'img'=>asset('images/cars/bentley-bentayga.jpg'),     'seats'=>5,'price'=>5200],
-                ['name'=>'Porsche Cayenne Turbo','img'=>asset('images/cars/porsche-cayenne.jpg'),      'seats'=>5,'price'=>5900],
-            ];
-            @endphp
-
-            @foreach($featuredCars as $fc)
-            <div class="hc-card">
-                <div class="hc-img">
-                    <img src="{{ $fc['img'] }}" alt="{{ $fc['name'] }}" loading="lazy">
-                    <div class="hc-img-overlay"></div>
-                </div>
-                <div class="hc-body">
-                    <h3>{{ $fc['name'] }}</h3>
-                    <div class="hc-specs">
-                        <span>🚗 {{ $fc['seats'] }} {{ __('messages.seats') }}</span>
-                        <span>⚙️ {{ __('messages.automatic') }}</span>
+    @if($featuredCars->isNotEmpty())
+        <div class="hc-slider-wrap">
+            <div class="hc-slider" id="carSlider">
+                @foreach($featuredCars as $car)
+                <div class="hc-card">
+                    <div class="hc-img">
+                        <img
+                            src="{{ $car->image_url }}"
+                            alt="{{ $car->brand }} {{ $car->model }}"
+                            loading="lazy"
+                            onerror="this.onerror=null;this.src='{{ asset('images/cars/Route.jpg') }}'">
+                        <div class="hc-img-overlay"></div>
                     </div>
-                    <div class="hc-footer">
-                        <a href="{{ route('cars.index') }}" class="hc-view-btn">{{ __('messages.view_details') }}</a>
-                        <div class="hc-price">
-                            <strong>{{ number_format($fc['price']) }}</strong>
-                            <span>{{ __('messages.currency') }}/{{ __('messages.per_day') }}</span>
+                    <div class="hc-body">
+                        <h3>{{ $car->brand }} {{ $car->model }}</h3>
+                        <div class="hc-specs">
+                            <span>🚗 {{ $car->seats }} {{ __('messages.seats') }}</span>
+                            <span>⚙️ {{ $car->transmission }}</span>
+                        </div>
+                        <div class="hc-footer">
+                            <a href="{{ route('cars.show', $car) }}" class="hc-view-btn">{{ __('messages.view_details') }}</a>
+                            <div class="hc-price">
+                                <strong>{{ number_format($car->price_per_day, 0) }}</strong>
+                                <span>{{ __('messages.currency') }}/{{ __('messages.per_day') }}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
+                @endforeach
             </div>
-            @endforeach
-        </div>
 
-        <button class="hc-arrow hc-arrow--prev" id="prevBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
-        </button>
-        <button class="hc-arrow hc-arrow--next" id="nextBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-        </button>
-    </div>
+            @if($featuredCars->count() > 1)
+                <button class="hc-arrow hc-arrow--prev" id="prevBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                </button>
+                <button class="hc-arrow hc-arrow--next" id="nextBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            @endif
+        </div>
+    @else
+        <div class="hc-empty">No cars are currently available.</div>
+    @endif
 
     <div class="hc-cta">
         <a href="{{ route('cars.index') }}" class="ha-btn">
@@ -397,53 +393,41 @@
         <h2 class="section-h2">{{ __('messages.home_cats_title') }} <span>{{ __('messages.home_cats_high') }}</span></h2>
     </div>
 
-    <div class="hcat-slider-wrap">
-        <div class="hcat-slider">
-            <div class="hcat-slide">
-                @php
-                $cats = [
-                    ['key'=>'home_cat_economy','img'=>'/images/categories/Lamborghini Urus.jpg'],
-                    ['key'=>'home_cat_compact','img'=>'/images/categories/Lamborghini Urus.jpg'],
-                    ['key'=>'home_cat_sedan',  'img'=>'/images/categories/Lamborghini Urus.jpg'],
-                ];
-                @endphp
-                @foreach($cats as $c)
-                <div class="hcat-card">
-                    <img src="{{ $c['img'] }}" alt="{{ __('messages.'.$c['key']) }}" loading="lazy">
-                    <div class="hcat-overlay"></div>
-                    <h3>{{ __('messages.'.$c['key']) }}</h3>
-                    <a href="{{ route('cars.index') }}" class="hcat-arrow">
-                        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                    </a>
-                </div>
+    @if($carTypes->isNotEmpty())
+        @php $typeSlides = $carTypes->chunk(3); @endphp
+        <div class="hcat-slider-wrap">
+            <div class="hcat-slider">
+                @foreach($typeSlides as $slideIndex => $slide)
+                    <div class="hcat-slide" @if($slideIndex > 0) style="display:none" @endif>
+                        @foreach($slide as $type)
+                        <div class="hcat-card">
+                            <img
+                                src="{{ $type['image_url'] }}"
+                                alt="{{ $type['title'] }}"
+                                loading="lazy"
+                                onerror="this.onerror=null;this.src='{{ asset('images/cars/Route.jpg') }}'">
+                            <div class="hcat-overlay"></div>
+                            <h3>{{ $type['title'] }}</h3>
+                            <a href="{{ route('cars.index', ['type' => $type['type']]) }}" class="hcat-arrow" aria-label="{{ $type['title'] }}">
+                                <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                            </a>
+                        </div>
+                        @endforeach
+                    </div>
                 @endforeach
             </div>
-            <div class="hcat-slide" style="display:none">
-                @php
-                $cats2 = [
-                    ['key'=>'home_cat_suv',   'img'=>'/images/categories/Lamborghini Urus.jpg'],
-                    ['key'=>'home_cat_luxury','img'=>'/images/categories/Lamborghini Urus.jpg'],
-                    ['key'=>'home_cat_family','img'=>'/images/categories/Lamborghini Urus.jpg'],
-                ];
-                @endphp
-                @foreach($cats2 as $c)
-                <div class="hcat-card">
-                    <img src="{{ $c['img'] }}" alt="{{ __('messages.'.$c['key']) }}" loading="lazy">
-                    <div class="hcat-overlay"></div>
-                    <h3>{{ __('messages.'.$c['key']) }}</h3>
-                    <a href="{{ route('cars.index') }}" class="hcat-arrow">
-                        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-                    </a>
-                </div>
-                @endforeach
-            </div>
-        </div>
 
-        <div class="hcat-dots">
-            <span class="hcat-dot hcat-dot--active" data-slide="0"></span>
-            <span class="hcat-dot" data-slide="1"></span>
+            @if($typeSlides->count() > 1)
+                <div class="hcat-dots">
+                    @foreach($typeSlides as $slideIndex => $slide)
+                        <span class="hcat-dot {{ $slideIndex === 0 ? 'hcat-dot--active' : '' }}" data-slide="{{ $slideIndex }}"></span>
+                    @endforeach
+                </div>
+            @endif
         </div>
-    </div>
+    @else
+        <div class="hcat-empty">No car types are currently available.</div>
+    @endif
 </section>
 
 {{-- ═══════════════════════════════════════
@@ -483,6 +467,7 @@
 {{-- ═══════════════════════════════════════
      TESTIMONIALS
 ═══════════════════════════════════════ --}}
+@if($testimonials->isNotEmpty())
 <section class="home-testi">
     <div class="ht-header">
         <div class="section-tag">{{ __('messages.reviews') }}</div>
@@ -490,50 +475,74 @@
         <p class="ht-sub">{{ __('messages.home_testi_sub') }}</p>
     </div>
 
-    <div class="swiper ht-swiper">
+    <div class="swiper ht-swiper" data-testimonial-count="{{ $testimonials->count() }}">
         <div class="swiper-wrapper">
-            @php
-            $testimonials = [
-                ['text'=>'Great service and amazing cars! The booking process was super easy.','name'=>'John Smith','role'=>'Customer','img'=>'https://i.pravatar.cc/100?img=12'],
-                ['text'=>'I really enjoyed driving the car. Highly recommended!','name'=>'Linda Cooper','role'=>'Traveller','img'=>'https://i.pravatar.cc/100?img=30'],
-                ['text'=>'Very professional team and excellent customer support!','name'=>'Mark Wilson','role'=>'Business Client','img'=>'https://i.pravatar.cc/100?img=47'],
-                ['text'=>'Best rental experience I\'ve had so far. Will rent again!','name'=>'Sarah Lee','role'=>'Designer','img'=>'https://i.pravatar.cc/100?img=59'],
-                ['text'=>'High quality cars and fast service. Perfect experience!','name'=>'Adam Bruce','role'=>'Engineer','img'=>'https://i.pravatar.cc/100?img=66'],
-            ];
-            @endphp
-
-            @foreach($testimonials as $t)
+            @foreach($testimonials as $review)
+                @php
+                    $rating = max(1, min(5, (int) $review->rating));
+                    $name = trim($review->user->name ?? '');
+                    $parts = preg_split('/\s+/', $name, -1, PREG_SPLIT_NO_EMPTY);
+                    $initials = collect($parts)
+                        ->take(2)
+                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
+                        ->implode('') ?: '?';
+                    $photoPath = $review->user->profile_photo_path ?? null;
+                    $normalizedPhotoPath = $photoPath ? str_replace('\\', '/', $photoPath) : null;
+                    $hasPhoto = $normalizedPhotoPath
+                        && ! str_contains($normalizedPhotoPath, '://')
+                        && ! str_starts_with($normalizedPhotoPath, '/')
+                        && ! str_contains($normalizedPhotoPath, '..')
+                        && \Illuminate\Support\Facades\Storage::disk('public')->exists($normalizedPhotoPath);
+                    $avatarUrl = $hasPhoto ? \Illuminate\Support\Facades\Storage::url($normalizedPhotoPath) : null;
+                @endphp
             <div class="swiper-slide">
                 <div class="ht-card">
-                    <div class="ht-stars">★★★★★</div>
-                    <p class="ht-text">"{{ $t['text'] }}"</p>
-                    <div class="ht-profile">
-                        <img src="{{ $t['img'] }}" alt="{{ $t['name'] }}">
-                        <div>
-                            <strong>{{ $t['name'] }}</strong>
-                            <span>{{ $t['role'] }}</span>
+                    <div class="ht-person">
+                        <div class="ht-avatar">
+                            @if($avatarUrl)
+                                <img src="{{ $avatarUrl }}" alt="{{ $review->user->name }}" class="ht-avatar-img" loading="lazy">
+                            @else
+                                <div class="ht-avatar-initials" aria-hidden="true">{{ $initials }}</div>
+                            @endif
                         </div>
+                        <strong>{{ $review->user->name }}</strong>
+                        <span>{{ $review->created_at->diffForHumans() }}</span>
+                    </div>
+
+                    <div class="ht-stars" aria-label="{{ $rating }} out of 5 stars">
+                        @for($i = 1; $i <= 5; $i++)
+                            <span class="{{ $i <= $rating ? 'ht-star--on' : 'ht-star--off' }}">@if($i <= $rating)&#9733;@else&#9734;@endif</span>
+                        @endfor
+                    </div>
+
+                    <p class="ht-text">"{{ $review->comment }}"</p>
+
+                    <div class="ht-car">
+                        <span>Reviewed</span>
+                        <strong>{{ $review->car->year }} {{ $review->car->brand }} {{ $review->car->model }}</strong>
                     </div>
                 </div>
             </div>
             @endforeach
         </div>
-        <div class="swiper-pagination ht-pagination"></div>
+        @if($testimonials->count() > 1)
+            <div class="swiper-pagination ht-pagination"></div>
+        @endif
     </div>
 </section>
+@endif
 
 {{-- ═══════════════════════════════════════
      CTA BANNER
 ═══════════════════════════════════════ --}}
-<section class="home-cta" style="background-image:url('{{ asset('images/placeholder/Lamborghini Urus.jpg') }}')">
+<section class="home-cta" data-decorative-car="porsche" style="--hcta-image:url('{{ asset('images/cta/luxury-porsche.png') }}')">
     <div class="hcta-overlay"></div>
     <div class="hcta-content">
         <h2>{{ __('messages.home_cta_title') }}</h2>
         <p>{{ __('messages.home_cta_desc') }}</p>
         <div class="hcta-btns">
-            <a href="https://wa.me/212600123456" class="hcta-btn hcta-btn--wa">
-                <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                {{ __('messages.home_cta_whatsapp') }}
+            <a href="{{ route('contact') }}" class="hcta-btn hcta-btn--wa">
+                {{ __('messages.contact') }}
             </a>
             <a href="{{ route('cars.index') }}" class="hcta-btn hcta-btn--rent">
                 {{ __('messages.home_cta_rent') }}
@@ -546,20 +555,18 @@
 {{-- ═══════════════════════════════════════
      BRANDS SCROLL
 ═══════════════════════════════════════ --}}
-<section class="home-brands">
-    <div class="hb-label">{{ __('messages.home_brands_label') }}</div>
-    <div class="hb-track-wrap">
-        <div class="hb-track" id="brandsTrack">
-            @php
-            $brands = ['Ferrari','Lamborghini','Rolls-Royce','Porsche','Maserati','Mercedes-Benz','BMW','Audi','Range Rover','Bentley'];
-            $allBrands = array_merge($brands, $brands);
-            @endphp
-            @foreach($allBrands as $b)
-                <div class="hb-item">{{ $b }}</div>
-            @endforeach
+@if($brands->isNotEmpty())
+    <section class="home-brands">
+        <div class="hb-label">{{ __('messages.home_brands_label') }}</div>
+        <div class="hb-track-wrap">
+            <div class="hb-track" id="brandsTrack">
+                @foreach($brands as $brand)
+                    <a href="{{ route('cars.index', ['brand' => $brand]) }}" class="hb-item">{{ $brand }}</a>
+                @endforeach
+            </div>
         </div>
-    </div>
-</section>
+    </section>
+@endif
 
 {{-- ═══════════════════════════════════════
      STYLES
@@ -959,6 +966,12 @@
 .hc-arrow--next { right:16px; }
 
 .hc-cta { display:flex; justify-content:center; margin-top:2.5rem; }
+.hc-empty, .hcat-empty {
+    max-width:1100px; margin:0 auto; padding:2rem;
+    border:1px solid var(--border); background:var(--bg-2);
+    border-radius:14px; color:var(--muted); text-align:center;
+    font-size:0.95rem;
+}
 
 /* ── SERVICES ── */
 .home-services { background:var(--bg-2); border-top:1px solid var(--border); padding:6rem 2rem; }
@@ -1067,39 +1080,85 @@
 .ht-swiper { max-width:1100px; margin:0 auto; padding-bottom:3rem; }
 
 .ht-card {
-    background:var(--bg-2); border:1px solid var(--border);
-    border-radius:14px; padding:2rem;
-    display:flex; flex-direction:column; gap:1rem;
+    height:100%; min-height:330px;
+    background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015)),var(--bg-2);
+    border:1px solid var(--border);
+    border-radius:14px; padding:2.15rem 1.75rem 1.5rem;
+    display:flex; flex-direction:column; align-items:center; gap:1rem;
+    text-align:center;
+    transition:border-color var(--tr), transform var(--tr), background var(--tr);
 }
-.ht-stars { font-size:1.1rem; color:#fbbf24; letter-spacing:2px; }
-.ht-text  { font-size:0.9rem; color:var(--muted); line-height:1.8; font-style:italic; flex:1; }
-.ht-profile { display:flex; align-items:center; gap:12px; border-top:1px solid var(--border); padding-top:1rem; }
-.ht-profile img { width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid rgba(200,157,102,0.2); }
-.ht-profile strong { display:block; font-size:0.875rem; color:var(--text); font-weight:700; }
-.ht-profile span   { font-size:0.72rem; color:var(--hint); }
+.ht-card:hover { border-color:rgba(200,157,102,0.32); transform:translateY(-2px); }
+.ht-person { display:flex; flex-direction:column; align-items:center; gap:0.35rem; }
+.ht-avatar {
+    width:72px; height:72px; border-radius:50%;
+    padding:3px;
+    background:linear-gradient(135deg,var(--gold),rgba(200,157,102,0.25));
+    box-shadow:0 10px 24px rgba(0,0,0,0.28);
+    flex-shrink:0;
+}
+.ht-avatar-img,
+.ht-avatar-initials {
+    width:100%; height:100%; border-radius:50%;
+    border:3px solid var(--bg-2);
+}
+.ht-avatar-img { display:block; object-fit:cover; background:#111; }
+.ht-avatar-initials {
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(135deg,var(--gold),var(--gold-d));
+    color:#0a0a0a; font-size:1rem; font-weight:900;
+}
+.ht-person strong { color:var(--text); font-size:0.98rem; font-weight:800; letter-spacing:-0.01em; }
+.ht-person span { color:var(--hint); font-size:0.72rem; }
+.ht-stars { display:flex; justify-content:center; gap:3px; font-size:1.05rem; color:#fbbf24; letter-spacing:1px; }
+.ht-star--off { color:rgba(255,255,255,0.18); }
+.ht-text  { font-size:0.95rem; color:#d8d2c8; line-height:1.8; font-style:italic; flex:1; max-width:92%; }
+.ht-car {
+    width:100%; border-top:1px solid var(--border);
+    padding-top:0.95rem; margin-top:0.25rem;
+    display:flex; flex-direction:column; gap:0.18rem; align-items:center;
+}
+.ht-car span { font-size:0.62rem; color:var(--hint); text-transform:uppercase; letter-spacing:0.12em; font-weight:700; }
+.ht-car strong { font-size:0.82rem; color:var(--gold); font-weight:700; }
 
 .ht-pagination .swiper-pagination-bullet { background:var(--hint); opacity:1; }
 .ht-pagination .swiper-pagination-bullet-active { background:var(--gold); width:24px; border-radius:3px; }
 
+@media(max-width:600px) {
+    .home-testi { padding:4.5rem 1rem; }
+    .ht-card { min-height:300px; padding:1.65rem 1.25rem 1.35rem; }
+    .ht-avatar { width:62px; height:62px; }
+    .ht-text { max-width:100%; font-size:0.9rem; }
+}
+
 /* ── CTA ── */
 .home-cta {
     position:relative; min-height:480px;
-    background-size:cover; background-position:center;
-    display:flex; align-items:center; justify-content:center;
+    background-image:
+        linear-gradient(90deg, rgba(8,8,8,0.98) 0%, rgba(8,8,8,0.84) 38%, rgba(8,8,8,0.34) 76%, rgba(8,8,8,0.78) 100%),
+        var(--hcta-image);
+    background-size:cover;
+    background-position:center right;
+    display:flex; align-items:center; justify-content:flex-start;
     border-top:1px solid var(--border);
+    overflow:hidden;
 }
 .hcta-overlay {
     position:absolute; inset:0;
-    background:linear-gradient(to right,rgba(10,10,10,0.9),rgba(10,10,10,0.6));
+    background:
+        radial-gradient(circle at 72% 38%, rgba(200,157,102,0.20), transparent 19rem),
+        linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.62));
 }
 .hcta-content {
     position:relative; z-index:1;
-    text-align:center; padding:3rem 2rem; max-width:600px;
+    text-align:left; padding:3rem 2rem; max-width:600px;
+    width:min(600px, 100%);
+    margin-left:max(2rem, calc((100vw - 1200px) / 2 + 2rem));
 }
 .hcta-content h2 { font-size:clamp(2rem,4vw,3rem); font-weight:800; color:#fff; letter-spacing:-0.04em; margin-bottom:1rem; }
 .hcta-content p  { font-size:1rem; color:#aaa; line-height:1.7; margin-bottom:2.5rem; }
 
-.hcta-btns { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; }
+.hcta-btns { display:flex; justify-content:flex-start; gap:14px; flex-wrap:wrap; }
 
 .hcta-btn {
     display:inline-flex; align-items:center; gap:9px;
@@ -1113,6 +1172,39 @@
 .hcta-btn--rent:hover { background:rgba(200,157,102,0.1); border-color:var(--gold); }
 
 /* ── BRANDS ── */
+@media (max-width: 768px) {
+    .home-cta {
+        min-height:430px;
+        background-image:
+            linear-gradient(180deg, rgba(8,8,8,0.92) 0%, rgba(8,8,8,0.82) 52%, rgba(8,8,8,0.94) 100%),
+            var(--hcta-image);
+        background-position:64% center;
+    }
+
+    .hcta-content {
+        text-align:center;
+        margin:0 auto;
+        padding:3rem 1.25rem;
+    }
+
+    .hcta-btns { justify-content:center; }
+}
+
+@media (max-width: 420px) {
+    .home-cta {
+        min-height:410px;
+        background-position:68% center;
+    }
+
+    .hcta-content p { margin-bottom:1.75rem; }
+
+    .hcta-btn {
+        width:100%;
+        justify-content:center;
+        max-width:260px;
+    }
+}
+
 .home-brands {
     background:var(--bg-2);
     padding:2.25rem 0;
@@ -1141,8 +1233,9 @@
     padding:0 2.75rem;
     position:relative;
     transition:color 0.3s;
-    cursor:default; flex-shrink:0;
+    cursor:pointer; flex-shrink:0;
     font-family:Georgia,'Times New Roman',serif;
+    text-decoration:none;
 }
 .hb-item::after {
     content:'·';
@@ -1235,16 +1328,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Car slider ──
     const slider  = document.getElementById('carSlider');
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
     const cardW   = 380;
     let idx = 0;
-    const maxIdx  = slider.children.length - 1;
 
-    document.getElementById('nextBtn').addEventListener('click', () => {
-        if (idx < maxIdx) { idx++; slider.style.transform = `translateX(-${idx * cardW}px)`; }
-    });
-    document.getElementById('prevBtn').addEventListener('click', () => {
-        if (idx > 0) { idx--; slider.style.transform = `translateX(-${idx * cardW}px)`; }
-    });
+    if (slider && nextBtn && prevBtn) {
+        const maxIdx = Math.max(0, slider.children.length - 1);
+
+        nextBtn.addEventListener('click', () => {
+            if (idx < maxIdx) { idx++; slider.style.transform = `translateX(-${idx * cardW}px)`; }
+        });
+        prevBtn.addEventListener('click', () => {
+            if (idx > 0) { idx--; slider.style.transform = `translateX(-${idx * cardW}px)`; }
+        });
+    }
 
     // ── Categories dots ──
     const catSlides = document.querySelectorAll('.hcat-slide');
@@ -1259,15 +1357,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Swiper testimonials ──
-    if (typeof Swiper !== 'undefined') {
+    const testimonialSwiper = document.querySelector('.ht-swiper');
+    if (typeof Swiper !== 'undefined' && testimonialSwiper) {
+        const testimonialCount = parseInt(testimonialSwiper.dataset.testimonialCount || '0', 10);
+
         new Swiper('.ht-swiper', {
-            loop: true,
-            autoplay: { delay: 3000, disableOnInteraction: false },
+            loop: testimonialCount > 3,
+            autoplay: testimonialCount > 1 ? { delay: 3000, disableOnInteraction: false } : false,
             speed: 700,
             grabCursor: true,
             slidesPerView: 1,
             spaceBetween: 20,
-            pagination: { el: '.ht-pagination', clickable: true },
+            pagination: testimonialCount > 1 ? { el: '.ht-pagination', clickable: true } : false,
             breakpoints: { 768: { slidesPerView: 2 }, 1100: { slidesPerView: 3 } }
         });
     }

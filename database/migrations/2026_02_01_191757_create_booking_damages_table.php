@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('booking_damages', function (Blueprint $table) {
@@ -14,7 +15,7 @@ return new class extends Migration {
                 ->constrained()
                 ->restrictOnDelete();
 
-            $table->enum('stage', ['checkin','checkout']);
+            $table->enum('stage', ['checkin', 'checkout']);
 
             $table->string('part'); // door, bumper, mirror...
             $table->string('type'); // scratch, dent, broken

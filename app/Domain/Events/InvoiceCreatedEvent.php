@@ -2,6 +2,4 @@
 
 namespace App\Domain\Events;
 
-class InvoiceCreatedEvent extends DomainEvent
-{
-}
+class InvoiceCreatedEvent extends DomainEvent {}

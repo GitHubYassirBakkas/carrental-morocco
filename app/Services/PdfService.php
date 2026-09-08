@@ -9,7 +9,7 @@ class PdfService
 {
     public static function make(string $html)
     {
-        $options = new Options();
+        $options = new Options;
         $options->set('defaultFont', 'DejaVu Sans');
         $options->set('isRemoteEnabled', true);
 

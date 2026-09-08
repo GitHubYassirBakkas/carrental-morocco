@@ -17,7 +17,7 @@ return new class extends Migration
         ])->first(fn (string $column): bool => Schema::hasColumn('bookings', $column));
 
         Schema::table('bookings', function (Blueprint $table) use ($afterColumn) {
-            if (!Schema::hasColumn('bookings', 'security_deposit_captured_by')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_captured_by')) {
                 $column = $table->foreignId('security_deposit_captured_by')->nullable()
                     ->constrained('users')
                     ->restrictOnDelete();
@@ -27,7 +27,7 @@ return new class extends Migration
                 }
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_captured_at')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_captured_at')) {
                 $column = $table->timestamp('security_deposit_captured_at')->nullable();
 
                 if (Schema::hasColumn('bookings', 'security_deposit_captured_by')) {
@@ -35,7 +35,7 @@ return new class extends Migration
                 }
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_refunded_by')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_refunded_by')) {
                 $column = $table->foreignId('security_deposit_refunded_by')->nullable()
                     ->constrained('users')
                     ->restrictOnDelete();
@@ -45,7 +45,7 @@ return new class extends Migration
                 }
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_refunded_at')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_refunded_at')) {
                 $column = $table->timestamp('security_deposit_refunded_at')->nullable();
 
                 if (Schema::hasColumn('bookings', 'security_deposit_refunded_by')) {
@@ -53,7 +53,7 @@ return new class extends Migration
                 }
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_penalty_reason')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_penalty_reason')) {
                 $column = $table->text('security_deposit_penalty_reason')->nullable();
 
                 if (Schema::hasColumn('bookings', 'security_deposit_refunded_at')) {

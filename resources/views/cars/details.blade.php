@@ -84,7 +84,7 @@
                     <div>
                         <h1 class="cd-car-title">{{ $car->full_name }}</h1>
                         <div class="cd-car-meta">
-                            <span class="cd-tag">{{ $car->type }}</span>
+                            <span class="cd-tag">{{ ui_car_type($car->type) }}</span>
                             <span class="cd-dot">•</span>
                             <span class="cd-year">{{ $car->year }}</span>
                             @if($car->location)
@@ -96,10 +96,33 @@
                             @endif
                         </div>
                     </div>
-                    <div class="cd-price-header">
-                        <strong>{{ number_format($car->price_per_day, 0) }}</strong>
-                        <span>MAD / {{ __('messages.per_day') }}</span>
-                    </div>
+                   <div class="cd-price-header">
+    <strong>{{ number_format($car->price_per_day, 0) }}</strong>
+    <span>MAD / {{ __('messages.per_day') }}</span>
+</div>
+
+@auth
+    @php
+        $isFavorited = auth()->user()->wishlists()
+            ->where('car_id', $car->id)
+            ->exists();
+    @endphp
+
+    <form method="POST"
+          action="{{ $isFavorited ? route('wishlist.destroy', $car) : route('wishlist.store', $car) }}">
+        @csrf
+
+        @if($isFavorited)
+            @method('DELETE')
+        @endif
+
+        <button type="submit"
+                class="ml-4 text-3xl hover:scale-110 transition"
+                title="{{ $isFavorited ? __('messages.wishlist_remove') : __('messages.wishlist_add') }}">
+            {{ $isFavorited ? '❤️' : '🤍' }}
+        </button>
+    </form>
+@endauth
                 </div>
 
                 {{-- Specs row --}}
@@ -109,14 +132,14 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                         </div>
                         <span class="cd-spec-label">{{ __('messages.transmission') }}</span>
-                        <span class="cd-spec-val">{{ ucfirst($car->transmission) }}</span>
+                        <span class="cd-spec-val">{{ ui_transmission($car->transmission) }}</span>
                     </div>
                     <div class="cd-spec">
                         <div class="cd-spec-icon cd-spec-icon--green">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                         </div>
                         <span class="cd-spec-label">{{ __('messages.fuel_type') }}</span>
-                        <span class="cd-spec-val">{{ ucfirst($car->fuel_type) }}</span>
+                        <span class="cd-spec-val">{{ ui_fuel_type($car->fuel_type) }}</span>
                     </div>
                     <div class="cd-spec">
                         <div class="cd-spec-icon cd-spec-icon--purple">
@@ -324,9 +347,9 @@
     <div class="cd-coverage-table">
         <div class="cd-cov-header">
             <span>{{ __('messages.coverage_type') }}</span>
-            <span>Basic Coverage Included</span>
-            <span>Standard Protection</span>
-            <span>Premium Protection</span>
+            <span>{{ __('messages.coverage_basic') }}</span>
+            <span>{{ __('messages.coverage_standard') }}</span>
+            <span>{{ __('messages.coverage_premium') }}</span>
         </div>
         @php
         $coverageRows = [
@@ -453,7 +476,7 @@
             <div class="cd-card cd-no-reviews">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
                 <h3>{{ __('messages.no_reviews_title') }}</h3>
-                <p>{{ __('messages.no_reviews_title_desc') }}</p>
+                <p>{{ __('messages.no_reviews_desc') }}</p>
             </div>
             @endif
 
@@ -475,6 +498,10 @@
 
                 @auth
                     @if(auth()->user()->hasVerifiedEmail())
+                        @php
+                            $driverProfile = auth()->user()->customerProfile;
+                        @endphp
+                        @if($driverProfile?->isDriverVerified())
 
                         <form method="POST" action="{{ route('bookings.preview', $car) }}">
                             @csrf
@@ -581,6 +608,31 @@
                                 <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
                             </button>
                         </form>
+
+                        @else
+                            @php
+                                $driverStatus = $driverProfile?->driver_verification_status ?? \App\Models\CustomerProfile::STATUS_INCOMPLETE;
+                            @endphp
+                            <div class="cd-driver-block">
+                                @if($driverStatus === \App\Models\CustomerProfile::STATUS_PENDING)
+                                    <h4>{{ __('messages.driver_under_review') }}</h4>
+                                    <p>{{ __('messages.driver_under_review_desc') }}</p>
+                                    <span>{{ __('messages.driver_review_time') }}</span>
+                                    <a href="{{ route('profile.driver.edit') }}">{{ __('messages.view_driver_profile') }}</a>
+                                @elseif($driverStatus === \App\Models\CustomerProfile::STATUS_REJECTED)
+                                    <h4>{{ __('messages.driver_verification_attention') }}</h4>
+                                    <p>{{ __('messages.driver_rejected_desc') }}</p>
+                                    @if($driverProfile?->driver_verification_rejection_reason)
+                                        <div class="cd-driver-reason"><strong>{{ __('messages.reason') }}:</strong> {{ $driverProfile->driver_verification_rejection_reason }}</div>
+                                    @endif
+                                    <a href="{{ route('profile.driver.edit') }}">{{ __('messages.update_driver_profile') }}</a>
+                                @else
+                                    <h4>{{ __('messages.complete_driver_before_booking') }}</h4>
+                                    <p>{{ __('messages.complete_driver_before_booking_desc') }}</p>
+                                    <a href="{{ route('profile.driver.edit') }}">{{ __('messages.complete_driver_profile') }}</a>
+                                @endif
+                            </div>
+                        @endif
 
                     @else
                         <div class="cd-verify-notice">
@@ -995,6 +1047,14 @@
 .cd-verify-notice svg { width: 22px; height: 22px; color: #fbbf24; display: block; margin: 0 auto 8px; }
 .cd-verify-notice p, .cd-guest-notice p { font-size: 0.82rem; color: #fbbf24; margin-bottom: 10px; }
 .cd-verify-notice a { display: inline-block; background: var(--gold); color: #fff; padding: 7px 18px; border-radius: 8px; font-size: 0.8rem; font-weight: 700; text-decoration: none; }
+.cd-driver-block { margin: 1.5rem; background: rgba(200,157,102,0.06); border: 1px solid rgba(200,157,102,0.22); border-radius: 10px; padding: 1.25rem; }
+.cd-driver-block h4 { color: var(--text); font-size: 1rem; font-weight: 800; margin-bottom: 0.55rem; letter-spacing: 0; }
+.cd-driver-block p { color: #b8b8b8; font-size: 0.86rem; line-height: 1.6; margin-bottom: 0.9rem; }
+.cd-driver-block span { display: block; color: #93c5fd; font-size: 0.78rem; margin-bottom: 1rem; }
+.cd-driver-block a { display: flex; align-items: center; justify-content: center; width: 100%; background: var(--gold); color: #fff; padding: 0.8rem 1rem; border-radius: 8px; font-size: 0.86rem; font-weight: 800; text-decoration: none; }
+.cd-driver-block a:hover { background: var(--gold-dark); }
+.cd-driver-reason { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.24); border-radius: 8px; color: #fecaca; font-size: 0.82rem; line-height: 1.5; margin-bottom: 1rem; padding: 0.75rem; }
+.cd-driver-reason strong { color: #fee2e2; }
 .cd-secure-note { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.7rem; color: var(--hint); padding: 0 1.5rem 1.25rem; }
 .cd-secure-note svg { width: 12px; height: 12px; color: #4ade80; }
 
@@ -1052,7 +1112,12 @@ document.addEventListener('alpine:init', () => {
             this.calculateDays();
         },
 
-        fmt(d) { return d.toISOString().split('T')[0]; },
+        fmt(d) { return flatpickr.formatDate(d, 'Y-m-d'); },
+
+        localDate(value) {
+            const [year, month, day] = value.split('-').map(Number);
+            return new Date(year, month - 1, day, 12);
+        },
 
         setImage(i)  { this.activeIndex = i; this.currentImage = this.images[i]; },
         nextImage()  { this.activeIndex = (this.activeIndex + 1) % this.images.length; this.currentImage = this.images[this.activeIndex]; },
@@ -1060,7 +1125,7 @@ document.addEventListener('alpine:init', () => {
 
         calculateDays() {
             if (!this.pickupDate || !this.returnDate) { this.total = this.pricePerDay + this.insurancePrice; return; }
-            const days = Math.ceil((new Date(this.returnDate) - new Date(this.pickupDate)) / 86400000);
+            const days = Math.ceil((this.localDate(this.returnDate) - this.localDate(this.pickupDate)) / 86400000);
             this.rentalDays = Math.max(1, days);
             if (this.rentalDays < this.minDays) { this.availabilityMessage = `${this.msgMinDays} ${this.minDays}`; this.availabilityError = true; return; }
             if (this.rentalDays > this.maxDays) { this.availabilityMessage = `${this.msgMaxDays} ${this.maxDays}`; this.availabilityError = true; return; }

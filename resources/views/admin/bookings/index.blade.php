@@ -120,7 +120,7 @@
                 <option value="">All Status</option>
                 @foreach(['pending','confirmed','active','completed','cancelled'] as $status)
                     <option value="{{ $status }}" @selected(request('status')==$status)>
-                        {{ ucfirst($status) }}
+                        {{ __('messages.statuses.'.$status) }}
                     </option>
                 @endforeach
             </select>
@@ -151,7 +151,7 @@
     <!-- Table -->
     <div class="bg-[#1a1f2e] border border-gray-800 rounded-lg overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full min-w-[960px]">
                 <thead>
                     <tr class="border-b border-gray-800">
                         <th class="px-5 py-3.5 text-left text-xs font-semibold text-[#C89D66] uppercase tracking-wider">ID</th>
@@ -232,6 +232,7 @@
                         <td class="px-5 py-4">
                             @if($booking->status === 'pending')
     <div class="flex flex-col gap-1.5">
+        <x-admin.booking-status-badge :status="$booking->status" />
 
         {{-- Confirm --}}
         <form method="POST" action="{{ route('admin.bookings.confirm', $booking) }}"
@@ -269,15 +270,7 @@
 
     </div>
 @else
-    <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold
-        @class([
-            'bg-blue-500/10 text-blue-400 border border-blue-500/30'         => $booking->status=='confirmed',
-            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' => $booking->status=='active',
-            'bg-gray-700 text-gray-400 border border-gray-600'               => $booking->status=='completed',
-            'bg-red-500/10 text-red-400 border border-red-500/30'            => $booking->status=='cancelled',
-        ])">
-        {{ ucfirst($booking->status) }}
-    </span>
+    <x-admin.booking-status-badge :status="$booking->status" />
 @endif
                         </td>
 

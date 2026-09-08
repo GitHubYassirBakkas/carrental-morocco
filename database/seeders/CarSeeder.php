@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Car;
+use Illuminate\Database\Seeder;
 
 class CarSeeder extends Seeder
 {
@@ -40,7 +40,7 @@ class CarSeeder extends Seeder
                     'Apple CarPlay',
                     'Heated Seats',
                     'Sport Mode',
-                    'Carbon Fiber Interior'
+                    'Carbon Fiber Interior',
                 ],
                 'minimum_age' => 28,
                 'fuel_policy' => 'Full to Full - Return with full tank',
@@ -52,7 +52,7 @@ class CarSeeder extends Seeder
                     'Credit card in driver name',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Aston Martin DBX
@@ -83,7 +83,7 @@ class CarSeeder extends Seeder
                     'Panoramic Sunroof',
                     'Premium Sound System',
                     'Adaptive Cruise Control',
-                    'Lane Assist'
+                    'Lane Assist',
                 ],
                 'minimum_age' => 27,
                 'fuel_policy' => 'Full to Full',
@@ -92,10 +92,10 @@ class CarSeeder extends Seeder
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'ID or Passport',
-                    'Credit card'
+                    'Credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Bugatti Mistral
@@ -126,7 +126,7 @@ class CarSeeder extends Seeder
                     'Track Mode',
                     'Launch Control',
                     'Sport Exhaust',
-                    'Custom Paint'
+                    'Custom Paint',
                 ],
                 'minimum_age' => 30,
                 'fuel_policy' => 'Full to Full with premium fuel',
@@ -136,10 +136,10 @@ class CarSeeder extends Seeder
                     'International driving license',
                     'Passport',
                     'Premium credit card',
-                    'Racing experience certificate'
+                    'Racing experience certificate',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Bentley Bentayga
@@ -160,7 +160,7 @@ class CarSeeder extends Seeder
                     'bentley-bentayga -2.jpg',
                     'bentley-bentayga -3.jpg',
                     'bentley-bentayga -4.jpg',
-                    
+
                 ],
                 'description' => 'The Bentley Bentayga combines extraordinary performance with unrivaled luxury and cutting-edge technology.',
                 'features' => [
@@ -171,7 +171,7 @@ class CarSeeder extends Seeder
                     'Wireless Charging',
                     'Champagne Cooler',
                     '4-Zone Climate',
-                    'Executive Seats'
+                    'Executive Seats',
                 ],
                 'minimum_age' => 28,
                 'fuel_policy' => 'Full to Full',
@@ -180,10 +180,10 @@ class CarSeeder extends Seeder
                 'required_documents' => [
                     'Driving license (3+ years)',
                     'Passport',
-                    'Platinum credit card'
+                    'Platinum credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Rolls-Royce Cullinan
@@ -214,7 +214,7 @@ class CarSeeder extends Seeder
                     'Lambswool Carpets',
                     'Self-leveling',
                     'Silent Cabin',
-                    'Bespoke Audio'
+                    'Bespoke Audio',
                 ],
                 'minimum_age' => 30,
                 'fuel_policy' => 'Full to Full with premium fuel',
@@ -226,7 +226,7 @@ class CarSeeder extends Seeder
                     'Black credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Mercedes C-Class
@@ -254,7 +254,7 @@ class CarSeeder extends Seeder
                     'Digital Cockpit',
                     'Ambient Lighting',
                     'Parking Sensors',
-                    'Apple CarPlay'
+                    'Apple CarPlay',
                 ],
                 'minimum_age' => 23,
                 'fuel_policy' => 'Full to Full',
@@ -263,7 +263,7 @@ class CarSeeder extends Seeder
                 'required_documents' => [
                     'Driving license',
                     'ID card',
-                    'Credit card'
+                    'Credit card',
                 ],
                 'location_id' => 1,
                 'is_available' => true,
@@ -294,7 +294,7 @@ class CarSeeder extends Seeder
                     'Bluetooth',
                     'USB Port',
                     'ABS',
-                    'Airbags'
+                    'Airbags',
                 ],
                 'minimum_age' => 21,
                 'fuel_policy' => 'Full to Full',
@@ -302,7 +302,7 @@ class CarSeeder extends Seeder
                 'security_deposit_amount' => 1000.00,
                 'required_documents' => [
                     'Driving license',
-                    'ID card'
+                    'ID card',
                 ],
                 'location_id' => 1,
                 'is_available' => true,
@@ -336,7 +336,7 @@ class CarSeeder extends Seeder
                     'Sport Differential',
                     'Ceramic Brakes',
                     'Carbon Package',
-                    'RS Mode'
+                    'RS Mode',
                 ],
                 'minimum_age' => 26,
                 'fuel_policy' => 'Full to Full',
@@ -345,10 +345,10 @@ class CarSeeder extends Seeder
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'Passport',
-                    'Credit card'
+                    'Credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Renault Clio
@@ -376,7 +376,7 @@ class CarSeeder extends Seeder
                     'Bluetooth',
                     'Cruise Control',
                     'Lane Assist',
-                    'Air Conditioning'
+                    'Air Conditioning',
                 ],
                 'minimum_age' => 21,
                 'fuel_policy' => 'Full to Full',
@@ -384,7 +384,7 @@ class CarSeeder extends Seeder
                 'security_deposit_amount' => 1200.00,
                 'required_documents' => [
                     'Driving license',
-                    'ID card'
+                    'ID card',
                 ],
                 'location_id' => 1,
                 'is_available' => true,
@@ -418,7 +418,7 @@ class CarSeeder extends Seeder
                     'PASM',
                     'Porsche Crest',
                     'Sport Exhaust',
-                    'LED Matrix'
+                    'LED Matrix',
                 ],
                 'minimum_age' => 26,
                 'fuel_policy' => 'Full to Full',
@@ -427,10 +427,10 @@ class CarSeeder extends Seeder
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'Passport',
-                    'Credit card'
+                    'Credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // Range Rover
@@ -461,7 +461,7 @@ class CarSeeder extends Seeder
                     'Panoramic Roof',
                     'Adaptive Dynamics',
                     'Climate Comfort',
-                    'Powered Doors'
+                    'Powered Doors',
                 ],
                 'minimum_age' => 27,
                 'fuel_policy' => 'Full to Full',
@@ -470,10 +470,10 @@ class CarSeeder extends Seeder
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'Passport',
-                    'Premium credit card'
+                    'Premium credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
 
             // McLaren 720S
@@ -504,7 +504,7 @@ class CarSeeder extends Seeder
                     'Variable Drift Control',
                     'Launch Control',
                     'Racing Seats',
-                    'McLaren Track Telemetry'
+                    'McLaren Track Telemetry',
                 ],
                 'minimum_age' => 28,
                 'fuel_policy' => 'Full to Full with premium fuel',
@@ -516,7 +516,7 @@ class CarSeeder extends Seeder
                     'Premium credit card',
                 ],
                 'location_id' => 1,
-                'is_available' => true
+                'is_available' => true,
             ],
         ];
 

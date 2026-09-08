@@ -10,8 +10,11 @@ class StripeWebhookEvent extends Model
     use ProtectsHistoricalRecords;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_PROCESSED = 'processed';
+
     public const STATUS_FAILED = 'failed';
 
     protected static function historicalRecordDeleteMessage(): string

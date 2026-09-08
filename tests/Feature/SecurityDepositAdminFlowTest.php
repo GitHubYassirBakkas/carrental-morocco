@@ -232,19 +232,19 @@ function createHeldSecurityDepositBookingForAdminFlow(float $securityDepositAmou
 
 function ensureSecurityDepositAdminFlowTestColumns(): void
 {
-    if (!Schema::hasColumn('bookings', 'security_deposit_refunded_amount')) {
+    if (! Schema::hasColumn('bookings', 'security_deposit_refunded_amount')) {
         Schema::table('bookings', function (Blueprint $table) {
             $table->decimal('security_deposit_refunded_amount', 10, 2)->default(0);
         });
     }
 
-    if (!Schema::hasColumn('bookings', 'security_deposit_refund_error_message')) {
+    if (! Schema::hasColumn('bookings', 'security_deposit_refund_error_message')) {
         Schema::table('bookings', function (Blueprint $table) {
             $table->text('security_deposit_refund_error_message')->nullable();
         });
     }
 
-    if (!Schema::hasColumn('bookings', 'security_deposit_processed_by')) {
+    if (! Schema::hasColumn('bookings', 'security_deposit_processed_by')) {
         Schema::table('bookings', function (Blueprint $table) {
             $table->foreignId('security_deposit_processed_by')->nullable();
         });
@@ -256,11 +256,13 @@ function fakeStripeForAdminSecurityDepositFlow(
     string $refundId,
     int $refundFailures = 0,
     bool $initialCaptured = false
-): ClientInterface
-{
-    return new class($bookingId, $refundId, $refundFailures, $initialCaptured) implements ClientInterface {
+): ClientInterface {
+    return new class($bookingId, $refundId, $refundFailures, $initialCaptured) implements ClientInterface
+    {
         public array $requests = [];
+
         private bool $captured;
+
         private int $refundAttempts = 0;
 
         public function __construct(
@@ -337,7 +339,7 @@ function fakeStripeForAdminSecurityDepositFlow(
             return $this->json([
                 'error' => [
                     'type' => 'invalid_request_error',
-                    'message' => 'Unexpected fake Stripe request: ' . strtoupper($method) . ' ' . $path,
+                    'message' => 'Unexpected fake Stripe request: '.strtoupper($method).' '.$path,
                 ],
             ], 400);
         }

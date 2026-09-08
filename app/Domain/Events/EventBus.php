@@ -17,8 +17,7 @@ class EventBus
         private readonly BookingSaga $bookingSaga,
         private readonly DistributedEventStore $eventStore,
         private readonly GlobalIdempotencyService $idempotency,
-    ) {
-    }
+    ) {}
 
     public function dispatch(DomainEvent $event): void
     {
@@ -112,7 +111,7 @@ class EventBus
             'invoice.created' => new InvoiceCreatedEvent($payload, $outboxEvent->trace_id, $outboxEvent->source_event_id),
             'deposit.captured' => new DepositCapturedEvent($payload, $outboxEvent->trace_id, $outboxEvent->source_event_id),
             'security_deposit_synchronized' => $this->depositEventFromOutbox($outboxEvent, $payload),
-            default => throw new InvalidArgumentException('Unknown outbox event type: ' . $outboxEvent->event_type),
+            default => throw new InvalidArgumentException('Unknown outbox event type: '.$outboxEvent->event_type),
         };
     }
 

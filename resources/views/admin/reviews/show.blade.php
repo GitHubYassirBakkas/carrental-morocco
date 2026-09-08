@@ -226,9 +226,7 @@
 
                     <div>
                         <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Status</p>
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-900/30 text-green-400 border border-green-700/50">
-                            {{ ucfirst($review->booking->status) }}
-                        </span>
+                        <x-admin.booking-status-badge :status="$review->booking->status" />
                     </div>
 
                     <div class="pt-3 border-t border-gray-700">

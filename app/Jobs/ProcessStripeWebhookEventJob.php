@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Domain\Payment\PaymentProcessor;
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\PaymentIdempotencyKey;
 use App\Models\StripeWebhookEvent;
 use App\Services\FailedWebhookEventService;
@@ -76,6 +77,7 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
             $bookingId = isset($metadata['booking_id']) ? (int) $metadata['booking_id'] : null;
             $metadataType = isset($metadata['type']) ? (string) $metadata['type'] : null;
             $paymentIntentStatus = $this->value($object, 'status');
+            $needsRefundReconciliation = $this->needsRentalRefundReconciliation($eventType, $metadataType, $object);
             $audit = null;
 
             Log::info('payment.webhook.lifecycle', [
@@ -89,7 +91,7 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
 
             $audit = $auditService->beginProcessing($event, $bookingId, $paymentIntentId, $storedEvent->payload);
 
-            if (! $audit) {
+            if (! $audit && ! $needsRefundReconciliation) {
                 $storedEvent->forceFill([
                     'status' => StripeWebhookEvent::STATUS_PROCESSED,
                     'processed_at' => now(),
@@ -119,6 +121,16 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
                 return;
             }
 
+            if (! $audit && $needsRefundReconciliation) {
+                Log::info('payment.webhook.audit_duplicate_reopened_for_refund_reconciliation', [
+                    'event_id' => $storedEvent->event_id,
+                    'event_type' => $eventType,
+                    'booking_id' => $bookingId,
+                    'payment_intent_id' => $paymentIntentId,
+                    'refund_id' => $this->value($object, 'id'),
+                ]);
+            }
+
             $ignoreReason = $this->ignoreReason($eventType, $bookingId, $metadataType);
 
             if ($ignoreReason !== null) {
@@ -138,7 +150,8 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
 
             if (PaymentIdempotencyKey::where('idempotency_key', $storedEvent->event_id)
                 ->where('status', PaymentIdempotencyKey::STATUS_COMPLETED)
-                ->exists()) {
+                ->exists()
+                && ! $needsRefundReconciliation) {
                 $auditService->markProcessed($audit, 'duplicate');
 
                 $storedEvent->forceFill([
@@ -167,6 +180,19 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
                 ]);
 
                 return;
+            }
+
+            if (PaymentIdempotencyKey::where('idempotency_key', $storedEvent->event_id)
+                ->where('status', PaymentIdempotencyKey::STATUS_COMPLETED)
+                ->exists()
+                && $needsRefundReconciliation) {
+                Log::info('payment.webhook.completed_idempotency_reopened_for_refund_reconciliation', [
+                    'event_id' => $storedEvent->event_id,
+                    'event_type' => $eventType,
+                    'booking_id' => $bookingId,
+                    'payment_intent_id' => $paymentIntentId,
+                    'refund_id' => $this->value($object, 'id'),
+                ]);
             }
 
             try {
@@ -282,6 +308,22 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
                 ->firstOrFail();
 
             if ($storedEvent->status === StripeWebhookEvent::STATUS_PROCESSED) {
+                $event = json_decode(json_encode($this->toArraySafe($storedEvent->payload)), false);
+                $object = $this->value($this->value($event, 'data'), 'object');
+                $eventType = (string) ($this->value($event, 'type') ?? $storedEvent->type);
+                $metadata = $this->metadataFrom($object);
+                $metadataType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+
+                if ($this->needsRentalRefundReconciliation($eventType, $metadataType, $object)) {
+                    $storedEvent->forceFill([
+                        'status' => StripeWebhookEvent::STATUS_PROCESSING,
+                        'attempts' => $storedEvent->attempts + 1,
+                        'updated_at' => now(),
+                    ])->save();
+
+                    return $storedEvent->refresh();
+                }
+
                 Log::info('payment.webhook.lifecycle', [
                     'state' => 'SUCCESS',
                     'event_id' => $storedEvent->event_id,
@@ -418,6 +460,10 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
             'payment_intent.canceled',
             'payment_intent.succeeded',
             'payment_intent.payment_failed',
+            'refund.created',
+            'refund.updated',
+            'refund.succeeded',
+            'refund.failed',
         ];
 
         if (! in_array($eventType, $supported, true)) {
@@ -436,7 +482,32 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
             return 'non_business_payment_intent';
         }
 
+        if (str_starts_with($eventType, 'refund.') && $metadataType !== 'rental_refund') {
+            return 'non_rental_refund';
+        }
+
         return null;
+    }
+
+    private function needsRentalRefundReconciliation(string $eventType, ?string $metadataType, mixed $object): bool
+    {
+        if (! in_array($eventType, ['refund.created', 'refund.updated', 'refund.succeeded', 'refund.failed'], true)) {
+            return false;
+        }
+
+        if ($metadataType !== 'rental_refund') {
+            return false;
+        }
+
+        $refundId = $this->value($object, 'id');
+
+        if (! is_string($refundId) || $refundId === '') {
+            return false;
+        }
+
+        return ! Payment::where('stripe_refund_id', $refundId)
+            ->orWhere('transaction_id', $refundId)
+            ->exists();
     }
 
     private function markIgnored(StripeWebhookEvent $storedEvent, PaymentWebhookMetrics $metrics, array $context): void

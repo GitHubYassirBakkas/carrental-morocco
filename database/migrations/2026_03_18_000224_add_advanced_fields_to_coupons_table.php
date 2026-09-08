@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('coupons', function (Blueprint $table) {
             // User-specific coupon (NULL = everyone can use)
             $table->foreignId('user_id')->nullable()->after('id')->constrained()->nullOnDelete();
-            
+
             // Coupon category
             $table->enum('category', [
                 'welcome',      // First-time customer
@@ -20,19 +20,19 @@ return new class extends Migration
                 'referral',     // Referral program
                 'retention',    // Win-back inactive customers
                 'corporate',    // Business accounts
-                'apology'       // Service recovery
+                'apology',       // Service recovery
             ])->default('seasonal')->after('code');
-            
+
             // Auto-apply conditions
             $table->integer('min_bookings')->nullable()->after('min_booking_amount');
             $table->decimal('min_total_spent', 10, 2)->nullable()->after('min_bookings');
-            
+
             // Usage restrictions
             $table->integer('max_uses_per_user')->default(1)->after('max_uses');
-            
+
             // Car type restrictions (optional)
             $table->json('allowed_car_types')->nullable()->after('max_uses_per_user');
-            
+
             // Indexes
             $table->index('user_id');
             $table->index('category');
@@ -51,7 +51,7 @@ return new class extends Migration
                 'min_bookings',
                 'min_total_spent',
                 'max_uses_per_user',
-                'allowed_car_types'
+                'allowed_car_types',
             ]);
         });
     }

@@ -11,23 +11,14 @@ return new class extends Migration
         Schema::create('notifications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->enum('type', [
-                'booking_confirmed',
-                'booking_cancelled',
-                'booking_reminder',
-                'payment_received',
-                'payment_failed',
-                'admin_message',
-                'review_reminder',
-                'promotion'
-            ]);
+            $table->string('type', 100);
             $table->string('title');
             $table->text('message');
             $table->boolean('is_read')->default(false);
             $table->timestamp('read_at')->nullable();
             $table->json('data')->nullable();
             $table->timestamps();
-            
+
             $table->index('user_id');
             $table->index('is_read');
             $table->index('type');

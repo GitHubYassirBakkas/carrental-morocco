@@ -190,10 +190,10 @@
                     {{-- Damage Photos (if exist) --}}
                     @if($damage->photos && count($damage->photos) > 0)
                         <div class="flex gap-2 mt-2">
-                            @foreach(array_slice($damage->photos, 0, 3) as $photo)
-                                <img src="{{ asset('storage/' . $photo) }}" 
+                            @foreach(array_slice($damage->photos, 0, 3, true) as $photoIndex => $photo)
+                                <img src="{{ route('admin.bookings.damages.photos.show', [$damage, $photoIndex]) }}"
                                      class="w-12 h-12 rounded object-cover border border-red-700 cursor-pointer hover:scale-110 transition"
-                                     onclick="window.open('{{ asset('storage/' . $photo) }}', '_blank')">
+                                     onclick="window.open('{{ route('admin.bookings.damages.photos.show', [$damage, $photoIndex]) }}', '_blank')">
                             @endforeach
                             @if(count($damage->photos) > 3)
                                 <div class="w-12 h-12 rounded bg-red-900/30 border border-red-700 flex items-center justify-center text-red-400 text-xs font-bold">
@@ -212,11 +212,11 @@
         {{-- ✅ DAMAGE PHOTOS --}}
                 @if($damage->photos && count($damage->photos) > 0)
                     <div class="flex gap-2 mt-3 flex-wrap">
-                        @foreach($damage->photos as $photo)
+                        @foreach($damage->photos as $photoIndex => $photo)
                             <div class="relative group">
-                                <img src="{{ asset('storage/' . $photo) }}" 
+                                <img src="{{ route('admin.bookings.damages.photos.show', [$damage, $photoIndex]) }}"
                                      class="w-16 h-16 rounded-lg object-cover border-2 border-red-700 cursor-pointer hover:scale-125 transition-transform"
-                                     onclick="window.open('{{ asset('storage/' . $photo) }}', '_blank')"
+                                     onclick="window.open('{{ route('admin.bookings.damages.photos.show', [$damage, $photoIndex]) }}', '_blank')"
                                      title="Click to view full size">
                                 <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

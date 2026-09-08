@@ -7,12 +7,13 @@ use App\Models\Booking;
 use App\Models\BookingInspection;
 use App\Services\Pricing\BookingPricingService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class BookingInspectionController extends Controller
 {
-    public function __construct(private readonly BookingPricingService $pricingService)
-    {
-    }
+    public function __construct(private readonly BookingPricingService $pricingService) {}
 
     public function store(Request $request, Booking $booking)
     {
@@ -32,7 +33,7 @@ class BookingInspectionController extends Controller
             'type' => $request->type,
             'mileage' => $request->mileage,
             'fuel_level' => $request->fuel_level,
-            'has_damage' => !empty($request->damage_notes),
+            'has_damage' => ! empty($request->damage_notes),
             'damage_notes' => $request->damage_notes,
             'created_by' => auth()->id(),
         ]);
@@ -56,7 +57,7 @@ class BookingInspectionController extends Controller
             ]);
         }
 
-        return back()->with('success', ucfirst($request->type) . ' inspection saved successfully.');
+        return back()->with('success', ucfirst($request->type).' inspection saved successfully.');
     }
 
     public function show(BookingInspection $inspection)
@@ -67,13 +68,14 @@ class BookingInspectionController extends Controller
     public function uploadPhotos(Request $request, BookingInspection $inspection)
     {
         $request->validate([
-            'photos.*' => 'required|image|max:10240',
-            'type' => 'nullable|string',
-            'notes' => 'nullable|string',
+            'photos' => 'required|array|max:10',
+            'photos.*' => 'required|file|image|mimes:jpeg,jpg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:5120',
+            'type' => 'nullable|string|max:100',
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         foreach ($request->file('photos') as $photo) {
-            $path = $photo->store('inspections', 'public');
+            $path = $this->storeInspectionPhoto($photo);
 
             $inspection->photos()->create([
                 'path' => $path,
@@ -83,5 +85,18 @@ class BookingInspectionController extends Controller
         }
 
         return back()->with('success', 'Photos uploaded successfully');
+    }
+
+    private function storeInspectionPhoto(UploadedFile $photo): string
+    {
+        $extension = strtolower($photo->extension() ?: 'jpg');
+        $filename = Str::uuid()->toString().'.'.$extension;
+        $path = Storage::disk('local')->putFileAs('booking-evidence/inspections', $photo, $filename);
+
+        if (! is_string($path) || $path === '') {
+            throw new \RuntimeException('Inspection photo could not be stored.');
+        }
+
+        return $path;
     }
 }

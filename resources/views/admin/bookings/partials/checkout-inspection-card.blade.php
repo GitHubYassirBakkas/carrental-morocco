@@ -112,7 +112,7 @@
                     @if($booking->checkoutInspection->photos->count())
                         <div class="grid grid-cols-3 gap-2 mb-4 mt-4">
                             @foreach($booking->checkoutInspection->photos as $photo)
-                                <img src="{{ asset('storage/'.$photo->path) }}"
+                                <img src="{{ route('admin.bookings.inspection.photos.show', $photo) }}"
                                      class="rounded-lg h-20 object-cover border border-gray-700">
                             @endforeach
                         </div>
@@ -277,6 +277,7 @@
                                    name="photos[]"
                                    multiple
                                    required
+                                   accept="image/jpeg,image/png,image/webp"
                                    class="w-full text-sm bg-black/40 border border-gray-700 rounded-lg p-2 text-white">
 
                             <input type="text"

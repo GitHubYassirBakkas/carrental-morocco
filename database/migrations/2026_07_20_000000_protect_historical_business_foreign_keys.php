@@ -30,7 +30,7 @@ return new class extends Migration
 
     private function rebuildForeignKey(string $tableName, string $columnName, string $references, string $onDelete): void
     {
-        if (!Schema::hasTable($tableName) || !Schema::hasColumn($tableName, $columnName)) {
+        if (! Schema::hasTable($tableName) || ! Schema::hasColumn($tableName, $columnName)) {
             return;
         }
 

@@ -36,7 +36,7 @@ class CouponController extends Controller
 
         // Search
         if ($request->filled('search')) {
-            $query->where('code', 'like', '%' . $request->search . '%');
+            $query->where('code', 'like', '%'.$request->search.'%');
         }
 
         $coupons = $query->paginate(15);
@@ -116,8 +116,14 @@ class CouponController extends Controller
      */
     public function show(Coupon $coupon)
     {
-        $coupon->load(['usages.user', 'usages.booking']);
-        
+        $coupon->load('user');
+
+        $usages = $coupon->usages()
+            ->with(['user', 'booking'])
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
         $stats = [
             'total_uses' => $coupon->used_count,
             'unique_users' => $coupon->usages()->distinct('user_id')->count(),
@@ -125,7 +131,7 @@ class CouponController extends Controller
             'avg_discount' => $coupon->usages()->avg('discount_amount'),
         ];
 
-        return view('admin.coupons.show', compact('coupon', 'stats'));
+        return view('admin.coupons.show', compact('coupon', 'usages', 'stats'));
     }
 
     /**
@@ -154,7 +160,7 @@ class CouponController extends Controller
     public function update(Request $request, Coupon $coupon)
     {
         $data = $request->validate([
-            'code' => 'required|string|max:50|uppercase|unique:coupons,code,' . $coupon->id,
+            'code' => 'required|string|max:50|uppercase|unique:coupons,code,'.$coupon->id,
             'category' => 'required|in:welcome,loyalty,seasonal,referral,retention,corporate,apology',
             'discount_type' => 'required|in:percentage,fixed',
             'discount_value' => 'required|numeric|min:0',
@@ -209,7 +215,7 @@ class CouponController extends Controller
     public function toggleStatus(Coupon $coupon)
     {
         $coupon->update([
-            'is_active' => !$coupon->is_active
+            'is_active' => ! $coupon->is_active,
         ]);
 
         $status = $coupon->is_active ? 'activated' : 'deactivated';
@@ -224,9 +230,9 @@ class CouponController extends Controller
     {
         $prefix = $request->input('prefix', 'PROMO');
         $length = $request->input('length', 8);
-        
+
         do {
-            $code = strtoupper($prefix . str_pad(rand(0, 99999999), $length - strlen($prefix), '0', STR_PAD_LEFT));
+            $code = strtoupper($prefix.str_pad(rand(0, 99999999), $length - strlen($prefix), '0', STR_PAD_LEFT));
         } while (Coupon::where('code', $code)->exists());
 
         return response()->json(['code' => $code]);

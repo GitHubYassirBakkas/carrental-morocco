@@ -18,7 +18,7 @@ class AdminPaymentConfirmedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '🎉 Payment Confirmed - ' . $this->booking->car->full_name,
+            subject: '🎉 Payment Confirmed - '.$this->booking->car->full_name,
         );
     }
 

@@ -2,19 +2,19 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Location;
+use Illuminate\Database\Seeder;
 
 class LocationSeeder extends Seeder
 {
     public function run()
     {
         $locations = [
-            // Meknès - Active location
+            // Meknes - Active location
             [
-                'name' => 'Meknès Branch',
-                'address' => 'Avenue Mohammed V, Meknès',
-                'city' => 'Meknès',
+                'name' => 'Meknes Branch',
+                'address' => 'Avenue Mohammed V, Meknes',
+                'city' => 'Meknes',
                 'country' => 'Morocco',
                 'postal_code' => '50000',
                 'latitude' => 33.8935,
@@ -25,7 +25,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => true,
             ],
-            
+
             // Coming Soon Locations
             [
                 'name' => 'Casablanca Branch',
@@ -41,7 +41,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Rabat Branch',
                 'address' => 'Avenue Mohammed V, Rabat',
@@ -56,7 +56,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Marrakech Branch',
                 'address' => 'Gueliz, Marrakech',
@@ -71,7 +71,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Fès Branch',
                 'address' => 'Nouveau Quartier, Fès',
@@ -86,7 +86,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Tanger Branch',
                 'address' => 'Boulevard Pasteur, Tanger',
@@ -101,7 +101,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Agadir Branch',
                 'address' => 'Boulevard Mohammed V, Agadir',
@@ -116,7 +116,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Oujda Branch',
                 'address' => 'Centre Ville, Oujda',
@@ -131,7 +131,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Tétouan Branch',
                 'address' => 'Avenue Mohammed V, Tétouan',
@@ -146,7 +146,7 @@ class LocationSeeder extends Seeder
                 'closing_time' => '18:00:00',
                 'is_active' => false,
             ],
-            
+
             [
                 'name' => 'Essaouira Branch',
                 'address' => 'Médina, Essaouira',
@@ -167,6 +167,6 @@ class LocationSeeder extends Seeder
             Location::create($location);
         }
 
-        $this->command->info('✅ Successfully seeded 10 locations (1 active: Meknès, 9 coming soon)');
+        $this->command->info('✅ Successfully seeded 10 locations (1 active: Meknes, 9 coming soon)');
     }
 }

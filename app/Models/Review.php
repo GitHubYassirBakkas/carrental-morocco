@@ -25,14 +25,14 @@ class Review extends Model
         'is_approved',
         'approved_at',
         'response',
-        'response_date'
+        'response_date',
     ];
 
     protected $casts = [
         'rating' => 'integer',
         'is_approved' => 'boolean',
         'approved_at' => 'datetime',
-        'response_date' => 'datetime'
+        'response_date' => 'datetime',
     ];
 
     public function user()

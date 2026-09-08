@@ -48,7 +48,7 @@
 
         <div class="footer">
             <p>© {{ date('Y') }} CarRental Morocco. All rights reserved.</p>
-            <p>Casablanca, Morocco | contact@carrental.ma</p>
+            <p>Meknes, Morocco | contact@carrental.ma</p>
         </div>
 
     </div>

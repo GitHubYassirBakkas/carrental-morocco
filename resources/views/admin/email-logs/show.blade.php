@@ -185,7 +185,7 @@
                         </div>
                         <div>
                             <p class="text-gray-400 text-xs mb-1">Status</p>
-                            <span class="text-sm">{{ ucfirst($emailLog->booking->status) }}</span>
+                            <x-admin.booking-status-badge :status="$emailLog->booking->status" />
                         </div>
                         <a href="{{ route('admin.bookings.show', $emailLog->booking) }}" 
                            class="inline-block text-orange-400 hover:text-orange-300 text-sm mt-2">

@@ -87,6 +87,10 @@ class BookingSaga
     {
         $this->run($event->bookingId(), $event->traceId(), 'booking_activated', $event->payload, function (Booking $booking, BookingSagaModel $saga) use ($event) {
             if ($booking->isConfirmed()) {
+                if (! $booking->hasVerifiedDriverProfile()) {
+                    throw new \DomainException('Driver verification must be completed before starting the rental.');
+                }
+
                 $this->stateMachine->transition($booking, Booking::STATUS_ACTIVE, [
                     'source' => 'booking_saga',
                     'source_event_id' => $event->sourceEventId(),

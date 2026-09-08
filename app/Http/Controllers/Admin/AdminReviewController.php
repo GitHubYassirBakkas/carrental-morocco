@@ -28,15 +28,15 @@ class AdminReviewController extends Controller
         // Search
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->whereHas('user', function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%");
                 })
-                ->orWhereHas('car', function($q) use ($search) {
-                    $q->where('brand', 'like', "%{$search}%")
-                      ->orWhere('model', 'like', "%{$search}%");
-                })
-                ->orWhere('comment', 'like', "%{$search}%");
+                    ->orWhereHas('car', function ($q) use ($search) {
+                        $q->where('brand', 'like', "%{$search}%")
+                            ->orWhere('model', 'like', "%{$search}%");
+                    })
+                    ->orWhere('comment', 'like', "%{$search}%");
             });
         }
 
@@ -59,7 +59,7 @@ class AdminReviewController extends Controller
     public function show(Review $review)
     {
         $review->load(['user', 'car', 'booking']);
-        
+
         return view('admin.reviews.show', compact('review'));
     }
 

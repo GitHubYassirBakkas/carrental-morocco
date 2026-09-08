@@ -22,18 +22,18 @@ return new class extends Migration
 
     private function splitCarSecurityDeposit(): void
     {
-        if (!Schema::hasTable('cars')) {
+        if (! Schema::hasTable('cars')) {
             return;
         }
 
         if (
-            !Schema::hasColumn('cars', 'deposit_amount') &&
+            ! Schema::hasColumn('cars', 'deposit_amount') &&
             Schema::hasColumn('cars', 'security_deposit_amount')
         ) {
             return;
         }
 
-        if (Schema::hasColumn('cars', 'deposit_amount') && !Schema::hasColumn('cars', 'security_deposit_amount')) {
+        if (Schema::hasColumn('cars', 'deposit_amount') && ! Schema::hasColumn('cars', 'security_deposit_amount')) {
             Schema::table('cars', function (Blueprint $table) {
                 $table->decimal('security_deposit_amount', 10, 2)->nullable()->after('cancellation_policy');
             });
@@ -52,7 +52,7 @@ return new class extends Migration
 
     private function splitBookingAdvancePayment(): void
     {
-        if (!Schema::hasTable('bookings')) {
+        if (! Schema::hasTable('bookings')) {
             return;
         }
 
@@ -62,7 +62,7 @@ return new class extends Migration
             || Schema::hasColumn('bookings', 'deposit_due_at');
 
         if (
-            !$hasOldAdvancePaymentColumns &&
+            ! $hasOldAdvancePaymentColumns &&
             Schema::hasColumn('bookings', 'advance_payment_amount') &&
             Schema::hasColumn('bookings', 'advance_payment_status') &&
             Schema::hasColumn('bookings', 'advance_payment_paid_at') &&
@@ -72,19 +72,19 @@ return new class extends Migration
         }
 
         Schema::table('bookings', function (Blueprint $table) {
-            if (!Schema::hasColumn('bookings', 'advance_payment_amount')) {
+            if (! Schema::hasColumn('bookings', 'advance_payment_amount')) {
                 $table->decimal('advance_payment_amount', 10, 2)->default(0);
             }
 
-            if (!Schema::hasColumn('bookings', 'advance_payment_status')) {
+            if (! Schema::hasColumn('bookings', 'advance_payment_status')) {
                 $table->string('advance_payment_status')->default('pending');
             }
 
-            if (!Schema::hasColumn('bookings', 'advance_payment_paid_at')) {
+            if (! Schema::hasColumn('bookings', 'advance_payment_paid_at')) {
                 $table->timestamp('advance_payment_paid_at')->nullable();
             }
 
-            if (!Schema::hasColumn('bookings', 'advance_payment_due_at')) {
+            if (! Schema::hasColumn('bookings', 'advance_payment_due_at')) {
                 $table->timestamp('advance_payment_due_at')->nullable();
             }
         });
@@ -133,7 +133,7 @@ return new class extends Migration
 
     private function splitBookingSecurityDeposit(): void
     {
-        if (!Schema::hasTable('bookings')) {
+        if (! Schema::hasTable('bookings')) {
             return;
         }
 
@@ -142,7 +142,7 @@ return new class extends Migration
             || Schema::hasColumn('bookings', 'deposit_charged_amount');
 
         if (
-            !$hasOldSecurityDepositColumns &&
+            ! $hasOldSecurityDepositColumns &&
             Schema::hasColumn('bookings', 'security_deposit_amount') &&
             Schema::hasColumn('bookings', 'security_deposit_intent_id') &&
             Schema::hasColumn('bookings', 'security_deposit_status') &&
@@ -153,23 +153,23 @@ return new class extends Migration
         }
 
         Schema::table('bookings', function (Blueprint $table) {
-            if (!Schema::hasColumn('bookings', 'security_deposit_amount')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_amount')) {
                 $table->decimal('security_deposit_amount', 10, 2)->default(0);
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_intent_id')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_intent_id')) {
                 $table->string('security_deposit_intent_id')->nullable();
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_status')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_status')) {
                 $table->string('security_deposit_status')->default('pending');
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_released_at')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_released_at')) {
                 $table->timestamp('security_deposit_released_at')->nullable();
             }
 
-            if (!Schema::hasColumn('bookings', 'security_deposit_charged_amount')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_charged_amount')) {
                 $table->decimal('security_deposit_charged_amount', 10, 2)->default(0);
             }
         });
@@ -207,7 +207,7 @@ return new class extends Migration
 
     private function renamePaymentType(): void
     {
-        if (!Schema::hasTable('payments') || !Schema::hasColumn('payments', 'type')) {
+        if (! Schema::hasTable('payments') || ! Schema::hasColumn('payments', 'type')) {
             return;
         }
 

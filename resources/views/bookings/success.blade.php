@@ -20,14 +20,14 @@
             </svg>
         </div>
 
-        <h1 class="success-title">{{ __('bookingconfirmed') }} 🎉</h1>
-        <p class="success-sub">{{ __('bookingconfirmed') }}</p>
+        <h1 class="success-title">{{ __('messages.booking_confirmed') }} 🎉</h1>
+        <p class="success-sub">{{ __('messages.booking_confirmed_desc') }}</p>
 
         {{-- Reference badge --}}
-        @if($booking->reference ?? $booking->id)
+        @if($booking['reference'])
         <div class="success-ref">
             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
-            {{ __('messages.booking_reference') }}: <strong>#{{ $booking->reference ?? str_pad($booking->id, 6, '0', STR_PAD_LEFT) }}</strong>
+            {{ __('messages.booking_reference') }}: <strong>#{{ $booking['reference'] }}</strong>
         </div>
         @endif
 
@@ -41,7 +41,7 @@
                 </div>
                 <div class="sc-info">
                     <span>{{ __('messages.car_details') }}</span>
-                    <strong>{{ $booking->car->brand }} {{ $booking->car->model }}</strong>
+                    <strong>{{ $booking['car_brand'] }} {{ $booking['car_model'] }}</strong>
                 </div>
             </div>
 
@@ -55,7 +55,7 @@
                     </div>
                     <div class="sc-info">
                         <span>{{ __('messages.pickup_date') }}</span>
-                        <strong>{{ \Carbon\Carbon::parse($booking->start_date)->format('d M Y') }}</strong>
+                        <strong>{{ \Carbon\Carbon::parse($booking['start_date'])->format('d M Y') }}</strong>
                     </div>
                 </div>
                 <div class="sc-date-arrow">
@@ -67,7 +67,7 @@
                     </div>
                     <div class="sc-info">
                         <span>{{ __('messages.return_date') }}</span>
-                        <strong>{{ \Carbon\Carbon::parse($booking->end_date)->format('d M Y') }}</strong>
+                        <strong>{{ \Carbon\Carbon::parse($booking['end_date'])->format('d M Y') }}</strong>
                     </div>
                 </div>
             </div>
@@ -78,18 +78,48 @@
             <div class="sc-bottom">
                 <div class="sc-total">
                     <span>{{ __('messages.total_price') }}</span>
-                    <strong>{{ number_format($booking->total_amount, 0) }} MAD</strong>
+                    <strong>{{ number_format($booking['total_amount'], 0) }} MAD</strong>
                 </div>
                 <div class="sc-status">
                     <span>{{ __('messages.booking_status') }}</span>
                     <div class="sc-status-badge">
                         <span class="sc-status-dot"></span>
-                        {{ ucfirst($booking->status) }}
+                        {{ ui_status($booking['status']) }}
                     </div>
                 </div>
             </div>
 
         </div>
+
+        {{-- Booking Timeline --}}
+        @if(isset($timeline) && count($timeline->events) > 0)
+        <div class="timeline-section">
+            <h3 class="timeline-title">{{ __('messages.booking_timeline') }}</h3>
+            <div class="timeline">
+                @foreach($timeline->events as $index => $event)
+                    <div class="timeline-item">
+                        <div class="timeline-marker timeline-marker--{{ $event->status }}">
+                            @if($event->completed)
+                                <svg viewBox="0 0 20 20" fill="currentColor" class="timeline-icon">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            @else
+                                <div class="timeline-dot"></div>
+                            @endif
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-event-title">{{ $event->title }}</div>
+                            <div class="timeline-event-description">{{ $event->description }}</div>
+                            <div class="timeline-event-date">{{ $event->date->format('d M Y, H:i') }}</div>
+                        </div>
+                        @if($index < count($timeline->events) - 1)
+                            <div class="timeline-line"></div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
 
         {{-- Actions --}}
         <div class="success-actions">
@@ -99,7 +129,7 @@
             </a>
             <a href="{{ route('cars.index') }}" class="sa-btn sa-btn--outline">
                 <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z"/></svg>
-                {{ __('rent_another car') }}
+                {{ __('messages.rent_another') }}
             </a>
             <a href="{{ route('home') }}" class="sa-link">{{ __('messages.back_to_home') }}</a>
         </div>
@@ -293,6 +323,102 @@
     animation: pulse 2s ease infinite;
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Timeline */
+.timeline-section {
+    width: 100%;
+    margin-top: 1.5rem;
+}
+
+.timeline-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.02em;
+}
+
+.timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.timeline-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    position: relative;
+}
+
+.timeline-marker {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--b1);
+    border: 2px solid var(--b1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    z-index: 1;
+}
+
+.timeline-marker--completed {
+    background: rgba(74,222,128,0.2);
+    border-color: #4ade80;
+}
+
+.timeline-marker--cancelled {
+    background: rgba(239,68,68,0.2);
+    border-color: #ef4444;
+}
+
+.timeline-icon {
+    width: 16px;
+    height: 16px;
+    color: #4ade80;
+}
+
+.timeline-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+
+.timeline-content {
+    flex: 1;
+    padding-top: 4px;
+}
+
+.timeline-event-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.timeline-event-description {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+}
+
+.timeline-event-date {
+    font-size: 0.75rem;
+    color: var(--hint);
+}
+
+.timeline-line {
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: -16px;
+    width: 2px;
+    background: var(--b1);
+    z-index: 0;
+}
 
 /* Actions */
 .success-actions {

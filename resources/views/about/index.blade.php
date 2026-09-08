@@ -788,16 +788,16 @@ section {
 
   <div class="hero-inner">
     <div class="hero-text">
-      <div class="hero-eyebrow reveal">Est. 2018 — Casablanca</div>
+      <div class="hero-eyebrow reveal">{{ $primaryLocation ? 'Serving '.($primaryLocation->city ?: $primaryLocation->name) : 'Car rental in Morocco' }}</div>
       <h1 class="hero-title reveal reveal-delay-1">
-        Driving Morocco's<br>
-        <em>finest roads</em><br>
-        since 2018
+        Flexible rental<br>
+        <em>{{ __('messages.about_hero_emphasis') }}</em><br>
+        in Morocco
       </h1>
       <p class="hero-desc reveal reveal-delay-2">
-        We believe that every journey deserves a vehicle worthy of it.
-        From the Atlas Mountains to the Atlantic coast — we put you
-        behind the wheel of Morocco's most premium fleet.
+        Browse the vehicles currently available in the application,
+        choose an active pickup location, and book with transparent
+        pricing from the live fleet.
       </p>
       <a href="#story" class="hero-cta reveal reveal-delay-3">
         Our Story
@@ -809,20 +809,20 @@ section {
 
     <div class="hero-stats reveal reveal-delay-2">
       <div class="hstat">
-        <span class="hstat-num">500<sup style="font-size:1.5rem">+</sup></span>
-        <span class="hstat-label">Premium vehicles</span>
+        <span class="hstat-num">{{ number_format($stats['available_cars']) }}</span>
+        <span class="hstat-label">{{ __('messages.stat_cars') }}</span>
       </div>
       <div class="hstat">
-        <span class="hstat-num">12</span>
-        <span class="hstat-label">Cities covered</span>
+        <span class="hstat-num">{{ number_format($stats['active_locations']) }}</span>
+        <span class="hstat-label">{{ __('messages.home_cities') }}</span>
       </div>
       <div class="hstat">
-        <span class="hstat-num">10K<sup style="font-size:1.5rem">+</sup></span>
-        <span class="hstat-label">Happy clients</span>
+        <span class="hstat-num">{{ number_format($stats['completed_customers']) }}</span>
+        <span class="hstat-label">{{ __('messages.stat_customers') }}</span>
       </div>
       <div class="hstat">
-        <span class="hstat-num">24<span style="font-size:1.5rem">/7</span></span>
-        <span class="hstat-label">Support</span>
+        <span class="hstat-num">{{ number_format($stats['active_brands']) }}</span>
+        <span class="hstat-label">{{ __('messages.stat_brands') }}</span>
       </div>
     </div>
   </div>
@@ -839,32 +839,30 @@ section {
         <div class="story-img-frame">
           <img src="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80" alt="Premium car on Moroccan road">
           <div class="story-img-badge">
-            <strong>6+</strong>
-            <span>Years of excellence</span>
+            <strong>{{ number_format($stats['available_cars']) }}</strong>
+            <span>{{ __('messages.stat_cars') }}</span>
           </div>
         </div>
       </div>
 
       <div class="story-content">
-        <div class="section-tag reveal">Our story</div>
+        <div class="section-tag reveal">{{ __('messages.about_story_tag') }}</div>
         <h2 class="section-title reveal reveal-delay-1">
-          Born from a passion<br>for <em>the open road</em>
+          {{ __('messages.about_story_title') }}<br><em>{{ __('messages.about_story_emphasis') }}</em>
         </h2>
         <blockquote class="story-lead reveal reveal-delay-2">
-          "Morocco deserved a car rental service as exceptional as its landscapes."
+          "A public car rental site should show what customers can actually book."
         </blockquote>
         <p class="story-body reveal reveal-delay-3">
-          Founded in Casablanca in 2018, CarRental Morocco started with a simple belief: 
-          travelers deserve more than a generic car and a handshake. 
-          We built our fleet from scratch — hand-selecting each vehicle for comfort, 
-          reliability, and style.
+          CarRental Morocco presents the same vehicles and active locations managed
+          inside the application. When the fleet changes, the public site reflects
+          that change without relying on inflated demo numbers.
         </p>
         <br>
         <p class="story-body reveal reveal-delay-3">
-          Today we serve thousands of clients across 12 Moroccan cities, 
-          from weekend explorers to international business travelers. 
-          Every booking comes with our promise: the right car, the right price, 
-          and someone ready to help you 24/7.
+          Customers can compare available cars, filter by the details that matter,
+          and send support requests through implemented account tools when they need
+          help with a booking.
         </p>
       </div>
 
@@ -878,9 +876,9 @@ section {
 <section>
   <div class="container">
     <div style="max-width:600px">
-      <div class="section-tag reveal">What drives us</div>
+      <div class="section-tag reveal">{{ __('messages.about_values_tag') }}</div>
       <h2 class="section-title reveal reveal-delay-1">
-        Three principles.<br><em>One commitment.</em>
+        {{ __('messages.about_values_title') }}<br><em>{{ __('messages.about_values_emphasis') }}</em>
       </h2>
     </div>
 
@@ -893,8 +891,8 @@ section {
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
           </svg>
         </div>
-        <h3 class="value-title">Uncompromising quality</h3>
-        <p class="value-desc">Every vehicle in our fleet is inspected, cleaned, and fully serviced before each rental. We set the standard, then exceed it.</p>
+        <h3 class="value-title">{{ __('messages.about_value_quality_title') }}</h3>
+        <p class="value-desc">{{ __('messages.about_value_quality_desc') }}</p>
       </div>
 
       <div class="value-card reveal reveal-delay-1">
@@ -904,8 +902,8 @@ section {
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <h3 class="value-title">Effortless simplicity</h3>
-        <p class="value-desc">Book in under 2 minutes. No hidden fees, no confusing contracts. Just a car, a destination, and the open road ahead of you.</p>
+        <h3 class="value-title">{{ __('messages.about_value_simple_title') }}</h3>
+        <p class="value-desc">{{ __('messages.about_value_simple_desc') }}</p>
       </div>
 
       <div class="value-card reveal reveal-delay-2">
@@ -915,8 +913,8 @@ section {
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
         </div>
-        <h3 class="value-title">People-first service</h3>
-        <p class="value-desc">Our team lives and breathes Morocco. Whatever you need — a route recommendation or roadside help — we are always a call away.</p>
+        <h3 class="value-title">{{ __('messages.about_value_service_title') }}</h3>
+        <p class="value-desc">{{ __('messages.about_value_service_desc') }}</p>
       </div>
 
     </div>
@@ -930,41 +928,41 @@ section {
   <div class="container">
     <div class="team-header">
       <div>
-        <div class="section-tag reveal">The team</div>
+        <div class="section-tag reveal">{{ __('messages.about_service_tag') }}</div>
         <h2 class="section-title reveal reveal-delay-1">
-          The people<br>behind <em>every trip</em>
+          {{ __('messages.about_service_title') }}<br>{{ __('messages.about_service_for') }} <em>{{ __('messages.about_service_emphasis') }}</em>
         </h2>
       </div>
       <p class="team-desc reveal reveal-delay-2">
-        A small, dedicated team with deep roots in Morocco and
-        a shared obsession with delivering exceptional experiences.
+        The public site now reflects the fleet, locations, and completed customer activity
+        stored in the application.
       </p>
     </div>
 
     <div class="team-grid">
       <div class="team-card reveal">
-        <div class="team-avatar">Y</div>
-        <div class="team-name">Youssef Amrani</div>
-        <div class="team-role">Founder & CEO</div>
-        <p class="team-bio">15 years in luxury hospitality across Morocco. Built CarRental to bring that same standard to the road.</p>
+        <div class="team-avatar">01</div>
+        <div class="team-name">{{ __('messages.about_live_fleet') }}</div>
+        <div class="team-role">{{ number_format($stats['available_cars']) }} {{ __('messages.stat_cars') }}</div>
+        <p class="team-bio">{{ __('messages.about_live_fleet_desc') }}</p>
       </div>
       <div class="team-card reveal reveal-delay-1">
-        <div class="team-avatar">S</div>
-        <div class="team-name">Sara El Fassi</div>
-        <div class="team-role">Head of Operations</div>
-        <p class="team-bio">Keeps the fleet spotless and every booking seamless. If something needs fixing, Sara already knows about it.</p>
+        <div class="team-avatar">02</div>
+        <div class="team-name">{{ __('messages.about_active_locations') }}</div>
+        <div class="team-role">{{ number_format($stats['active_locations']) }} {{ __('messages.home_cities') }}</div>
+        <p class="team-bio">{{ __('messages.about_active_locations_desc') }}</p>
       </div>
       <div class="team-card reveal reveal-delay-2">
-        <div class="team-avatar">K</div>
-        <div class="team-name">Karim Benali</div>
-        <div class="team-role">Fleet Manager</div>
-        <p class="team-bio">Automotive engineer by training. Every car in our fleet passes his personal inspection before it hits the road.</p>
+        <div class="team-avatar">03</div>
+        <div class="team-name">{{ __('messages.about_customer_history') }}</div>
+        <div class="team-role">{{ number_format($stats['completed_customers']) }} {{ __('messages.stat_customers') }}</div>
+        <p class="team-bio">{{ __('messages.about_customer_history_desc') }}</p>
       </div>
       <div class="team-card reveal reveal-delay-3">
-        <div class="team-avatar">L</div>
-        <div class="team-name">Leila Rachidi</div>
-        <div class="team-role">Customer Experience</div>
-        <p class="team-bio">Your first and last point of contact. Leila makes sure every client leaves happier than when they arrived.</p>
+        <div class="team-avatar">04</div>
+        <div class="team-name">{{ __('messages.about_account_support') }}</div>
+        <div class="team-role">{{ __('messages.support_title') }}</div>
+        <p class="team-bio">{{ __('messages.about_account_support_desc') }}</p>
       </div>
     </div>
   </div>
@@ -976,23 +974,25 @@ section {
 <section>
   <div class="container">
     <div style="max-width:600px">
-      <div class="section-tag reveal">Where we operate</div>
+      <div class="section-tag reveal">{{ __('messages.about_locations_tag') }}</div>
       <h2 class="section-title reveal reveal-delay-1">
-        From the coast<br>to the <em>desert</em>
+        {{ __('messages.about_locations_title') }}<br><em>{{ __('messages.about_locations_emphasis') }}</em>
       </h2>
     </div>
 
-    <div class="destinations-grid reveal reveal-delay-2">
-      <div class="dest-card"><span class="dest-num">01</span><div><div class="dest-city">Meknes</div><div class="dest-region">Atlantic coast — Hub</div></div></div>
-      <div class="dest-card"><span class="dest-num">02</span><div><div class="dest-city">Casablanca</div><div class="dest-region">Imperial city</div></div></div>
-      <div class="dest-card"><span class="dest-num">03</span><div><div class="dest-city">Rabat</div><div class="dest-region">Capital region</div></div></div>
-      <div class="dest-card"><span class="dest-num">04</span><div><div class="dest-city">Fès</div><div class="dest-region">Northern medina</div></div></div>
-      <div class="dest-card"><span class="dest-num">05</span><div><div class="dest-city">Agadir</div><div class="dest-region">Southern coast</div></div></div>
-      <div class="dest-card"><span class="dest-num">06</span><div><div class="dest-city">Marrakech</div><div class="dest-region">Gateway to Europe</div></div></div>
-      <div class="dest-card"><span class="dest-num">07</span><div><div class="dest-city">Tangier</div><div class="dest-region">Wind city</div></div></div>
-      <div class="dest-card"><span class="dest-num">08</span><div><div class="dest-city">Ouarzazate</div><div class="dest-region">Gateway to Sahara</div></div></div>
-      <div class="dest-card"><span class="dest-num">09</span><div><div class="dest-city">Chefchaouen</div><div class="dest-region">The blue city</div></div></div>
-    </div>
+    @if($activeLocations->isNotEmpty())
+      <div class="destinations-grid reveal reveal-delay-2">
+        @foreach($activeLocations as $location)
+          <div class="dest-card">
+            <span class="dest-num">{{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
+            <div>
+              <div class="dest-city">{{ $location->city ?: $location->name }}</div>
+              <div class="dest-region">{{ $location->address ?: $location->name }}</div>
+            </div>
+          </div>
+        @endforeach
+      </div>
+    @endif
   </div>
 </section>
 
@@ -1002,18 +1002,18 @@ section {
 <section class="cta-banner">
   <div class="cta-orb"></div>
   <div class="cta-title reveal">
-    Ready to explore<br><em>Morocco?</em>
+    {{ __('messages.about_cta_title') }}<br><em>{{ __('messages.about_cta_emphasis') }}</em>
   </div>
   <p class="cta-sub reveal reveal-delay-1">
     Browse our fleet, pick your car, and hit the road.
     Your next adventure is one booking away.
   </p>
   <div class="cta-buttons reveal reveal-delay-2">
-    <a href="/cars" class="cta-btn cta-btn--primary">
+    <a href="{{ route('cars.index') }}" class="cta-btn cta-btn--primary">
       Browse fleet
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:16px;height:16px"><path stroke-linecap="round" stroke-linejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
     </a>
-    <a href="/contact" class="cta-btn cta-btn--outline">Contact us</a>
+    <a href="{{ route('contact') }}" class="cta-btn cta-btn--outline">{{ __('messages.contact_us') }}</a>
   </div>
 </section>
 

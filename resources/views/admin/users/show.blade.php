@@ -1,6 +1,28 @@
 @extends('admin.layouts.app')
 
 @section('content')
+@php
+    $profile = $user->customerProfile;
+    $documents = [
+        'driving-license-front' => ['label' => 'License Front', 'path' => 'driving_license_front_path'],
+        'driving-license-back' => ['label' => 'License Back', 'path' => 'driving_license_back_path'],
+        'identity-front' => ['label' => 'CNIE Front', 'path' => 'identity_front_path'],
+        'identity-back' => ['label' => 'CNIE Back', 'path' => 'identity_back_path'],
+    ];
+    $driverStatus = $profile?->driver_verification_status ?? \App\Models\CustomerProfile::STATUS_INCOMPLETE;
+    $driverStatusLabels = [
+        \App\Models\CustomerProfile::STATUS_INCOMPLETE => 'Incomplete',
+        \App\Models\CustomerProfile::STATUS_PENDING => 'Pending Verification',
+        \App\Models\CustomerProfile::STATUS_VERIFIED => 'Verified',
+        \App\Models\CustomerProfile::STATUS_REJECTED => 'Rejected',
+    ];
+    $driverStatusClasses = [
+        \App\Models\CustomerProfile::STATUS_INCOMPLETE => 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+        \App\Models\CustomerProfile::STATUS_PENDING => 'text-blue-300 bg-blue-500/10 border-blue-500/30',
+        \App\Models\CustomerProfile::STATUS_VERIFIED => 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
+        \App\Models\CustomerProfile::STATUS_REJECTED => 'text-red-300 bg-red-500/10 border-red-500/30',
+    ];
+@endphp
 <div class="min-h-screen bg-[#0a0e1a] text-gray-100">
     <div class="max-w-7xl mx-auto p-8">
 
@@ -136,15 +158,7 @@
                                         </div>
                                         <div class="text-right">
                                             <p class="text-orange-400 font-bold">{{ number_format($booking->total_amount, 0) }} MAD</p>
-                                            <span class="px-2 py-1 text-xs rounded-lg font-semibold
-                                                @if($booking->status == 'pending') bg-yellow-900/30 text-yellow-400
-                                                @elseif($booking->status == 'confirmed') bg-blue-900/30 text-blue-400
-                                                @elseif($booking->status == 'active') bg-emerald-900/30 text-emerald-400
-                                                @elseif($booking->status == 'completed') bg-gray-700 text-gray-300
-                                                @elseif($booking->status == 'cancelled') bg-red-900/30 text-red-400
-                                                @endif">
-                                                {{ ucfirst($booking->status) }}
-                                            </span>
+                                            <x-admin.booking-status-badge :status="$booking->status" class="px-2 py-0.5" />
                                         </div>
                                     </div>
                                     <a href="{{ route('admin.bookings.show', $booking) }}" 
@@ -216,6 +230,27 @@
                         @endif
 
                         <div>
+                            <p class="text-gray-400 text-sm mb-1">Address</p>
+                            <p class="text-white">{{ $user->address ?: '-' }}</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <p class="text-gray-400 text-sm mb-1">City</p>
+                                <p class="text-white">{{ $user->city ?: '-' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-sm mb-1">Country</p>
+                                <p class="text-white">{{ $user->country ?: '-' }}</p>
+                            </div>
+                        </div>
+
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">Postal Code</p>
+                            <p class="text-white">{{ $user->postal_code ?: '-' }}</p>
+                        </div>
+
+                        <div>
                             <p class="text-gray-400 text-sm mb-1">Role</p>
                             <p class="text-white">{{ ucfirst($user->role) }}</p>
                         </div>
@@ -230,6 +265,132 @@
                             <p class="text-gray-400 text-sm mb-1">Last Updated</p>
                             <p class="text-white">{{ $user->updated_at->format('M d, Y') }}</p>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Driver Verification -->
+                <div class="bg-[#1a2332] border border-gray-800 rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-white mb-4">Driver Verification</h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-gray-400 text-sm mb-2">Status</p>
+                            <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold {{ $driverStatusClasses[$driverStatus] ?? $driverStatusClasses[\App\Models\CustomerProfile::STATUS_INCOMPLETE] }}">
+                                {{ $driverStatusLabels[$driverStatus] ?? 'Incomplete' }}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <p class="text-gray-400 text-sm mb-1">Submitted At</p>
+                                <p class="text-white">{{ $profile?->driver_verification_submitted_at?->format('M d, Y H:i') ?? '-' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-sm mb-1">Verified At</p>
+                                <p class="text-white">{{ $profile?->driver_verified_at?->format('M d, Y H:i') ?? '-' }}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">Verified By</p>
+                            <p class="text-white">{{ $profile?->verifiedBy?->name ?? '-' }}</p>
+                        </div>
+                        @if($profile?->isRejected() && $profile->driver_verification_rejection_reason)
+                            <div class="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                                <p class="text-red-200 text-sm font-semibold mb-1">Rejection Reason</p>
+                                <p class="text-red-100 text-sm">{{ $profile->driver_verification_rejection_reason }}</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="mt-5 space-y-3 border-t border-gray-800 pt-5">
+                        @if($profile && $profile->hasCompleteDriverProfile())
+                            <form method="POST" action="{{ route('admin.customer-profiles.driver-verification.verify', $profile) }}">
+                                @csrf
+                                <button type="submit" class="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition">
+                                    Verify Driver Profile
+                                </button>
+                            </form>
+
+                            <form method="POST" action="{{ route('admin.customer-profiles.driver-verification.reject', $profile) }}" class="space-y-2">
+                                @csrf
+                                <label for="driver_verification_rejection_reason" class="sr-only">Rejection Reason</label>
+                                <textarea id="driver_verification_rejection_reason"
+                                          name="driver_verification_rejection_reason"
+                                          rows="3"
+                                          required
+                                          maxlength="1000"
+                                          placeholder="Rejection reason"
+                                          class="w-full rounded-lg border border-gray-700 bg-[#0f1520] px-3 py-2 text-sm text-white outline-none focus:border-red-500"></textarea>
+                                <button type="submit" class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition">
+                                    Reject Driver Profile
+                                </button>
+                            </form>
+                        @else
+                            <div class="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                                Verification actions are unavailable until the required driver fields and all four documents are present.
+                            </div>
+                        @endif
+                    </div>
+                </div>
+
+                <!-- Driver Information -->
+                <div class="bg-[#1a2332] border border-gray-800 rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-white mb-4">Driver Information</h3>
+
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">Date of Birth</p>
+                            <p class="text-white">{{ $profile?->date_of_birth?->format('M d, Y') ?? '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">Calculated Age</p>
+                            <p class="text-white">{{ $profile?->age ? $profile->age . ' years' : '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">License Number</p>
+                            <p class="text-white">{{ $profile?->driving_license_number ?? '-' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm mb-1">License Country</p>
+                            <p class="text-white">{{ $profile?->driving_license_country ?? '-' }}</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <p class="text-gray-400 text-sm mb-1">Issue Date</p>
+                                <p class="text-white">{{ $profile?->driving_license_issue_date?->format('M d, Y') ?? '-' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-sm mb-1">Expiry Date</p>
+                                <p class="text-white">{{ $profile?->driving_license_expiry_date?->format('M d, Y') ?? '-' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Document Status -->
+                <div class="bg-[#1a2332] border border-gray-800 rounded-xl p-6">
+                    <h3 class="text-lg font-bold text-white mb-4">Document Status</h3>
+
+                    <div class="space-y-3">
+                        @foreach($documents as $slug => $document)
+                            <div class="flex items-center justify-between gap-3 bg-[#0f1520] border border-gray-700 rounded-lg p-3">
+                                <div>
+                                    <p class="text-white text-sm font-semibold">{{ $document['label'] }}</p>
+                                    @if($profile?->{$document['path']})
+                                        <p class="text-emerald-400 text-xs">Uploaded</p>
+                                    @else
+                                        <p class="text-red-400 text-xs">Missing</p>
+                                    @endif
+                                </div>
+
+                                @if($profile?->{$document['path']})
+                                    <a href="{{ route('admin.customer-profiles.documents.show', [$profile, $slug]) }}"
+                                       target="_blank"
+                                       class="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-semibold rounded-lg transition">
+                                        View
+                                    </a>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
                 </div>
 

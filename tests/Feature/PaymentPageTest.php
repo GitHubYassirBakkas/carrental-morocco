@@ -61,6 +61,7 @@ test('fully paid booking payment page does not create a rental payment intent', 
 
     $invoice = Invoice::create([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1400,
         'tax_amount' => 0,
         'total_amount' => 1400,
@@ -136,10 +137,13 @@ test('card payment controller validates stripe intents without finalizing bookin
         'advance_payment_status' => 'pending',
         'security_deposit_amount' => 3000,
         'security_deposit_status' => 'pending',
+        'rental_payment_intent_id' => 'pi_rental_test',
+        'security_deposit_intent_id' => 'pi_security_test',
     ]);
 
     Invoice::create([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1300,
         'tax_amount' => 0,
         'total_amount' => 1300,
@@ -153,6 +157,7 @@ test('card payment controller validates stripe intents without finalizing bookin
         ->andReturn((object) [
             'id' => 'pi_rental_test',
             'status' => 'succeeded',
+            'currency' => 'mad',
             'amount_received' => 130000,
             'amount' => 130000,
             'metadata' => (object) [
@@ -166,6 +171,7 @@ test('card payment controller validates stripe intents without finalizing bookin
         ->andReturn((object) [
             'id' => 'pi_security_test',
             'status' => 'requires_capture',
+            'currency' => 'mad',
             'amount' => 300000,
             'amount_capturable' => 300000,
             'metadata' => (object) [
@@ -367,6 +373,7 @@ test('rental webhook creates final payment state once across duplicate events', 
 
     $invoice = Invoice::create([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1300,
         'tax_amount' => 0,
         'total_amount' => 1300,
@@ -452,6 +459,7 @@ test('security deposit webhook holds deposit without confirming booking or payin
 
     $invoice = Invoice::create([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1300,
         'tax_amount' => 0,
         'total_amount' => 1300,
@@ -657,6 +665,7 @@ function makeSecurityDepositWebhookBooking(string $depositStatus): array
 
     $invoice = Invoice::create([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1300,
         'tax_amount' => 0,
         'total_amount' => 1300,

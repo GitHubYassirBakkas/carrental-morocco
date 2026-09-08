@@ -1,7 +1,7 @@
 @extends('admin.layouts.app')
 
 @section('content')
-<div class="min-h-screen bg-[#0a0e1a] text-gray-100">
+<div class="min-h-screen bg-[#0a0e1a] text-gray-100 pb-32">
     <div class="max-w-6xl mx-auto p-8">
 
         <!-- Header -->
@@ -23,7 +23,7 @@
         @endif
 
         <!-- Settings Form -->
-        <form action="{{ route('admin.settings.update') }}" method="POST" class="space-y-6">
+        <form action="{{ route('admin.settings.update') }}" method="POST" class="space-y-6" id="settings-form">
             @csrf
             @method('PUT')
 
@@ -50,6 +50,16 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                 </svg>
                                 Booking Settings
+                            @elseif($group === 'refund')
+                                <svg class="w-6 h-6 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                                </svg>
+                                Refund Policy
+                            @elseif($group === 'social')
+                                <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h6m5 8l-4-4H7a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4h-1"/>
+                                </svg>
+                                Social Media
                             @else
                                 <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
@@ -143,19 +153,6 @@
 
             @endforeach
 
-            <!-- Save Button -->
-            <div class="flex gap-4 sticky bottom-8">
-                <button type="submit" 
-                        class="flex-1 px-8 py-4 bg-orange-600 hover:bg-orange-700 text-white font-bold text-lg rounded-xl transition-all shadow-lg">
-                    💾 Save All Settings
-                </button>
-                
-                <a href="{{ route('admin.dashboard') }}" 
-                   class="px-8 py-4 bg-gray-700 hover:bg-gray-600 text-white font-bold text-lg rounded-xl transition-all text-center">
-                    Cancel
-                </a>
-            </div>
-
         </form>
 
         <!-- Info Panel -->
@@ -189,7 +186,7 @@
                         <p class="text-yellow-200 text-sm">If changes don't appear immediately, clear the application cache</p>
                     </div>
                 </div>
-                <button type="button" 
+                <button type="button"
                         onclick="alert('Run: php artisan cache:clear')"
                         class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg transition text-sm">
                     Clear Cache
@@ -197,6 +194,24 @@
             </div>
         </div>
 
+    </div>
+</div>
+
+<!-- Fixed Bottom Action Buttons -->
+<div class="fixed bottom-0 left-64 right-0 bg-[#0a0e1a]/95 backdrop-blur-sm border-t border-gray-800 p-4 z-50">
+    <div class="max-w-6xl mx-auto px-8">
+        <div class="flex gap-4">
+            <button type="submit"
+                    form="settings-form"
+                    class="px-8 py-3 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-all shadow-lg">
+                💾 Save All Settings
+            </button>
+
+            <a href="{{ route('admin.dashboard') }}"
+               class="px-8 py-3 bg-gray-600 hover:bg-gray-600 text-white font-semibold rounded-lg transition-all text-center whitespace-nowrap">
+                Cancel
+            </a>
+        </div>
     </div>
 </div>
 @endsection

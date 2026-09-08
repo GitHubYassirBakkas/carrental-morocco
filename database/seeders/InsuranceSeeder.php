@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-
 use App\Models\Insurance;
+use Illuminate\Database\Seeder;
 
 class InsuranceSeeder extends Seeder
 {

@@ -14,7 +14,7 @@ class EmailLog extends Model
         'booking_id',
         'to',
         'subject',
-         'content',
+        'content',
         'template',
         'variables',
         'status',
@@ -24,7 +24,7 @@ class EmailLog extends Model
         'clicked_at',
         'message_id',
         'ip_address',
-        'user_agent'
+        'user_agent',
     ];
 
     protected $casts = [
@@ -42,12 +42,12 @@ class EmailLog extends Model
         return $this->belongsTo(Booking::class);
     }
 
-     public function scopePending($query)
+    public function scopePending($query)
     {
         return $query->where('status', 'pending');
     }
 
-        /**
+    /**
      * Get body content (alias for content)
      */
     public function getBodyAttribute()
@@ -63,7 +63,6 @@ class EmailLog extends Model
         return $this->status === 'sent' ? $this->created_at : null;
     }
 
-
     public function scopeSent($query)
     {
         return $query->where('status', 'sent');
@@ -78,7 +77,7 @@ class EmailLog extends Model
     {
         $this->update([
             'opened_at' => now(),
-            'status' => 'opened'
+            'status' => 'opened',
         ]);
     }
 
@@ -86,7 +85,7 @@ class EmailLog extends Model
     {
         $this->update([
             'clicked_at' => now(),
-            'status' => 'clicked'
+            'status' => 'clicked',
         ]);
     }
 }

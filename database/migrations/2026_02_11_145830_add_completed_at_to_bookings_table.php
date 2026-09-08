@@ -9,14 +9,13 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-   public function up()
-{
-    Schema::table('bookings', function (Blueprint $table) {
-        $table->timestamp('completed_at')->nullable();
-        $table->timestamp('started_at')->nullable();
-    });
-}
-
+    public function up()
+    {
+        Schema::table('bookings', function (Blueprint $table) {
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamp('started_at')->nullable();
+        });
+    }
 
     /**
      * Reverse the migrations.
@@ -24,7 +23,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-             $table->dropColumn(['completed_at', 'started_at']);
+            $table->dropColumn(['completed_at', 'started_at']);
         });
     }
 };

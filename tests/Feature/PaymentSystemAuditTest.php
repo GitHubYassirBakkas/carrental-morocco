@@ -1,12 +1,17 @@
 <?php
 
+use App\Domain\Booking\BookingStateMachine;
+use App\Domain\Events\EventBus;
+use App\Domain\Events\PaymentFailedEvent;
+use App\Jobs\OutboxDispatcherJob;
+use App\Jobs\ProcessStripeWebhookEventJob;
+use App\Jobs\RecoverStuckWebhookJobs;
 use App\Models\Booking;
 use App\Models\BookingSaga;
 use App\Models\BookingStateTransition;
 use App\Models\Car;
-use App\Models\EventStream;
-use App\Models\EventStreamCursor;
 use App\Models\EventReplayLog;
+use App\Models\EventStream;
 use App\Models\EventTimeline;
 use App\Models\FailedWebhookEvent;
 use App\Models\GlobalIdempotencyRecord;
@@ -18,12 +23,6 @@ use App\Models\PaymentEventAudit;
 use App\Models\PaymentIdempotencyKey;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
-use App\Jobs\ProcessStripeWebhookEventJob;
-use App\Jobs\OutboxDispatcherJob;
-use App\Jobs\RecoverStuckWebhookJobs;
-use App\Domain\Booking\BookingStateMachine;
-use App\Domain\Events\EventBus;
-use App\Domain\Events\PaymentFailedEvent;
 use App\Services\GlobalIdempotencyService;
 use App\Services\PaymentWebhookLockService;
 use Illuminate\Support\Facades\DB;
@@ -370,7 +369,7 @@ test('unsupported stripe event is ignored and does not enter fail loop', functio
         ->and($event->attempts)->toBe(1)
         ->and($event->failed_at)->toBeNull()
         ->and(DB::table('failed_jobs')->count())->toBe(0)
-        ->and(\App\Models\WorkerHeartbeat::where('worker_name', gethostname() . ':stripe-webhook:' . getmypid())->first()?->current_job)->toBeNull();
+        ->and(\App\Models\WorkerHeartbeat::where('worker_name', gethostname().':stripe-webhook:'.getmypid())->first()?->current_job)->toBeNull();
 });
 
 test('payment intent created test trigger is ignored safely', function () {
@@ -403,7 +402,8 @@ test('stripe metadata array object and stripe-like objects are normalized safely
     $method = new ReflectionMethod($job, 'toArraySafe');
     $method->setAccessible(true);
 
-    $stripeLike = new class {
+    $stripeLike = new class
+    {
         public function toArray(): array
         {
             return [
@@ -950,6 +950,7 @@ function auditBookingWithInvoice(array $bookingOverrides = [], array $invoiceOve
 
     $invoice = Invoice::create(array_merge([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1300,
         'tax_amount' => 0,
         'total_amount' => 1300,
@@ -961,7 +962,7 @@ function auditBookingWithInvoice(array $bookingOverrides = [], array $invoiceOve
 
 function auditPaymentIntentPayload(string $eventType, string $intentId, Booking $booking, array $overrides = []): array
 {
-    $eventId = $overrides['id'] ?? 'evt_' . str_replace(['.', '_'], '-', $eventType) . '_' . $intentId;
+    $eventId = $overrides['id'] ?? 'evt_'.str_replace(['.', '_'], '-', $eventType).'_'.$intentId;
     unset($overrides['id']);
 
     return [

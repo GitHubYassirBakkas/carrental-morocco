@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::table('booking_damages', function (Blueprint $table) {
             $table->json('photos')
-                  ->nullable()
-                  ->after('description')
-                  ->comment('Array of damage photo paths');
+                ->nullable()
+                ->after('description')
+                ->comment('Array of damage photo paths');
         });
     }
 

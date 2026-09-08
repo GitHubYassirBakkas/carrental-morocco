@@ -9,15 +9,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('booking_sagas', function (Blueprint $table) {
-            if (!Schema::hasColumn('booking_sagas', 'compensation_status')) {
+            if (! Schema::hasColumn('booking_sagas', 'compensation_status')) {
                 $table->string('compensation_status', 32)->nullable()->after('status')->index();
             }
 
-            if (!Schema::hasColumn('booking_sagas', 'compensation_payload')) {
+            if (! Schema::hasColumn('booking_sagas', 'compensation_payload')) {
                 $table->json('compensation_payload')->nullable()->after('payload');
             }
 
-            if (!Schema::hasColumn('booking_sagas', 'retry_count')) {
+            if (! Schema::hasColumn('booking_sagas', 'retry_count')) {
                 $table->unsignedInteger('retry_count')->default(0)->after('compensation_payload');
             }
         });

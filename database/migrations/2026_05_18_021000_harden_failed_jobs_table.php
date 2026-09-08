@@ -10,7 +10,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('failed_jobs')) {
+        if (! Schema::hasTable('failed_jobs')) {
             Schema::create('failed_jobs', function (Blueprint $table) {
                 $table->id();
                 $table->string('uuid')->unique();
@@ -26,31 +26,31 @@ return new class extends Migration
         }
 
         Schema::table('failed_jobs', function (Blueprint $table) {
-            if (!Schema::hasColumn('failed_jobs', 'uuid')) {
+            if (! Schema::hasColumn('failed_jobs', 'uuid')) {
                 $table->string('uuid')->nullable()->after('id');
             }
 
-            if (!Schema::hasColumn('failed_jobs', 'connection')) {
+            if (! Schema::hasColumn('failed_jobs', 'connection')) {
                 $table->text('connection')->nullable()->after('uuid');
             }
 
-            if (!Schema::hasColumn('failed_jobs', 'queue')) {
+            if (! Schema::hasColumn('failed_jobs', 'queue')) {
                 $table->text('queue')->nullable()->after('connection');
             }
 
-            if (!Schema::hasColumn('failed_jobs', 'payload')) {
+            if (! Schema::hasColumn('failed_jobs', 'payload')) {
                 $table->longText('payload')->nullable()->after('queue');
             }
 
-            if (!Schema::hasColumn('failed_jobs', 'exception')) {
+            if (! Schema::hasColumn('failed_jobs', 'exception')) {
                 $table->longText('exception')->nullable()->after('payload');
             }
 
-            if (!Schema::hasColumn('failed_jobs', 'failed_at')) {
+            if (! Schema::hasColumn('failed_jobs', 'failed_at')) {
                 $table->timestamp('failed_at')->nullable()->useCurrent()->after('exception');
             }
 
-            if (!Schema::hasColumn('failed_jobs', 'created_at')) {
+            if (! Schema::hasColumn('failed_jobs', 'created_at')) {
                 $table->timestamp('created_at')->nullable()->after('failed_at');
             }
         });

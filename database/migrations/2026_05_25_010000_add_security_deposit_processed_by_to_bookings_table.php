@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            if (!Schema::hasColumn('bookings', 'security_deposit_processed_by')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_processed_by')) {
                 $column = $table->foreignId('security_deposit_processed_by')->nullable()
                     ->constrained('users')
                     ->restrictOnDelete();

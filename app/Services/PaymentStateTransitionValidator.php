@@ -67,7 +67,7 @@ class PaymentStateTransitionValidator
         $from = $from ?: $to;
         $allowed = in_array($to, $transitions[$from] ?? [], true);
 
-        $message = 'Payment state transition ' . ($allowed ? 'accepted.' : 'rejected.');
+        $message = 'Payment state transition '.($allowed ? 'accepted.' : 'rejected.');
         $logContext = array_merge($context, [
             'state_machine' => $machine,
             'previous_status' => $from,

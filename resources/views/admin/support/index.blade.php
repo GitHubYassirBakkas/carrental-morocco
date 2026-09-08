@@ -62,7 +62,8 @@
 
     {{-- Tickets Table --}}
     <div class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-2xl border border-gray-800 overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto">
+        <table class="w-full min-w-[860px]">
             <thead>
                 <tr class="border-b border-gray-800">
                     <th class="text-left px-6 py-4 text-gray-400 text-sm font-semibold">Ticket</th>
@@ -141,6 +142,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
 
         {{-- Pagination --}}
         @if($tickets->hasPages())

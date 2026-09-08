@@ -6,7 +6,7 @@
     <div class="max-w-5xl mx-auto px-6">
 
         {{-- Header --}}
-        <div class="mb-8 flex items-center justify-between">
+        <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div class="flex items-center gap-4">
                 <div class="w-14 h-14 bg-[#C89D66]/10 rounded-2xl flex items-center justify-center">
                     <svg class="w-8 h-8 text-[#C89D66]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,7 +28,7 @@
         </div>
 
         {{-- Stats Row --}}
-        <div class="grid grid-cols-4 gap-4 mb-8">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             @php
                 $open        = $tickets->where('status', 'open')->count();
                 $in_progress = $tickets->where('status', 'in_progress')->count();

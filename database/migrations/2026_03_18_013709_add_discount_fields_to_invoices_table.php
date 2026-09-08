@@ -9,10 +9,10 @@ return new class extends Migration
     public function up()
     {
         Schema::table('invoices', function (Blueprint $table) {
-            if (!Schema::hasColumn('invoices', 'subtotal')) {
+            if (! Schema::hasColumn('invoices', 'subtotal')) {
                 $table->decimal('subtotal', 10, 2)->after('user_id');
             }
-            if (!Schema::hasColumn('invoices', 'discount_amount')) {
+            if (! Schema::hasColumn('invoices', 'discount_amount')) {
                 $table->decimal('discount_amount', 10, 2)->default(0)->after('subtotal');
             }
         });

@@ -25,6 +25,6 @@ class BookingPhoto extends Model
 
     public function inspection()
     {
-        return $this->belongsTo(BookingInspection::class,  'booking_inspection_id');
+        return $this->belongsTo(BookingInspection::class, 'booking_inspection_id');
     }
 }

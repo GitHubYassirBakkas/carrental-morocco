@@ -23,13 +23,13 @@ class Location extends Model
         'notes',
         'is_active',
         'latitude',
-        'longitude'
+        'longitude',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'latitude' => 'decimal:8',
-        'longitude' => 'decimal:8'
+        'longitude' => 'decimal:8',
     ];
 
     // ==========================================
@@ -73,9 +73,9 @@ class Location extends Model
             $this->address,
             $this->city,
             $this->postal_code,
-            $this->country
+            $this->country,
         ]);
-        
+
         return implode(', ', $parts);
     }
 
@@ -84,7 +84,7 @@ class Location extends Model
      */
     public function getHasCoordinatesAttribute(): bool
     {
-        return !empty($this->latitude) && !empty($this->longitude);
+        return ! empty($this->latitude) && ! empty($this->longitude);
     }
 
     /**
@@ -93,13 +93,13 @@ class Location extends Model
      */
     public function getMapEmbedUrlAttribute(): ?string
     {
-        if (!$this->has_coordinates) {
+        if (! $this->has_coordinates) {
             return null;
         }
 
         // استخدم مفتاح API الخاص بك هنا
         $apiKey = config('services.google_maps.api_key');
-        
+
         return "https://www.google.com/maps/embed/v1/place?key={$apiKey}&q={$this->latitude},{$this->longitude}&zoom=15";
     }
 
@@ -108,7 +108,7 @@ class Location extends Model
      */
     public function getMapLinkAttribute(): ?string
     {
-        if (!$this->has_coordinates) {
+        if (! $this->has_coordinates) {
             return null;
         }
 
@@ -137,7 +137,7 @@ class Location extends Model
         }
 
         $now = now()->format('H:i:s');
-        
+
         return $now >= $this->opening_time && $now <= $this->closing_time;
     }
 
@@ -167,6 +167,6 @@ class Location extends Model
     public function scopeWithCoordinates($query)
     {
         return $query->whereNotNull('latitude')
-                     ->whereNotNull('longitude');
+            ->whereNotNull('longitude');
     }
 }

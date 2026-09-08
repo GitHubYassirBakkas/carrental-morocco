@@ -68,7 +68,7 @@
                             <div class="bg-gradient-to-br from-[#C89D66]/10 to-[#C89D66]/5 rounded-2xl rounded-tl-none border border-[#C89D66]/20 p-4">
                                 <div class="flex items-center gap-2 mb-2">
                                     <span class="text-[#C89D66] font-bold text-sm">{{ __('messages.support_team') }}</span>
-                                    <span class="px-2 py-0.5 bg-[#C89D66]/20 text-[#C89D66] text-xs rounded-full font-semibold">Admin</span>
+                                    <span class="px-2 py-0.5 bg-[#C89D66]/20 text-[#C89D66] text-xs rounded-full font-semibold">{{ __('messages.support_admin') }}</span>
                                 </div>
                                 <p class="text-gray-300 text-sm leading-relaxed">{{ $msg->message }}</p>
                             </div>

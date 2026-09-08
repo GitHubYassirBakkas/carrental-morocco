@@ -69,7 +69,7 @@ class Insurance extends Model
      */
     public function getBadgeColorAttribute()
     {
-        return match($this->type) {
+        return match ($this->type) {
             'basic' => 'blue',
             'standard' => 'yellow',
             'premium' => 'green',
@@ -87,8 +87,8 @@ class Insurance extends Model
             'standard' => '⭐',
             'premium' => '👑',
         ];
-        
-        return ($icons[$this->type] ?? '📋') . ' ' . $this->name;
+
+        return ($icons[$this->type] ?? '📋').' '.$this->name;
     }
 
     public function getInsuranceFeeAttribute()

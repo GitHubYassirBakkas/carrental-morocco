@@ -6,13 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Services\Pricing\BookingPricingService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class BookingDamageController extends Controller
 {
-    public function __construct(private readonly BookingPricingService $pricingService)
-    {
-    }
+    public function __construct(private readonly BookingPricingService $pricingService) {}
 
     public function store(Request $request, Booking $booking)
     {
@@ -26,8 +27,8 @@ class BookingDamageController extends Controller
 
         if ($request->hasFile('photos')) {
             $request->validate([
-                'photos' => 'array',
-                'photos.*' => 'image|mimes:jpeg,png,jpg,webp|max:5120',
+                'photos' => 'array|max:10',
+                'photos.*' => 'file|image|mimes:jpeg,jpg,png,webp|mimetypes:image/jpeg,image/png,image/webp|max:5120',
             ]);
         }
 
@@ -37,8 +38,7 @@ class BookingDamageController extends Controller
         if ($request->hasFile('photos')) {
             foreach ($request->file('photos') as $photo) {
                 try {
-                    $filename = time() . '_' . uniqid() . '.' . $photo->getClientOriginalExtension();
-                    $photoPaths[] = $photo->storeAs('damages', $filename, 'public');
+                    $photoPaths[] = $this->storeDamagePhoto($photo);
                 } catch (\Throwable $e) {
                     Log::error('Damage photo upload failed', [
                         'booking_id' => $booking->id,
@@ -56,9 +56,9 @@ class BookingDamageController extends Controller
             $this->updateInvoiceWithDamages($booking);
         }
 
-        $message = ucfirst($data['stage']) . ' damage recorded successfully';
+        $message = ucfirst($data['stage']).' damage recorded successfully';
         if ($data['photos']) {
-            $message .= ' with ' . count($data['photos']) . ' photo(s)';
+            $message .= ' with '.count($data['photos']).' photo(s)';
         }
 
         return redirect()->back()->with('success', $message);
@@ -74,5 +74,18 @@ class BookingDamageController extends Controller
             'tax_amount' => $invoiceTotals['tax_amount'],
             'total_amount' => $invoiceTotals['total_amount'],
         ]);
+    }
+
+    private function storeDamagePhoto(UploadedFile $photo): string
+    {
+        $extension = strtolower($photo->extension() ?: 'jpg');
+        $filename = Str::uuid()->toString().'.'.$extension;
+        $path = Storage::disk('local')->putFileAs('booking-evidence/damages', $photo, $filename);
+
+        if (! is_string($path) || $path === '') {
+            throw new \RuntimeException('Damage photo could not be stored.');
+        }
+
+        return $path;
     }
 }

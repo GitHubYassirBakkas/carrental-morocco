@@ -5,7 +5,7 @@
         </td>
         <td width="50%" align="right">
             <strong>Car Rental Morocco</strong><br>
-            Casablanca, Morocco<br>
+            Meknes, Morocco<br>
             Phone: +212 6 12 34 56 78<br>
             Email: contact@carrental.ma
         </td>
@@ -90,8 +90,9 @@
         <tr style="background:#111827;color:#fff">
             <td><strong>Final Total</strong></td>
             <td align="right">
+               @php($bookingStatusLabel = (new \App\View\Components\Admin\BookingStatusBadge($booking->status))->label())
                <p style="font-size:12px">
-                    Status: <strong>{{ strtoupper($booking->status) }}</strong>
+                    Status: <strong>{{ $bookingStatusLabel }}</strong>
                 </p>
 
             </td>

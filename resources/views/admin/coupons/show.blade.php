@@ -200,7 +200,7 @@
                     </h3>
                 </div>
 
-                @if($coupon->usages->count() > 0)
+                @if($usages->total() > 0)
                     <div class="overflow-x-auto">
                         <table class="w-full">
                             <thead class="bg-[#0a0e1a] text-xs">
@@ -214,7 +214,7 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-800">
-                                @foreach($coupon->usages as $usage)
+                                @foreach($usages as $usage)
                                     <tr class="hover:bg-[#0f1520] transition-colors">
                                         <td class="px-6 py-4">
                                             <div class="font-semibold text-white">{{ $usage->user->name }}</div>
@@ -243,6 +243,9 @@
                                 @endforeach
                             </tbody>
                         </table>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-800">
+                        {{ $usages->links() }}
                     </div>
                 @else
                     <div class="px-6 py-12 text-center">

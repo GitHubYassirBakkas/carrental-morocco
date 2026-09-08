@@ -2,6 +2,7 @@
 
 use App\Models\Booking;
 use App\Models\Car;
+use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\PaymentEventAudit;
@@ -63,6 +64,21 @@ test('availability ignores terminal bookings and blocks active or reserved overl
 
 test('booking store refuses an overlapping reserved booking', function () {
     [$car, $location, $user] = hardeningCarFixture();
+    $profile = CustomerProfile::create([
+        'user_id' => $user->id,
+        'date_of_birth' => now()->subYears(30)->toDateString(),
+        'driving_license_number' => 'HARDENING-DL',
+        'driving_license_front_path' => "private/customer-documents/{$user->id}/driving-license/front/front.jpg",
+        'driving_license_back_path' => "private/customer-documents/{$user->id}/driving-license/back/back.jpg",
+        'identity_front_path' => "private/customer-documents/{$user->id}/identity/front/front.jpg",
+        'identity_back_path' => "private/customer-documents/{$user->id}/identity/back/back.jpg",
+    ]);
+    $profile->forceFill([
+        'driver_verification_status' => CustomerProfile::STATUS_VERIFIED,
+        'driver_verified_at' => now(),
+        'driver_verified_by' => User::factory()->create(['role' => 'admin'])->id,
+    ])->save();
+
     $start = now()->addDay();
     $end = now()->addDays(3);
 

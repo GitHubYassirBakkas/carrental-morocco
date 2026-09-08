@@ -21,8 +21,8 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             SettingsSeeder::class,
             CarSeeder::class,
+            InsuranceSeeder::class,
         ]);
-$this->call(InsuranceSeeder::class);
 
         $this->command->line('----------------------------');
         $this->command->info('Database seeding completed!');

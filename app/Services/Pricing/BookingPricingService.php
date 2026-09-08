@@ -259,7 +259,7 @@ class BookingPricingService
     {
         $returnAt ??= now();
 
-        if (!$booking->end_date || $returnAt->lessThanOrEqualTo($booking->end_date)) {
+        if (! $booking->end_date || $returnAt->lessThanOrEqualTo($booking->end_date)) {
             return ['minutes' => 0, 'fee' => 0.0];
         }
 
@@ -277,29 +277,6 @@ class BookingPricingService
         return [
             'minutes' => $lateMinutes,
             'fee' => $fee,
-        ];
-    }
-
-    public function calculateLegacyLateCharge(Booking $booking, mixed $returnAt = null): array
-    {
-        $returnAt ??= now();
-
-        if ($booking->isCompleted()) {
-            return [
-                'minutes' => (int) $booking->late_minutes,
-                'fee' => (float) $booking->late_fee,
-            ];
-        }
-
-        if (!$booking->end_date || $returnAt->lessThanOrEqualTo($booking->end_date)) {
-            return ['minutes' => 0, 'fee' => 0];
-        }
-
-        $minutes = $returnAt->diffInMinutes($booking->end_date);
-
-        return [
-            'minutes' => $minutes,
-            'fee' => $minutes * 5,
         ];
     }
 
@@ -336,39 +313,6 @@ class BookingPricingService
             'damage_amount' => $damageCharge,
             'subtotal_before_tax' => $subtotalBeforeTax,
         ]);
-    }
-
-    public function calculateRefundAmount(Booking $booking, float $paidAmount): float
-    {
-        if ($paidAmount <= 0) {
-            return 0.0;
-        }
-
-        if ($booking->isActive()) {
-            $totalDays = max(1, $booking->start_date->diffInDays($booking->end_date));
-            $usedDays = ceil($booking->start_date->diffInHours(now()) / 24);
-            $usedDays = min($usedDays, $totalDays);
-            $averageAmountPerDay = (float) $booking->total_amount / $totalDays;
-            $usedAmount = $usedDays * $averageAmountPerDay;
-
-            return max(0, $paidAmount - $usedAmount);
-        }
-
-        $hoursBeforePickup = now()
-            ->utc()
-            ->diffInHours($booking->start_date->utc(), false);
-
-        if ($hoursBeforePickup > 48) {
-            return $paidAmount;
-        }
-
-        if ($hoursBeforePickup >= 0) {
-            $advancePayment = min((float) $booking->advance_payment_amount, $paidAmount);
-
-            return max(0, $paidAmount - $advancePayment);
-        }
-
-        return 0.0;
     }
 
     public function calculatePaidAmount(float $payments, float $refunds): float
@@ -493,7 +437,7 @@ class BookingPricingService
     {
         $invoice->loadMissing('booking');
 
-        if (!$invoice->booking) {
+        if (! $invoice->booking) {
             $breakdown = $this->breakdown(
                 (float) $invoice->subtotal,
                 0,

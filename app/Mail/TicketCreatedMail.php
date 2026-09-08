@@ -15,12 +15,12 @@ class TicketCreatedMail extends Mailable
 
     public function __construct(public Ticket $ticket) {}
 
-   public function envelope(): Envelope
-{
-    return new Envelope(
-        subject: '✅ Ticket Received - ' . $this->ticket->ticket_number,
-    );
-}
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: '✅ Ticket Received - '.$this->ticket->ticket_number,
+        );
+    }
 
     public function content(): Content
     {

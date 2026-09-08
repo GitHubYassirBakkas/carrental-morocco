@@ -17,12 +17,12 @@ return new class extends Migration
             $table->timestamp('used_at')->nullable();
             $table->string('ip_address', 45)->nullable();
             $table->text('user_agent')->nullable();
-            
+
             // Additional data that might be needed for the token
             $table->json('payload')->nullable();
-            
+
             $table->timestamps();
-            
+
             // Indexes for better query performance
             $table->index(['token', 'type', 'expires_at', 'used_at']);
             $table->index(['email', 'type']);

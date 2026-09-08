@@ -3,45 +3,52 @@
 namespace App\Http\Controllers;
 
 use App\Models\Car;
-use App\Models\Location;
 use App\Models\Insurance;
+use App\Models\Location;
 use App\Services\Pricing\BookingPricingService;
+use App\Services\PublicSiteDataService;
 use Illuminate\Http\Request;
 
 class CarController extends Controller
 {
-    public function __construct(private readonly BookingPricingService $pricingService)
-    {
-    }
+    public function __construct(private readonly BookingPricingService $pricingService) {}
 
     public function show(Request $request, Car $car)
     {
         return $this->details($request, $car);
     }
 
-    public function index(Request $request)
+    public function index(Request $request, PublicSiteDataService $publicSiteData)
     {
         $query = Car::query()
             ->where('is_available', true)
             ->with('location');
 
-        /* 🔍 Search: brand or model */
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('brand', 'like', "%$search%")
-                  ->orWhere('model', 'like', "%$search%");
+                    ->orWhere('model', 'like', "%$search%");
             });
         }
 
-        /* 📍 Pick-up Location */
         if ($request->filled('location')) {
-            $query->whereHas('location', function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->location . '%');
-            });
+            $location = $request->input('location');
+
+            if (is_numeric($location)) {
+                $query->where('location_id', (int) $location);
+            } else {
+                $query->whereHas('location', function ($q) use ($location) {
+                    $q->where('name', 'like', '%'.$location.'%')
+                        ->orWhere('city', 'like', '%'.$location.'%');
+                });
+            }
         }
 
-        /* 💰 Price Range */
+        if ($request->filled('brand')) {
+            $query->where('brand', $request->string('brand')->toString());
+        }
+
         if ($request->filled('min_price')) {
             $query->where('price_per_day', '>=', $request->min_price);
         }
@@ -50,17 +57,14 @@ class CarController extends Controller
             $query->where('price_per_day', '<=', $request->max_price);
         }
 
-        /* 🚗 Car Category (type) */
         if ($request->filled('type')) {
             $query->whereIn('type', (array) $request->type);
         }
 
-        /* ⚙️ Transmission */
         if ($request->filled('transmission')) {
             $query->where('transmission', $request->transmission);
         }
 
-        /* 📅 Exclude cars booked in this date range */
         if ($request->filled('pickup_date') && $request->filled('return_date')) {
             $pickup = $request->pickup_date;
             $return = $request->return_date;
@@ -71,52 +75,60 @@ class CarController extends Controller
             });
         }
 
-        /* 📄 Pagination */
         $cars = $query
             ->orderBy('created_at', 'desc')
             ->paginate(9)
             ->withQueryString();
 
         return view('cars.index', [
-            'cars'        => $cars,
-            'locations'   => Location::where('is_active', true)->get(),
-            'types'       => Car::select('type')->distinct()->pluck('type'),
-            'brands'      => Car::select('brand')->distinct()->pluck('brand'),
-            'minPrice'    => Car::min('price_per_day'),
-            'maxPrice'    => Car::max('price_per_day'),
+            'cars' => $cars,
+            'availableCarsCount' => $publicSiteData->availableCarsCount(),
+            'locations' => $publicSiteData->activeLocations(),
+            'types' => Car::available()
+                ->whereNotNull('type')
+                ->where('type', '!=', '')
+                ->select('type')
+                ->distinct()
+                ->orderBy('type')
+                ->pluck('type'),
+            'brands' => $publicSiteData->availableBrands(),
+            'minPrice' => Car::min('price_per_day'),
+            'maxPrice' => Car::max('price_per_day'),
             'pickup_date' => $request->pickup_date,
             'return_date' => $request->return_date,
             'pickup_time' => $request->pickup_time,
             'return_time' => $request->return_time,
-            'location'    => $request->location,
+            'location' => $request->location,
         ]);
     }
 
-    /**
-     * Search from home form — redirects to index with GET params
-     */
     public function search(Request $request)
     {
-         // ❌ block any city except meknes
-    if ($request->location !== 'meknes') {
-        return redirect()->back()->with('error', 'Only Meknès is available حاليا');
-    }
-        
+        $location = $request->input('location');
+
+        $activeLocation = Location::active()
+            ->when(is_numeric($location), fn ($query) => $query->whereKey((int) $location))
+            ->when(! is_numeric($location), function ($query) use ($location) {
+                $query->where(function ($query) use ($location) {
+                    $query->where('city', 'like', '%'.$location.'%')
+                        ->orWhere('name', 'like', '%'.$location.'%');
+                });
+            })
+            ->first();
+
+        if (! $activeLocation) {
+            return redirect()->back()->with('error', __('messages.invalid_city'));
+        }
+
         return redirect()->route('cars.index', array_filter([
-            'location'    => $request->location,
+            'location' => $activeLocation->id,
             'pickup_date' => $request->pickup_date,
             'return_date' => $request->return_date,
             'pickup_time' => $request->pickup_time,
             'return_time' => $request->return_time,
-
-            
         ]));
     }
-    
 
-    /**
-     * 🚗 Car Details Page with Booking Calculator
-     */
     public function details(Request $request, Car $car)
     {
         $car->load(['location', 'reviews']);
@@ -144,17 +156,15 @@ class CarController extends Controller
             $total = $this->pricingService->calculateTotal($carTotal, (float) $insurancePrice);
         }
 
-        // ✅ GET APPROVED REVIEWS
         $reviews = $car->reviews()
             ->where('is_approved', true)
             ->with('user')
             ->latest()
             ->get();
 
-        // ✅ CALCULATE REVIEW STATS
         $reviewStats = [
-            'count'        => $reviews->count(),
-            'average'      => $reviews->count() > 0 ? round($reviews->avg('rating'), 1) : 0,
+            'count' => $reviews->count(),
+            'average' => $reviews->count() > 0 ? round($reviews->avg('rating'), 1) : 0,
             'distribution' => [
                 5 => $reviews->where('rating', 5)->count(),
                 4 => $reviews->where('rating', 4)->count(),
@@ -165,7 +175,7 @@ class CarController extends Controller
         ];
 
         $averageRating = $reviewStats['average'];
-        $reviewCount   = $reviewStats['count'];
+        $reviewCount = $reviewStats['count'];
 
         $bookedRanges = $car->bookings()
             ->activeOrReserved()
@@ -173,7 +183,7 @@ class CarController extends Controller
             ->map(function ($b) {
                 return [
                     'from' => $b->start_date,
-                    'to'   => $b->end_date,
+                    'to' => $b->end_date,
                 ];
             });
 

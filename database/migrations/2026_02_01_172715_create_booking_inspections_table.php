@@ -11,17 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-    Schema::create('booking_inspections', function (Blueprint $table) {
-        $table->id();
-        $table->foreignId('booking_id')->constrained()->restrictOnDelete();
-        $table->enum('type', ['checkin', 'checkout']);
-        $table->integer('mileage')->nullable();
-        $table->integer('fuel_level')->nullable(); // % 0–100
-        $table->boolean('has_damage')->default(false);
-        $table->text('damage_notes')->nullable();
-        $table->foreignId('created_by')->nullable()->constrained('users');
-        $table->timestamps();
-});
+        Schema::create('booking_inspections', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('booking_id')->constrained()->restrictOnDelete();
+            $table->enum('type', ['checkin', 'checkout']);
+            $table->integer('mileage')->nullable();
+            $table->integer('fuel_level')->nullable(); // % 0–100
+            $table->boolean('has_damage')->default(false);
+            $table->text('damage_notes')->nullable();
+            $table->foreignId('created_by')->nullable()->constrained('users');
+            $table->timestamps();
+        });
 
     }
 
@@ -31,6 +31,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('booking_inspections');
-        
+
     }
 };

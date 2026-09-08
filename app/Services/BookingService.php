@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Events\BookingCompleted;
 use App\Mail\AdminPaymentConfirmedMail;
 use App\Models\Booking;
-use App\Services\Pricing\BookingPricingService;
+use App\Models\Notification;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -15,17 +15,14 @@ class BookingService
 {
     private AdvancePaymentService $advancePaymentService;
 
-    private BookingPricingService $pricingService;
-
     public function __construct(
         AdvancePaymentService $advancePaymentService,
-        BookingPricingService $pricingService,
         private readonly InvoiceService $invoiceService,
         private readonly RefundService $refundService,
-        private readonly SecurityDepositService $securityDepositService
+        private readonly SecurityDepositService $securityDepositService,
+        private readonly NotificationService $notificationService
     ) {
         $this->advancePaymentService = $advancePaymentService;
-        $this->pricingService = $pricingService;
     }
 
     /**
@@ -39,7 +36,7 @@ class BookingService
             throw new Exception('Only pending bookings can be confirmed');
         }
 
-        return DB::transaction(function () use ($booking) {
+        $freshBooking = DB::transaction(function () use ($booking) {
             // Update booking status
             $booking->update(['status' => Booking::STATUS_CONFIRMED]);
 
@@ -62,18 +59,47 @@ class BookingService
 
             $freshBooking = $booking->fresh(['car', 'user', 'insurance', 'pickupLocation']);
 
-            try {
-                Mail::to($freshBooking->user->email)
-                    ->send(new AdminPaymentConfirmedMail($freshBooking));
-            } catch (Exception $e) {
-                Log::error('Failed to send confirmation email', [
-                    'booking_id' => $freshBooking->id,
-                    'message' => $e->getMessage(),
-                ]);
+            // ✅ CREATE NOTIFICATION FOR BOOKING APPROVED
+            $notificationExists = Notification::where('user_id', $freshBooking->user_id)
+                ->where('type', 'booking_approved')
+                ->whereJsonContains('data->booking_id', $freshBooking->id)
+                ->exists();
+
+            if (! $notificationExists) {
+                $this->notificationService->create(
+                    $freshBooking->user_id,
+                    'booking_approved',
+                    __('messages.notification_booking_approved'),
+                    __('messages.notification_booking_approved_message', ['reference' => $freshBooking->reference]),
+                    [
+                        'booking_id' => $freshBooking->id,
+                        'booking_reference' => $freshBooking->reference,
+                        'car_id' => $freshBooking->car_id,
+                        'car_name' => $freshBooking->car->name,
+                        'pickup_date' => $freshBooking->start_date,
+                        'return_date' => $freshBooking->end_date,
+                        'approved_at' => now(),
+                    ]
+                );
             }
 
             return $freshBooking;
         });
+
+        try {
+            Mail::to($freshBooking->user->email)
+                ->send(new AdminPaymentConfirmedMail($freshBooking));
+        } catch (\Throwable $e) {
+            Log::error('Failed to send confirmation email', [
+                'booking_id' => $freshBooking->id,
+                'user_id' => $freshBooking->user_id,
+                'mailable' => AdminPaymentConfirmedMail::class,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        return $freshBooking;
     }
 
     /**
@@ -87,6 +113,10 @@ class BookingService
             throw new Exception('Only confirmed bookings can be started');
         }
 
+        if (! $booking->hasVerifiedDriverProfile()) {
+            throw new \DomainException('Driver verification must be completed before starting the rental.');
+        }
+
         if (! $booking->checkinInspection) {
             throw new Exception('Check-in inspection required before starting rental');
         }
@@ -94,6 +124,22 @@ class BookingService
         $booking->update(['status' => Booking::STATUS_ACTIVE]);
 
         Log::info('Rental started', ['booking_id' => $booking->id]);
+
+        // ✅ CREATE NOTIFICATION FOR RENTAL STARTED
+        $booking->load('car');
+        $this->notificationService->create(
+            $booking->user_id,
+            'rental_started',
+            __('messages.notification_rental_started'),
+            __('messages.notification_rental_started_message'),
+            [
+                'booking_id' => $booking->id,
+                'car_id' => $booking->car_id,
+                'car_name' => $booking->car->name,
+                'pickup_date' => $booking->start_date,
+                'return_date' => $booking->end_date,
+            ]
+        );
 
         return $booking;
     }
@@ -105,18 +151,72 @@ class BookingService
      */
     public function completeRental(Booking $booking): Booking
     {
-        if (! $booking->isActive()) {
-            throw new Exception('Only active rentals can be completed');
-        }
+        $booking = DB::transaction(function () use ($booking) {
+            $lockedBooking = Booking::with('checkoutInspection')
+                ->whereKey($booking->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        if (! $booking->checkoutInspection) {
-            throw new Exception('Check-out inspection required before completing rental');
-        }
+            if (! $lockedBooking->isActive()) {
+                throw new Exception('Only active rentals can be completed');
+            }
 
-        $booking->update(['status' => Booking::STATUS_COMPLETED]);
+            if (! $lockedBooking->checkoutInspection) {
+                throw new Exception('Check-out inspection required before completing rental');
+            }
+
+            $updates = ['status' => Booking::STATUS_COMPLETED];
+
+            if ($lockedBooking->completed_at === null) {
+                $updates['completed_at'] = now();
+            }
+
+            $lockedBooking->forceFill($updates)->save();
+
+            return $lockedBooking->fresh();
+        });
+
         event(new BookingCompleted($booking));
 
         Log::info('Rental completed', ['booking_id' => $booking->id]);
+
+        // ✅ CREATE NOTIFICATION FOR RENTAL COMPLETED
+        $booking->load('car');
+        $this->notificationService->create(
+            $booking->user_id,
+            'rental_completed',
+            __('messages.notification_rental_completed'),
+            __('messages.notification_rental_completed_message'),
+            [
+                'booking_id' => $booking->id,
+                'car_id' => $booking->car_id,
+                'car_name' => $booking->car->name,
+                'pickup_date' => $booking->start_date,
+                'return_date' => $booking->end_date,
+            ]
+        );
+
+        // ✅ CREATE REVIEW REMINDER NOTIFICATION
+        $reviewExists = \App\Models\Notification::where('user_id', $booking->user_id)
+            ->where('type', 'review_reminder')
+            ->whereJsonContains('data->booking_id', $booking->id)
+            ->exists();
+
+        if (! $reviewExists) {
+            $this->notificationService->create(
+                $booking->user_id,
+                'review_reminder',
+                __('messages.notification_review_reminder'),
+                __('messages.notification_review_reminder_message'),
+                [
+                    'booking_id' => $booking->id,
+                    'car_id' => $booking->car_id,
+                    'car_name' => $booking->car->name,
+                    'review_url' => route('cars.details', $booking->car),
+                    'completed_at' => now(),
+                ]
+            );
+        }
 
         return $booking;
     }
@@ -134,26 +234,13 @@ class BookingService
 
         $cancelledBooking = DB::transaction(function () use ($booking, $reason) {
             $invoice = $booking->invoice;
-            $refundAmount = 0;
 
-            if ($invoice) {
-                $paidAmount = $this->refundService->calculatePaidAmount($invoice);
-
-                if ($paidAmount > 0) {
-                    $refundAmount = min(
-                        $this->pricingService->calculateRefundAmount($booking, (float) $paidAmount),
-                        $paidAmount
-                    );
-
-                    if ($refundAmount > 0) {
-                        $this->refundService->processRefund(
-                            $invoice,
-                            $refundAmount,
-                            $reason ?? 'Booking cancelled'
-                        );
-                    }
-                }
-            }
+            // Delegate all refund logic to RefundService
+            $this->refundService->processBookingCancellationRefund(
+                $booking,
+                $invoice,
+                $reason
+            );
 
             $booking->update([
                 'status' => Booking::STATUS_CANCELLED,
@@ -179,6 +266,30 @@ class BookingService
                 'intent_id' => $cancelledBooking->security_deposit_intent_id,
                 'message' => $e->getMessage(),
             ]);
+        }
+
+        // ✅ CREATE NOTIFICATION FOR BOOKING CANCELLED
+        $freshBooking = $cancelledBooking->fresh(['car']);
+        $notificationExists = Notification::where('user_id', $freshBooking->user_id)
+            ->where('type', 'booking_cancelled')
+            ->whereJsonContains('data->booking_id', $freshBooking->id)
+            ->exists();
+
+        if (! $notificationExists) {
+            $this->notificationService->create(
+                $freshBooking->user_id,
+                'booking_cancelled',
+                __('messages.notification_booking_cancelled'),
+                __('messages.notification_booking_cancelled_message', ['reference' => $freshBooking->reference]),
+                [
+                    'booking_id' => $freshBooking->id,
+                    'booking_reference' => $freshBooking->reference,
+                    'car_id' => $freshBooking->car_id,
+                    'car_name' => $freshBooking->car ? $freshBooking->car->name : null,
+                    'cancelled_at' => $freshBooking->updated_at,
+                    'cancellation_reason' => $freshBooking->cancellation_reason,
+                ]
+            );
         }
 
         return $cancelledBooking;

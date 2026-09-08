@@ -22,7 +22,7 @@ class TicketRepliedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '💬 New Reply - ' . $this->ticket->ticket_number,
+            subject: '💬 New Reply - '.$this->ticket->ticket_number,
         );
     }
 

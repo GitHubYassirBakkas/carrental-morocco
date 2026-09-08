@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            if (!Schema::hasColumn('bookings', 'security_deposit_refund_error_message')) {
+            if (! Schema::hasColumn('bookings', 'security_deposit_refund_error_message')) {
                 $column = $table->text('security_deposit_refund_error_message')->nullable();
 
                 if (Schema::hasColumn('bookings', 'security_deposit_penalty_reason')) {

@@ -9,23 +9,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('outbox_events', function (Blueprint $table) {
-            if (!Schema::hasColumn('outbox_events', 'trace_id')) {
+            if (! Schema::hasColumn('outbox_events', 'trace_id')) {
                 $table->uuid('trace_id')->nullable()->after('payload')->index();
             }
 
-            if (!Schema::hasColumn('outbox_events', 'source_event_id')) {
+            if (! Schema::hasColumn('outbox_events', 'source_event_id')) {
                 $table->string('source_event_id')->nullable()->after('trace_id')->index();
             }
 
-            if (!Schema::hasColumn('outbox_events', 'attempts')) {
+            if (! Schema::hasColumn('outbox_events', 'attempts')) {
                 $table->unsignedInteger('attempts')->default(0)->after('dispatched');
             }
 
-            if (!Schema::hasColumn('outbox_events', 'dispatched_at')) {
+            if (! Schema::hasColumn('outbox_events', 'dispatched_at')) {
                 $table->timestamp('dispatched_at')->nullable()->after('attempts');
             }
 
-            if (!Schema::hasColumn('outbox_events', 'error_message')) {
+            if (! Schema::hasColumn('outbox_events', 'error_message')) {
                 $table->text('error_message')->nullable()->after('dispatched_at');
             }
         });

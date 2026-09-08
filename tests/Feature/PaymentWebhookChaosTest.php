@@ -4,7 +4,11 @@ use App\Models\Booking;
 use App\Models\Car;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Notification;
 use App\Models\Payment;
+use App\Models\PaymentEventAudit;
+use App\Models\PaymentIdempotencyKey;
+use App\Models\StripeWebhookEvent;
 use App\Models\User;
 
 test('rental succeeds after charge succeeded and ignored intermediate events', function () {
@@ -45,7 +49,7 @@ test('rental duplicate retries with different event ids and timestamps are idemp
 
     for ($i = 0; $i < 5; $i++) {
         $payload = chaosPaymentIntentPayload('payment_intent.succeeded', 'pi_retry_rental', $booking, [
-            'id' => 'evt_retry_rental_' . $i,
+            'id' => 'evt_retry_rental_'.$i,
             'created' => now()->addSeconds($i)->timestamp,
             'status' => 'succeeded',
             'amount_received' => 130000,
@@ -81,7 +85,7 @@ test('rental retry repairs partial invoice update where booking was not synced',
     ]);
 
     for ($i = 0; $i < 3; $i++) {
-        postStripeWebhook($this, array_replace($payload, ['id' => 'evt_partial_retry_' . $i]))->assertOk();
+        postStripeWebhook($this, array_replace($payload, ['id' => 'evt_partial_retry_'.$i]))->assertOk();
     }
 
     expect($booking->refresh()->status)->toBe('confirmed')
@@ -226,26 +230,26 @@ test('simulated concurrent webhook workers converge across event order permutati
         [$booking, $invoice] = chaosBookingWithInvoice();
 
         $events = [
-            'charge' => chaosChargePayload('charge.succeeded', 'ch_perm_' . $index, 'pi_perm_rental_' . $index, $booking, $invoice),
-            'deposit_hold' => chaosDepositPayload('payment_intent.amount_capturable_updated', 'pi_perm_deposit_' . $index, $booking, [
+            'charge' => chaosChargePayload('charge.succeeded', 'ch_perm_'.$index, 'pi_perm_rental_'.$index, $booking, $invoice),
+            'deposit_hold' => chaosDepositPayload('payment_intent.amount_capturable_updated', 'pi_perm_deposit_'.$index, $booking, [
                 'status' => 'requires_capture',
                 'amount' => 500000,
                 'amount_capturable' => 500000,
             ]),
-            'rental_success' => chaosPaymentIntentPayload('payment_intent.succeeded', 'pi_perm_rental_' . $index, $booking, [
+            'rental_success' => chaosPaymentIntentPayload('payment_intent.succeeded', 'pi_perm_rental_'.$index, $booking, [
                 'status' => 'succeeded',
                 'amount_received' => 130000,
                 'metadata' => chaosRentalMetadata($booking, $invoice),
             ]),
-            'rental_retry' => chaosPaymentIntentPayload('payment_intent.succeeded', 'pi_perm_rental_' . $index, $booking, [
-                'id' => 'evt_perm_rental_retry_' . $index,
+            'rental_retry' => chaosPaymentIntentPayload('payment_intent.succeeded', 'pi_perm_rental_'.$index, $booking, [
+                'id' => 'evt_perm_rental_retry_'.$index,
                 'created' => now()->addSeconds($index + 1)->timestamp,
                 'status' => 'succeeded',
                 'amount_received' => 130000,
                 'metadata' => chaosRentalMetadata($booking, $invoice),
             ]),
-            'deposit_retry' => chaosDepositPayload('payment_intent.amount_capturable_updated', 'pi_perm_deposit_' . $index, $booking, [
-                'id' => 'evt_perm_deposit_retry_' . $index,
+            'deposit_retry' => chaosDepositPayload('payment_intent.amount_capturable_updated', 'pi_perm_deposit_'.$index, $booking, [
+                'id' => 'evt_perm_deposit_retry_'.$index,
                 'created' => now()->addSeconds($index + 2)->timestamp,
                 'status' => 'requires_capture',
                 'amount' => 500000,
@@ -261,9 +265,260 @@ test('simulated concurrent webhook workers converge across event order permutati
             ->and($booking->advance_payment_status)->toBe('paid')
             ->and($invoice->refresh()->status)->toBe('paid')
             ->and($booking->security_deposit_status)->toBe('held')
-            ->and(Payment::where('transaction_id', 'pi_perm_rental_' . $index)->count())->toBe(1)
-            ->and(Payment::where('transaction_id', 'pi_perm_deposit_' . $index)->count())->toBe(0);
+            ->and(Payment::where('transaction_id', 'pi_perm_rental_'.$index)->count())->toBe(1)
+            ->and(Payment::where('transaction_id', 'pi_perm_deposit_'.$index)->count())->toBe(0);
     }
+});
+
+test('rental refund.created webhook reconstructs missing pending refund once', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_created');
+    $payload = chaosRefundPayload('refund.created', chaosRefundObject($booking, $invoice, 're_refund_created', 130000, 'pending'));
+
+    postStripeWebhook($this, $payload)->assertOk();
+
+    $refunds = Payment::where('invoice_id', $invoice->id)->where('type', Payment::TYPE_REFUND)->get();
+
+    expect($refunds)->toHaveCount(1)
+        ->and($refunds->first()->transaction_id)->toBe('re_refund_created')
+        ->and($refunds->first()->stripe_refund_id)->toBe('re_refund_created')
+        ->and($refunds->first()->status)->toBe(Payment::STATUS_PENDING)
+        ->and((float) $refunds->first()->amount)->toBe(1300.0)
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_PAID);
+});
+
+test('processed rental refund webhook replay repairs missing local refund', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_processed_replay');
+    $payload = chaosRefundPayload(
+        'refund.updated',
+        chaosRefundObject($booking, $invoice, 're_refund_processed_replay', 130000, 'succeeded')
+    );
+
+    StripeWebhookEvent::create([
+        'event_id' => $payload['id'],
+        'type' => $payload['type'],
+        'payload' => $payload,
+        'status' => StripeWebhookEvent::STATUS_PROCESSED,
+        'attempts' => 1,
+        'processed_at' => now(),
+    ]);
+
+    PaymentIdempotencyKey::create([
+        'idempotency_key' => $payload['id'],
+        'event_id' => $payload['id'],
+        'payment_intent_id' => 'pi_refund_processed_replay',
+        'status' => PaymentIdempotencyKey::STATUS_COMPLETED,
+    ]);
+
+    PaymentEventAudit::create([
+        'booking_id' => $booking->id,
+        'event_id' => $payload['id'],
+        'event_type' => $payload['type'],
+        'payment_intent_id' => 'pi_refund_processed_replay',
+        'payload' => $payload,
+        'processed_at' => now(),
+        'outcome' => 'ignored',
+    ]);
+
+    postStripeWebhook($this, $payload)->assertOk();
+
+    $refund = Payment::where('stripe_refund_id', 're_refund_processed_replay')->first();
+
+    expect($refund)->not->toBeNull()
+        ->and($refund->status)->toBe(Payment::STATUS_COMPLETED)
+        ->and(Payment::where('stripe_refund_id', 're_refund_processed_replay')->count())->toBe(1)
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_REFUNDED);
+});
+
+test('rental refund.updated succeeded webhook reconstructs missing completed refund', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_updated_success');
+    $processor = app(\App\Domain\Payment\PaymentProcessor::class);
+
+    $result = $processor->syncRentalRefundFromWebhook(
+        'refund.updated',
+        chaosRefundObject($booking, $invoice, 're_refund_updated_success', 130000, 'succeeded'),
+        'evt_refund_updated_success'
+    );
+
+    $refund = Payment::where('stripe_refund_id', 're_refund_updated_success')->first();
+
+    expect($result['action'])->toBe('processed')
+        ->and($refund)->not->toBeNull()
+        ->and($refund->status)->toBe(Payment::STATUS_COMPLETED)
+        ->and($refund->paid_at)->not->toBeNull()
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_REFUNDED)
+        ->and(Notification::where('type', 'refund_success')->whereJsonContains('data->payment_id', $refund->id)->count())->toBe(1);
+});
+
+test('rental refund.succeeded webhook reconstructs missing completed refund', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_succeeded');
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.succeeded',
+        chaosRefundObject($booking, $invoice, 're_refund_succeeded', 130000, 'succeeded'),
+        'evt_refund_succeeded'
+    );
+
+    $refund = Payment::where('stripe_refund_id', 're_refund_succeeded')->first();
+
+    expect($refund)->not->toBeNull()
+        ->and($refund->status)->toBe(Payment::STATUS_COMPLETED)
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_REFUNDED);
+});
+
+test('rental refund.failed webhook reconstructs missing failed refund safely', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_failed');
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.failed',
+        chaosRefundObject($booking, $invoice, 're_refund_failed', 130000, 'failed', ['failure_reason' => 'lost_or_stolen_card']),
+        'evt_refund_failed'
+    );
+
+    $refund = Payment::where('stripe_refund_id', 're_refund_failed')->first();
+
+    expect($refund)->not->toBeNull()
+        ->and($refund->status)->toBe(Payment::STATUS_FAILED)
+        ->and($refund->paid_at)->toBeNull()
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_PAID)
+        ->and(Notification::where('type', 'refund_failed')->whereJsonContains('data->payment_id', $refund->id)->count())->toBe(1)
+        ->and(Notification::where('type', 'refund_success')->whereJsonContains('data->payment_id', $refund->id)->exists())->toBeFalse();
+});
+
+test('duplicate rental refund webhook does not create duplicate payment or notification', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_duplicate');
+    $processor = app(\App\Domain\Payment\PaymentProcessor::class);
+    $refundObject = chaosRefundObject($booking, $invoice, 're_refund_duplicate', 130000, 'succeeded');
+
+    $processor->syncRentalRefundFromWebhook('refund.succeeded', $refundObject, 'evt_refund_duplicate_1');
+    $processor->syncRentalRefundFromWebhook('refund.succeeded', $refundObject, 'evt_refund_duplicate_2');
+
+    $refund = Payment::where('stripe_refund_id', 're_refund_duplicate')->first();
+
+    expect(Payment::where('invoice_id', $invoice->id)->where('type', Payment::TYPE_REFUND)->count())->toBe(1)
+        ->and(Notification::where('type', 'refund_success')->whereJsonContains('data->payment_id', $refund->id)->count())->toBe(1);
+});
+
+test('rental refund.created then refund.updated reuses same refund row', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_created_updated');
+    $processor = app(\App\Domain\Payment\PaymentProcessor::class);
+
+    $processor->syncRentalRefundFromWebhook(
+        'refund.created',
+        chaosRefundObject($booking, $invoice, 're_refund_created_updated', 130000, 'pending'),
+        'evt_refund_created_first'
+    );
+    $processor->syncRentalRefundFromWebhook(
+        'refund.updated',
+        chaosRefundObject($booking, $invoice, 're_refund_created_updated', 130000, 'succeeded'),
+        'evt_refund_updated_second'
+    );
+
+    $refund = Payment::where('stripe_refund_id', 're_refund_created_updated')->first();
+
+    expect(Payment::where('invoice_id', $invoice->id)->where('type', Payment::TYPE_REFUND)->count())->toBe(1)
+        ->and($refund->status)->toBe(Payment::STATUS_COMPLETED)
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_REFUNDED);
+});
+
+test('security deposit refund metadata is not handled by rental refund reconciliation', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_security_refund_boundary');
+    $refund = chaosRefundObject($booking, $invoice, 're_security_refund_boundary', 130000, 'succeeded', [
+        'metadata' => [
+            'booking_id' => (string) $booking->id,
+            'invoice_id' => (string) $invoice->id,
+            'type' => 'security_deposit_refund',
+        ],
+    ]);
+
+    $result = app(\App\Domain\Payment\PaymentProcessor::class)->processWebhook(
+        (object) ['id' => 'evt_security_refund_boundary', 'type' => 'refund.succeeded'],
+        $booking->id,
+        'pi_security_refund_boundary',
+        'security_deposit_refund',
+        $refund->metadata,
+        'succeeded',
+        $refund
+    );
+
+    expect($result)->toBe('ignored')
+        ->and(Payment::where('invoice_id', $invoice->id)->where('type', Payment::TYPE_REFUND)->count())->toBe(0);
+});
+
+test('rental refund reconstruction rejects booking payment intent mismatch', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_expected_refund');
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.succeeded',
+        chaosRefundObject($booking, $invoice, 're_refund_mismatch', 130000, 'succeeded', ['payment_intent' => 'pi_wrong_refund']),
+        'evt_refund_mismatch'
+    );
+
+    expect(Payment::where('stripe_refund_id', 're_refund_mismatch')->exists())->toBeFalse()
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_PAID);
+});
+
+test('rental refund reconstruction rejects invoice booking mismatch', function () {
+    [$booking] = chaosPaidRental('pi_invoice_mismatch');
+    [, $otherInvoice] = chaosPaidRental('pi_other_invoice');
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.succeeded',
+        chaosRefundObject($booking, $otherInvoice, 're_invoice_mismatch', 130000, 'succeeded'),
+        'evt_invoice_mismatch'
+    );
+
+    expect(Payment::where('stripe_refund_id', 're_invoice_mismatch')->exists())->toBeFalse();
+});
+
+test('rental refund reconstruction rejects amount above local refundable balance', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_refund_over_balance');
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.succeeded',
+        chaosRefundObject($booking, $invoice, 're_refund_over_balance', 130001, 'succeeded'),
+        'evt_refund_over_balance'
+    );
+
+    expect(Payment::where('stripe_refund_id', 're_refund_over_balance')->exists())->toBeFalse()
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_PAID);
+});
+
+test('existing completed rental refund is reused by webhook reconciliation', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_existing_refund');
+    $existing = Payment::create([
+        'invoice_id' => $invoice->id,
+        'user_id' => $booking->user_id,
+        'amount' => 1300,
+        'method' => 'stripe',
+        'type' => Payment::TYPE_REFUND,
+        'status' => Payment::STATUS_COMPLETED,
+        'transaction_id' => 're_existing_refund',
+        'stripe_refund_id' => 're_existing_refund',
+        'paid_at' => now(),
+    ]);
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.succeeded',
+        chaosRefundObject($booking, $invoice, 're_existing_refund', 130000, 'succeeded'),
+        'evt_existing_refund'
+    );
+
+    expect(Payment::where('invoice_id', $invoice->id)->where('type', Payment::TYPE_REFUND)->count())->toBe(1)
+        ->and(Payment::where('stripe_refund_id', 're_existing_refund')->first()->id)->toBe($existing->id)
+        ->and($invoice->refresh()->status)->toBe(Invoice::STATUS_REFUNDED);
+});
+
+test('partial rental refund webhook keeps invoice partial', function () {
+    [$booking, $invoice] = chaosPaidRental('pi_partial_refund');
+
+    app(\App\Domain\Payment\PaymentProcessor::class)->syncRentalRefundFromWebhook(
+        'refund.succeeded',
+        chaosRefundObject($booking, $invoice, 're_partial_refund', 65000, 'succeeded'),
+        'evt_partial_refund'
+    );
+
+    expect($invoice->refresh()->status)->toBe(Invoice::STATUS_PARTIAL)
+        ->and((float) $invoice->paid_amount)->toBe(650.0);
 });
 
 function chaosBookingWithInvoice(array $bookingOverrides = [], array $invoiceOverrides = []): array
@@ -321,6 +576,7 @@ function chaosBookingWithInvoice(array $bookingOverrides = [], array $invoiceOve
 
     $invoice = Invoice::create(array_merge([
         'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
         'subtotal' => 1300,
         'tax_amount' => 0,
         'total_amount' => 1300,
@@ -333,7 +589,7 @@ function chaosBookingWithInvoice(array $bookingOverrides = [], array $invoiceOve
 function chaosPaymentIntentPayload(string $eventType, string $intentId, Booking $booking, array $overrides = []): array
 {
     $created = $overrides['created'] ?? now()->timestamp;
-    $eventId = $overrides['id'] ?? 'evt_' . str_replace('.', '_', $eventType) . '_' . $intentId . '_' . $created;
+    $eventId = $overrides['id'] ?? 'evt_'.str_replace('.', '_', $eventType).'_'.$intentId.'_'.$created;
     unset($overrides['created'], $overrides['id']);
 
     return [
@@ -373,7 +629,7 @@ function chaosDepositPayload(string $eventType, string $intentId, Booking $booki
 function chaosChargePayload(string $eventType, string $chargeId, string $intentId, Booking $booking, Invoice $invoice): array
 {
     return [
-        'id' => 'evt_' . str_replace('.', '_', $eventType) . '_' . $chargeId,
+        'id' => 'evt_'.str_replace('.', '_', $eventType).'_'.$chargeId,
         'type' => $eventType,
         'created' => now()->timestamp,
         'data' => [
@@ -395,5 +651,62 @@ function chaosRentalMetadata(Booking $booking, Invoice $invoice): array
         'booking_id' => (string) $booking->id,
         'invoice_id' => (string) $invoice->id,
         'type' => 'rental',
+    ];
+}
+
+function chaosPaidRental(string $paymentIntentId, float $amount = 1300): array
+{
+    [$booking, $invoice, $user, $car, $location] = chaosBookingWithInvoice([
+        'status' => Booking::STATUS_CONFIRMED,
+        'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PAID,
+        'advance_payment_paid_at' => now(),
+        'rental_payment_intent_id' => $paymentIntentId,
+        'total_amount' => $amount,
+        'advance_payment_amount' => $amount,
+    ], [
+        'subtotal' => $amount,
+        'total_amount' => $amount,
+        'status' => Invoice::STATUS_PAID,
+    ]);
+
+    Payment::create([
+        'invoice_id' => $invoice->id,
+        'user_id' => $booking->user_id,
+        'amount' => $amount,
+        'method' => 'card',
+        'type' => Payment::TYPE_PAYMENT,
+        'status' => Payment::STATUS_COMPLETED,
+        'transaction_id' => $paymentIntentId,
+        'paid_at' => now(),
+    ]);
+
+    return [$booking, $invoice, $user, $car, $location];
+}
+
+function chaosRefundObject(Booking $booking, Invoice $invoice, string $refundId, int $amount, string $status, array $overrides = []): object
+{
+    return (object) array_merge([
+        'id' => $refundId,
+        'object' => 'refund',
+        'amount' => $amount,
+        'status' => $status,
+        'payment_intent' => $booking->rental_payment_intent_id,
+        'metadata' => [
+            'booking_id' => (string) $booking->id,
+            'invoice_id' => (string) $invoice->id,
+            'type' => 'rental_refund',
+        ],
+    ], $overrides);
+}
+
+function chaosRefundPayload(string $eventType, object $refund): array
+{
+    return [
+        'id' => 'evt_'.str_replace('.', '_', $eventType).'_'.$refund->id,
+        'type' => $eventType,
+        'created' => now()->timestamp,
+        'data' => [
+            'object' => json_decode(json_encode($refund, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR),
+        ],
     ];
 }

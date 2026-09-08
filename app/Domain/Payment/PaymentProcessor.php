@@ -8,6 +8,8 @@ use App\Models\Invoice;
 use App\Models\OutboxEvent;
 use App\Models\Payment;
 use App\Models\PaymentIdempotencyKey;
+use App\Services\InvoiceService;
+use App\Services\NotificationService;
 use App\Services\PaymentIdempotencyService;
 use App\Services\PaymentService;
 use App\Services\PaymentWebhookLockService;
@@ -28,6 +30,8 @@ class PaymentProcessor
         private readonly BookingStateMachine $bookingStateMachine,
         private readonly SecurityDepositService $securityDepositService,
         private readonly PaymentService $paymentService,
+        private readonly InvoiceService $invoiceService,
+        private readonly NotificationService $notificationService,
     ) {}
 
     public function processWebhook(
@@ -43,13 +47,14 @@ class PaymentProcessor
         $eventType = $event->type ?? 'unknown';
         $idempotencyRecord = null;
         $idempotencyStatus = 'not_applicable';
+        $needsRefundReconciliation = $this->needsRentalRefundReconciliation($eventType, $metadataType, $object);
 
         try {
             if ($eventId) {
                 $begin = $this->idempotency->begin($eventId, $eventId, $paymentIntentId);
                 $idempotencyStatus = $begin['status'];
 
-                if ($idempotencyStatus === PaymentIdempotencyService::RESULT_COMPLETED) {
+                if ($idempotencyStatus === PaymentIdempotencyService::RESULT_COMPLETED && ! $needsRefundReconciliation) {
                     $this->metrics->duplicate($this->structuredContext($eventId, $bookingId, $paymentIntentId, 'not_required', $idempotencyStatus));
 
                     Log::info('payment.webhook.duplicate_event', $this->structuredContext(
@@ -61,6 +66,16 @@ class PaymentProcessor
                     ));
 
                     return 'duplicate';
+                }
+
+                if ($idempotencyStatus === PaymentIdempotencyService::RESULT_COMPLETED && $needsRefundReconciliation) {
+                    Log::info('payment.webhook.completed_event_reopened_for_refund_reconciliation', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'booking_id' => $bookingId,
+                        'payment_intent_id' => $paymentIntentId,
+                        'refund_id' => $object->id ?? null,
+                    ]);
                 }
 
                 if ($idempotencyStatus === PaymentIdempotencyService::RESULT_PROCESSING_TIMEOUT) {
@@ -227,6 +242,35 @@ class PaymentProcessor
             return 'processed';
         }
 
+        // Handle rental refund webhooks
+        if (in_array($eventType, ['refund.created', 'refund.updated', 'refund.succeeded', 'refund.failed'], true) && $metadataType === 'rental_refund') {
+            if (! $object) {
+                Log::warning('Stripe rental refund webhook ignored: missing refund object.', [
+                    'event_id' => $event->id ?? null,
+                    'event_type' => $eventType,
+                    'payment_intent_id' => $paymentIntentId,
+                ]);
+
+                return 'ignored';
+            }
+
+            $syncResult = $this->syncRentalRefundFromWebhook(
+                $eventType,
+                $object,
+                $event->id ?? null
+            );
+
+            Log::info('Stripe rental refund webhook synchronized.', [
+                'event_id' => $event->id ?? null,
+                'event_type' => $eventType,
+                'refund_id' => $object->id ?? null,
+                'payment_intent_id' => $paymentIntentId,
+                'action' => $syncResult['action'] ?? 'ignore',
+            ]);
+
+            return $syncResult['action'] ?? 'ignored';
+        }
+
         return 'ignored';
     }
 
@@ -287,15 +331,7 @@ class PaymentProcessor
             }
 
             if (! $invoice) {
-                $invoice = Invoice::create([
-                    'booking_id' => (string) $booking->id,
-                    'user_id' => $booking->user_id,
-                    'subtotal' => $booking->total_amount,
-                    'tax_amount' => 0,
-                    'total_amount' => $booking->total_amount,
-                    'status' => Invoice::STATUS_PENDING,
-                    'issued_at' => now(),
-                ]);
+                $invoice = $this->invoiceService->firstOrCreateForPaymentProcessing($booking);
             }
 
             $payment = Payment::where('transaction_id', $paymentIntentId)
@@ -339,6 +375,28 @@ class PaymentProcessor
             $this->paymentService->updateInvoiceStatus($invoice);
 
             $this->confirmBookingAfterRentalPayment($booking, $eventId, $paymentIntentId, $traceId);
+
+            // ✅ CREATE NOTIFICATION FOR NEW PAYMENT
+            if ($paymentCreated) {
+                $this->notificationService->create(
+                    $booking->user_id,
+                    'payment_success',
+                    __('messages.notification_payment_success'),
+                    __('messages.notification_payment_success_message', [
+                        'amount' => number_format($paymentAmount, 2),
+                        'currency' => 'MAD',
+                    ]),
+                    [
+                        'payment_id' => $payment->id,
+                        'booking_id' => $booking->id,
+                        'invoice_id' => $invoice->id,
+                        'amount' => $paymentAmount,
+                        'currency' => 'MAD',
+                        'payment_method' => 'card',
+                        'transaction_id' => $paymentIntentId,
+                    ]
+                );
+            }
 
             $freshInvoice = $invoice->fresh();
             $freshBooking = $booking->fresh();
@@ -405,6 +463,412 @@ class PaymentProcessor
                 'security_deposit_status',
             ]),
         ]);
+    }
+
+    public function syncRentalRefundFromWebhook(
+        string $eventType,
+        object $refund,
+        ?string $eventId
+    ): array {
+        return DB::transaction(function () use ($eventType, $refund, $eventId) {
+            $refundId = $refund->id ?? null;
+
+            if (! $refundId) {
+                Log::error('Stripe refund webhook missing refund ID', [
+                    'event_id' => $eventId,
+                    'event_type' => $eventType,
+                ]);
+
+                return ['action' => 'ignore'];
+            }
+
+            $payment = Payment::where(function ($query) use ($refundId) {
+                $query->where('stripe_refund_id', $refundId)
+                    ->orWhere('transaction_id', $refundId);
+            })
+                ->lockForUpdate()
+                ->first();
+
+            if (! $payment) {
+                $metadata = $this->metadataFrom($refund);
+                $metadataType = isset($metadata['type']) ? (string) $metadata['type'] : null;
+                $bookingId = isset($metadata['booking_id']) ? (int) $metadata['booking_id'] : null;
+                $invoiceId = isset($metadata['invoice_id']) ? (int) $metadata['invoice_id'] : null;
+                $paymentIntentId = $this->stringValue($refund->payment_intent ?? null);
+                $refundAmountCents = isset($refund->amount) ? (int) $refund->amount : 0;
+                $refundAmount = $refundAmountCents / 100;
+
+                if ($metadataType !== 'rental_refund' || ! $bookingId || ! $invoiceId || ! $paymentIntentId || $refundAmountCents <= 0) {
+                    Log::warning('Stripe rental refund webhook ignored: invalid refund metadata.', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'stripe_refund_id' => $refundId,
+                        'booking_id' => $bookingId,
+                        'invoice_id' => $invoiceId,
+                        'metadata_type' => $metadataType,
+                        'payment_intent_id' => $paymentIntentId,
+                        'amount' => $refundAmountCents,
+                    ]);
+
+                    return ['action' => 'ignore'];
+                }
+
+                $booking = Booking::whereKey($bookingId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $booking) {
+                    Log::warning('Stripe rental refund webhook ignored: booking not found.', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'stripe_refund_id' => $refundId,
+                        'booking_id' => $bookingId,
+                    ]);
+
+                    return ['action' => 'ignore'];
+                }
+
+                $invoice = Invoice::whereKey($invoiceId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $invoice || (int) $invoice->booking_id !== $bookingId) {
+                    Log::warning('Stripe rental refund webhook ignored: invoice booking mismatch.', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'stripe_refund_id' => $refundId,
+                        'booking_id' => $bookingId,
+                        'invoice_id' => $invoiceId,
+                        'actual_booking_id' => $invoice?->booking_id,
+                    ]);
+
+                    return ['action' => 'ignore'];
+                }
+
+                if ((string) $booking->rental_payment_intent_id !== $paymentIntentId) {
+                    Log::warning('Stripe rental refund webhook ignored: booking PaymentIntent mismatch.', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'stripe_refund_id' => $refundId,
+                        'booking_id' => $bookingId,
+                        'invoice_id' => $invoiceId,
+                        'expected_payment_intent_id' => $booking->rental_payment_intent_id,
+                        'actual_payment_intent_id' => $paymentIntentId,
+                    ]);
+
+                    return ['action' => 'ignore'];
+                }
+
+                $originalPayment = Payment::where('invoice_id', $invoice->id)
+                    ->where('type', Payment::TYPE_PAYMENT)
+                    ->where('status', Payment::STATUS_COMPLETED)
+                    ->where('transaction_id', $paymentIntentId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $originalPayment) {
+                    Log::warning('Stripe rental refund webhook ignored: original payment not found.', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'stripe_refund_id' => $refundId,
+                        'booking_id' => $bookingId,
+                        'invoice_id' => $invoiceId,
+                        'payment_intent_id' => $paymentIntentId,
+                    ]);
+
+                    return ['action' => 'ignore'];
+                }
+
+                $payment = Payment::where(function ($query) use ($refundId) {
+                    $query->where('stripe_refund_id', $refundId)
+                        ->orWhere('transaction_id', $refundId);
+                })
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($payment) {
+                    return $this->syncExistingRentalRefundPayment($payment, $eventType, $refund, $refundId, $eventId);
+                }
+
+                $refundableBalance = $this->refundableBalance($invoice);
+
+                if ($refundAmount > $refundableBalance) {
+                    Log::warning('Stripe rental refund webhook ignored: refund amount exceeds local refundable balance.', [
+                        'event_id' => $eventId,
+                        'event_type' => $eventType,
+                        'stripe_refund_id' => $refundId,
+                        'booking_id' => $bookingId,
+                        'invoice_id' => $invoiceId,
+                        'payment_intent_id' => $paymentIntentId,
+                        'refund_amount' => $refundAmount,
+                        'refundable_balance' => $refundableBalance,
+                    ]);
+
+                    return ['action' => 'ignore'];
+                }
+
+                $localStatus = $this->localRefundStatus($eventType, $refund);
+
+                $payment = Payment::create([
+                    'invoice_id' => $invoice->id,
+                    'user_id' => $booking->user_id,
+                    'amount' => $refundAmount,
+                    'method' => 'stripe',
+                    'type' => Payment::TYPE_REFUND,
+                    'status' => $localStatus,
+                    'transaction_id' => $refundId,
+                    'stripe_refund_id' => $refundId,
+                    'paid_at' => $localStatus === Payment::STATUS_COMPLETED ? now() : null,
+                    'notes' => $localStatus === Payment::STATUS_FAILED
+                        ? 'Stripe webhook refund reconciliation | Stripe refund failed: '.($refund->failure_reason ?? 'Unknown')
+                        : 'Stripe webhook refund reconciliation',
+                ]);
+
+                if ($localStatus === Payment::STATUS_COMPLETED) {
+                    $this->invoiceService->syncRefundStatus($invoice);
+                    $this->createRefundSuccessNotification($payment);
+                } elseif ($localStatus === Payment::STATUS_FAILED) {
+                    $this->createRefundFailedNotification($payment, $refund->failure_reason ?? 'Unknown');
+                }
+
+                Log::info('Stripe rental refund webhook reconstructed missing local refund.', [
+                    'event_id' => $eventId,
+                    'event_type' => $eventType,
+                    'stripe_refund_id' => $refundId,
+                    'payment_id' => $payment->id,
+                    'invoice_id' => $invoice->id,
+                    'booking_id' => $booking->id,
+                    'status' => $localStatus,
+                    'amount' => $refundAmount,
+                ]);
+
+                return ['action' => 'processed', 'payment_created' => true, 'payment_id' => $payment->id];
+            }
+
+            return $this->syncExistingRentalRefundPayment($payment, $eventType, $refund, $refundId, $eventId);
+        }, 3);
+    }
+
+    private function syncExistingRentalRefundPayment(Payment $payment, string $eventType, object $refund, string $refundId, ?string $eventId): array
+    {
+        $localStatus = $this->localRefundStatus($eventType, $refund);
+
+        if ($localStatus === Payment::STATUS_COMPLETED) {
+            if ($payment->status !== Payment::STATUS_COMPLETED) {
+                $payment->update([
+                    'status' => Payment::STATUS_COMPLETED,
+                    'paid_at' => $payment->paid_at ?? now(),
+                    'stripe_refund_id' => $payment->stripe_refund_id ?? $refundId,
+                    'transaction_id' => $payment->transaction_id ?? $refundId,
+                ]);
+
+                Log::info('Stripe refund status updated to completed via webhook', [
+                    'payment_id' => $payment->id,
+                    'stripe_refund_id' => $refundId,
+                    'event_id' => $eventId,
+                ]);
+            }
+
+            $this->invoiceService->syncRefundStatus($payment->invoice);
+            $this->createRefundSuccessNotification($payment);
+
+            return ['action' => 'processed', 'payment_created' => false, 'payment_id' => $payment->id];
+        }
+
+        if ($localStatus === Payment::STATUS_FAILED) {
+            if ($payment->status !== Payment::STATUS_COMPLETED && $payment->status !== Payment::STATUS_FAILED) {
+                $payment->update([
+                    'status' => Payment::STATUS_FAILED,
+                    'stripe_refund_id' => $payment->stripe_refund_id ?? $refundId,
+                    'transaction_id' => $payment->transaction_id ?? $refundId,
+                    'notes' => trim(($payment->notes ?? '').' | Stripe refund failed: '.($refund->failure_reason ?? 'Unknown'), ' |'),
+                ]);
+
+                Log::info('Stripe refund status updated to failed via webhook', [
+                    'payment_id' => $payment->id,
+                    'stripe_refund_id' => $refundId,
+                    'event_id' => $eventId,
+                    'failure_reason' => $refund->failure_reason ?? null,
+                ]);
+            }
+
+            if ($payment->status !== Payment::STATUS_COMPLETED) {
+                $this->createRefundFailedNotification($payment, $refund->failure_reason ?? 'Unknown');
+            }
+
+            return ['action' => 'processed', 'payment_created' => false, 'payment_id' => $payment->id];
+        }
+
+        if (! $payment->stripe_refund_id || ! $payment->transaction_id) {
+            $payment->update([
+                'stripe_refund_id' => $payment->stripe_refund_id ?? $refundId,
+                'transaction_id' => $payment->transaction_id ?? $refundId,
+            ]);
+        }
+
+        return ['action' => 'processed', 'payment_created' => false, 'payment_id' => $payment->id];
+    }
+
+    private function needsRentalRefundReconciliation(string $eventType, ?string $metadataType, ?object $object): bool
+    {
+        if (! in_array($eventType, ['refund.created', 'refund.updated', 'refund.succeeded', 'refund.failed'], true)) {
+            return false;
+        }
+
+        if ($metadataType !== 'rental_refund' || ! $object || empty($object->id)) {
+            return false;
+        }
+
+        $refundId = (string) $object->id;
+
+        return ! Payment::where('stripe_refund_id', $refundId)
+            ->orWhere('transaction_id', $refundId)
+            ->exists();
+    }
+
+    private function localRefundStatus(string $eventType, object $refund): string
+    {
+        $stripeStatus = isset($refund->status) ? (string) $refund->status : null;
+
+        if ($eventType === 'refund.succeeded' || $stripeStatus === 'succeeded') {
+            return Payment::STATUS_COMPLETED;
+        }
+
+        if ($eventType === 'refund.failed' || in_array($stripeStatus, ['failed', 'canceled'], true)) {
+            return Payment::STATUS_FAILED;
+        }
+
+        return Payment::STATUS_PENDING;
+    }
+
+    private function refundableBalance(Invoice $invoice): float
+    {
+        $completedPayments = $invoice->payments()
+            ->where('type', Payment::TYPE_PAYMENT)
+            ->where('status', Payment::STATUS_COMPLETED)
+            ->sum('amount');
+
+        $completedRefunds = $invoice->payments()
+            ->where('type', Payment::TYPE_REFUND)
+            ->where('status', Payment::STATUS_COMPLETED)
+            ->sum('amount');
+
+        return max(0, round((float) $completedPayments - (float) $completedRefunds, 2));
+    }
+
+    private function metadataFrom(object $object): array
+    {
+        $metadata = $object->metadata ?? [];
+
+        if (is_array($metadata)) {
+            return $metadata;
+        }
+
+        if (is_object($metadata)) {
+            return get_object_vars($metadata);
+        }
+
+        return [];
+    }
+
+    private function stringValue(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_object($value) && isset($value->id) && is_string($value->id)) {
+            return $value->id;
+        }
+
+        return null;
+    }
+
+    /**
+     * Create refund_success notification (idempotent)
+     */
+    private function createRefundSuccessNotification(Payment $payment): void
+    {
+        $invoice = $payment->invoice;
+        $booking = $invoice->booking;
+
+        // Check if notification already exists (idempotency)
+        $notificationExists = \App\Models\Notification::where('user_id', $booking->user_id)
+            ->where('type', 'refund_success')
+            ->whereJsonContains('data->payment_id', $payment->id)
+            ->exists();
+
+        if ($notificationExists) {
+            return;
+        }
+
+        // Calculate refund type
+        $originalAmount = $invoice->payments()
+            ->where('type', Payment::TYPE_PAYMENT)
+            ->where('status', Payment::STATUS_COMPLETED)
+            ->sum('amount');
+
+        $refundType = $payment->amount >= $originalAmount ? 'full' : 'partial';
+
+        $this->notificationService->create(
+            $booking->user_id,
+            'refund_success',
+            __('messages.notification_refund_success'),
+            __('messages.notification_refund_success_message', [
+                'amount' => number_format($payment->amount, 2),
+                'currency' => 'MAD',
+                'booking_id' => $booking->id,
+            ]),
+            [
+                'payment_id' => $payment->id,
+                'booking_id' => $booking->id,
+                'invoice_id' => $invoice->id,
+                'amount' => $payment->amount,
+                'currency' => 'MAD',
+                'refund_type' => $refundType,
+                'stripe_refund_id' => $payment->stripe_refund_id,
+                'payment_method' => $payment->method,
+            ]
+        );
+    }
+
+    /**
+     * Create refund_failed notification (idempotent)
+     */
+    private function createRefundFailedNotification(Payment $payment, string $failureReason): void
+    {
+        $invoice = $payment->invoice;
+        $booking = $invoice->booking;
+
+        // Check if notification already exists (idempotency)
+        $notificationExists = \App\Models\Notification::where('user_id', $booking->user_id)
+            ->where('type', 'refund_failed')
+            ->whereJsonContains('data->payment_id', $payment->id)
+            ->exists();
+
+        if ($notificationExists) {
+            return;
+        }
+
+        $this->notificationService->create(
+            $booking->user_id,
+            'refund_failed',
+            __('messages.notification_refund_failed'),
+            __('messages.notification_refund_failed_message', [
+                'amount' => number_format($payment->amount, 2),
+                'currency' => 'MAD',
+                'booking_id' => $booking->id,
+            ]),
+            [
+                'payment_id' => $payment->id,
+                'booking_id' => $booking->id,
+                'invoice_id' => $invoice->id,
+                'amount' => $payment->amount,
+                'currency' => 'MAD',
+                'failure_reason' => $failureReason,
+                'stripe_refund_id' => $payment->stripe_refund_id,
+            ]
+        );
     }
 
     private function structuredContext(

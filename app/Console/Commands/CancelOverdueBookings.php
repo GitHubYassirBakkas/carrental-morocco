@@ -2,12 +2,13 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Services\BookingService;
+use Illuminate\Console\Command;
 
 class CancelOverdueBookings extends Command
 {
     protected $signature = 'bookings:cancel-overdue';
+
     protected $description = 'Cancel bookings with overdue advance payments';
 
     private BookingService $bookingService;
@@ -21,9 +22,9 @@ class CancelOverdueBookings extends Command
     public function handle()
     {
         $cancelledCount = $this->bookingService->cancelOverdueBookings();
-        
+
         $this->info("Cancelled {$cancelledCount} overdue bookings");
-        
+
         return Command::SUCCESS;
     }
 }

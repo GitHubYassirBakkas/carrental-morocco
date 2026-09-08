@@ -18,7 +18,7 @@ class PaymentEventAuditService
         $eventId = $event->id ?? null;
         $eventType = $event->type ?? 'unknown';
 
-        if (!$eventId) {
+        if (! $eventId) {
             Log::warning('Stripe webhook audit skipped: missing event id.', [
                 'event_type' => $eventType,
                 'booking_id' => $bookingId,

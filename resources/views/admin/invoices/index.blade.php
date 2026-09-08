@@ -11,7 +11,8 @@
 
         <!-- Invoices Table -->
         <div class="bg-[#1a2332] border border-gray-800 rounded-xl overflow-hidden">
-            <table class="w-full">
+            <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px]">
                 <thead class="bg-[#0f1520] border-b border-gray-800">
                     <tr>
                         <th class="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase">ID</th>
@@ -67,6 +68,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
 
         <!-- Pagination -->

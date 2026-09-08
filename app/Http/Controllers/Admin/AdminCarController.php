@@ -7,9 +7,23 @@ use App\Models\Car;
 use App\Models\Location;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class AdminCarController extends Controller
 {
+    private const MAX_CAR_IMAGE_KB = 5120;
+
+    private const MAX_GALLERY_IMAGES = 10;
+
+    private const PUBLIC_CAR_IMAGE_RULES = [
+        'file',
+        'image',
+        'extensions:jpeg,jpg,png,webp',
+        'mimes:jpeg,jpg,png,webp',
+        'mimetypes:image/jpeg,image/png,image/webp',
+        'max:'.self::MAX_CAR_IMAGE_KB,
+    ];
+
     public function index()
     {
         $cars = Car::latest()->paginate(10);
@@ -37,9 +51,9 @@ class AdminCarController extends Controller
             'doors' => 'required|integer',
             'luggage' => 'required|integer',
             'price_per_day' => 'required|numeric',
-            'image' => 'required|image|max:10240',
-            'gallery' => 'nullable|array',
-            'gallery.*' => 'image|max:10240',
+            'image' => ['required', ...self::PUBLIC_CAR_IMAGE_RULES],
+            'gallery' => ['nullable', 'array', 'max:'.self::MAX_GALLERY_IMAGES],
+            'gallery.*' => self::PUBLIC_CAR_IMAGE_RULES,
             'description' => 'nullable|string',
             'features' => 'nullable|array',
             'is_available' => 'nullable|boolean',
@@ -110,9 +124,9 @@ class AdminCarController extends Controller
             'doors' => 'required|integer',
             'luggage' => 'required|integer',
             'price_per_day' => 'required|numeric',
-            'image' => 'nullable|image|max:10240',
-            'gallery' => 'nullable|array',
-            'gallery.*' => 'image|max:10240',
+            'image' => ['nullable', ...self::PUBLIC_CAR_IMAGE_RULES],
+            'gallery' => ['nullable', 'array', 'max:'.self::MAX_GALLERY_IMAGES],
+            'gallery.*' => self::PUBLIC_CAR_IMAGE_RULES,
             'description' => 'nullable|string',
             'features' => 'nullable|array',
             'is_available' => 'nullable|boolean',
@@ -128,10 +142,11 @@ class AdminCarController extends Controller
         ]);
 
         $data['is_available'] = $request->boolean('is_available');
+        $this->ensureGalleryLimit($car->gallery ?? [], $request->file('gallery', []));
 
         if ($request->hasFile('image')) {
             if ($car->image) {
-                Storage::disk('public')->delete('cars/' . $car->image);
+                Storage::disk('public')->delete('cars/'.$car->image);
             }
 
             $path = $request->file('image')->store('cars', 'public');
@@ -183,17 +198,26 @@ class AdminCarController extends Controller
         }
 
         if ($car->image) {
-            Storage::disk('public')->delete('cars/' . $car->image);
+            Storage::disk('public')->delete('cars/'.$car->image);
         }
 
         if (is_array($car->gallery)) {
             foreach ($car->gallery as $img) {
-                Storage::disk('public')->delete('cars/' . $img);
+                Storage::disk('public')->delete('cars/'.$img);
             }
         }
 
         $car->delete();
 
         return redirect()->route('admin.cars.index')->with('success', 'Car deleted successfully.');
+    }
+
+    private function ensureGalleryLimit(array $existingGallery, array $newGallery): void
+    {
+        if (count($existingGallery) + count($newGallery) > self::MAX_GALLERY_IMAGES) {
+            throw ValidationException::withMessages([
+                'gallery' => 'A car gallery may contain at most '.self::MAX_GALLERY_IMAGES.' images.',
+            ]);
+        }
     }
 }

@@ -29,7 +29,7 @@ class GlobalIdempotencyService
         } catch (QueryException $e) {
             $record = GlobalIdempotencyRecord::where('scope', $scope)->where('idempotency_key', $key)->first();
 
-            if (!$record) {
+            if (! $record) {
                 throw $e;
             }
 
@@ -77,6 +77,6 @@ class GlobalIdempotencyService
 
     private function cacheKey(string $scope, string $key): string
     {
-        return 'global-idempotency:' . $scope . ':' . $key;
+        return 'global-idempotency:'.$scope.':'.$key;
     }
 }

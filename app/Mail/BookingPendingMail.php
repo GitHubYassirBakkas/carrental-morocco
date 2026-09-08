@@ -18,7 +18,7 @@ class BookingPendingMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '⏳ Booking Pending - ' . $this->booking->car->full_name,
+            subject: '⏳ Booking Pending - '.$this->booking->car->full_name,
         );
     }
 

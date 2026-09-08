@@ -12,12 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-        $table->unsignedTinyInteger('fuel_at_pickup_percent')->nullable();
-        $table->unsignedTinyInteger('fuel_at_return_percent')->nullable();
+            $table->unsignedTinyInteger('fuel_at_pickup_percent')->nullable();
+            $table->unsignedTinyInteger('fuel_at_return_percent')->nullable();
 
-        $table->unsignedTinyInteger('fuel_used')->default(0);
-        $table->decimal('fuel_charge', 8, 2)->default(0);
-});
+            $table->unsignedTinyInteger('fuel_used')->default(0);
+            $table->decimal('fuel_charge', 8, 2)->default(0);
+        });
 
     }
 
@@ -26,7 +26,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-            Schema::table('bookings', function (Blueprint $table) {
+        Schema::table('bookings', function (Blueprint $table) {
             $table->dropColumn([
                 'fuel_at_pickup_percent',
                 'fuel_at_return_percent',

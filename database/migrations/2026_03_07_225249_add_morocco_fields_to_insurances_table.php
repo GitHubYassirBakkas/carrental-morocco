@@ -15,7 +15,7 @@ return new class extends Migration
             $table->decimal('deductible', 10, 2)->default(0)->after('max_coverage');
             $table->json('features')->nullable()->after('description');
             $table->integer('sort_order')->default(0)->after('is_active');
-            
+
             // Rename excess_fee to deductible (optional - keep both if you want)
             // $table->renameColumn('excess_fee', 'deductible'); // Uncomment if you want to rename
         });
@@ -29,7 +29,7 @@ return new class extends Migration
                 'max_coverage',
                 'deductible',
                 'features',
-                'sort_order'
+                'sort_order',
             ]);
         });
     }
