@@ -309,7 +309,7 @@
                     </div>
                     @if($car->image)
                     <div class="cf-current-img">
-                        <img src="{{ asset('storage/cars/'.$car->image) }}" alt="{{ $car->full_name }}" id="mainImgPreview">
+                        <img src="{{ $car->image_url }}" alt="{{ $car->full_name }}" id="mainImgPreview">
                         <div class="cf-current-img-label">Current photo</div>
                     </div>
                     @endif
@@ -336,7 +336,7 @@
                     <div class="cf-gallery-current">
                         @foreach($car->gallery as $img)
                         <div class="cf-gal-thumb">
-                            <img src="{{ asset('storage/cars/'.$img) }}" alt="">
+                            <img src="{{ $car->resolveImageUrl($img) }}" alt="">
                         </div>
                         @endforeach
                     </div>

@@ -179,10 +179,10 @@
                         {{-- Image --}}
                         <div class="car-img-wrap">
                             <img
-                                src="{{ $car->image ? asset('storage/cars/' . $car->image) : asset('images/no-car.png') }}"
+                                src="{{ $car->image_url }}"
                                 alt="{{ $car->brand }} {{ $car->model }}"
                                 loading="lazy"
-                                onerror="this.src='https://via.placeholder.com/400x260/111/C89D66?text={{ urlencode($car->brand . ' ' . $car->model) }}'">
+                                onerror="this.onerror=null;this.src='{{ asset('images/cars/Route.jpg') }}'">
  
                             <div class="car-badge">{{ $car->type }}</div>
  

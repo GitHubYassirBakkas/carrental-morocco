@@ -171,12 +171,10 @@
                 <div class="sum-section">
                     <p class="sum-label">{{ __('messages.car_details') }}</p>
 
-                    @if(!empty($car->image))
-                        <div class="sum-car-img">
-                            <img src="{{ asset('storage/cars/'.$car->image) }}"
-                                 alt="{{ $car->brand }} {{ $car->model }}">
-                        </div>
-                    @endif
+                    <div class="sum-car-img">
+                        <img src="{{ $car->image_url }}"
+                             alt="{{ $car->brand }} {{ $car->model }}">
+                    </div>
 
                     <h3 class="sum-car-name">{{ $car->brand }} {{ $car->model }}</h3>
 

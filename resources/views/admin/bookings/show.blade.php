@@ -372,7 +372,7 @@
             <div>
                 <p class="text-emerald-300 font-bold">✅ Booking Confirmed!</p>
                 <p class="text-emerald-200 text-sm">
-                    Deposit paid: {{ number_format($booking->invoice?->paid_amount ?? 0, 2) }} MAD
+                    Deposit paid: {{ number_format($booking->car->deposit_amount ?? 0, 2) }} MAD
                     @if($booking->deposit_paid_at)
                         on {{ $booking->deposit_paid_at->format('M d, Y H:i') }}
                     @endif
@@ -384,7 +384,7 @@
 
 {{-- ═══ DEPOSIT MANAGEMENT ═══ --}}
 @if($booking->deposit_payment_intent_id)
-<div class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-2xl border border-gray-800 p-6 mt-6">
+<div id="deposit-management" class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-2xl border border-gray-800 p-6 mt-6">
 
     <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
         <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -408,7 +408,7 @@
                     'pending'  => 'text-yellow-400',
                 ];
             @endphp
-            <p class="font-bold text-xl {{ $depColors[$booking->deposit_status] ?? 'text-gray-400' }}">
+            <p id="deposit-status-text" class="font-bold text-xl {{ $depColors[$booking->deposit_status] ?? 'text-gray-400' }}">
                 {{ ucfirst($booking->deposit_status) }}
             </p>
         </div>
@@ -418,21 +418,53 @@
         </div>
     </div>
 
+    <div id="deposit-feedback" class="hidden mb-4"></div>
+
+    <div id="deposit-status-block" class="mb-4">
+        @if($booking->deposit_status === 'held')
+            <div class="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4 flex items-start gap-3">
+                <svg class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <p class="text-purple-300 text-sm font-semibold">Deposit held</p>
+            </div>
+        @elseif($booking->deposit_status === 'released')
+            <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 flex items-start gap-3">
+                <svg class="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-emerald-300 text-sm font-semibold">Deposit released</p>
+            </div>
+        @endif
+    </div>
+
     @if($booking->deposit_status === 'held')
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div id="deposit-actions" class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             {{-- Release Deposit --}}
-            <form method="POST" action="{{ route('admin.deposit.release', $booking) }}"
-                  onsubmit="return confirm('Release full deposit? Funds will return to customer.')">
-                @csrf
-                <button type="submit"
-                        class="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button type="button"
+                    id="release-deposit-button"
+                    data-url="{{ route('admin.deposit.release', $booking) }}"
+                    data-csrf="{{ csrf_token() }}"
+                    class="w-full py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-bold rounded-xl border border-emerald-500/30 transition flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                    <svg data-release-icon class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    ✅ Release Full Deposit
+                    <svg data-release-spinner class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                    </svg>
+                    <span data-release-label>Release Deposit</span>
                 </button>
-            </form>
+
+            <template id="deposit-released-template">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 flex items-start gap-3 transition-all duration-300">
+                    <svg class="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <p class="text-emerald-300 text-sm font-semibold">Deposit released</p>
+                </div>
+            </template>
 
             {{-- Charge Deposit --}}
             <div x-data="{ open: false }">
@@ -1482,3 +1514,117 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('release-deposit-button');
+    if (!button) {
+        return;
+    }
+
+    const feedback = document.getElementById('deposit-feedback');
+    const statusText = document.getElementById('deposit-status-text');
+    const statusBlock = document.getElementById('deposit-status-block');
+    const actions = document.getElementById('deposit-actions');
+    const releasedTemplate = document.getElementById('deposit-released-template');
+
+    const icon = button.querySelector('[data-release-icon]');
+    const spinner = button.querySelector('[data-release-spinner]');
+    const label = button.querySelector('[data-release-label]');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || button.dataset.csrf
+        || '';
+
+    const showFeedback = (type, message) => {
+        if (!feedback) {
+            window.alert(message);
+            return;
+        }
+
+        const isSuccess = type === 'success';
+        feedback.className = isSuccess
+            ? 'mb-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 flex items-start gap-3'
+            : 'mb-4 bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-start gap-3';
+        feedback.innerHTML = `
+            <svg class="w-5 h-5 ${isSuccess ? 'text-emerald-400' : 'text-red-400'} flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${isSuccess ? 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'}"/>
+            </svg>
+            <p class="${isSuccess ? 'text-emerald-300' : 'text-red-300'} text-sm">${message}</p>
+        `;
+    };
+
+    const setLoading = (isLoading) => {
+        button.disabled = isLoading;
+
+        if (icon) {
+            icon.classList.toggle('hidden', isLoading);
+        }
+
+        if (spinner) {
+            spinner.classList.toggle('hidden', !isLoading);
+        }
+
+        if (label) {
+            label.textContent = isLoading ? 'Releasing...' : 'Release Deposit';
+        }
+    };
+
+    button.addEventListener('click', async () => {
+        if (!button.dataset.url) {
+            showFeedback('error', 'Release URL is missing.');
+            return;
+        }
+
+        if (!csrfToken) {
+            showFeedback('error', 'CSRF token is missing. Add <meta name="csrf-token" content="@{{ csrf_token() }}"> inside the layout head.');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const response = await fetch(button.dataset.url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+
+            const contentType = response.headers.get('content-type') || '';
+            const data = contentType.includes('application/json')
+                ? await response.json()
+                : {};
+            
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || data.message || 'Release failed');
+            }
+
+            showFeedback('success', data.message || 'Deposit released successfully');
+
+            if (statusText) {
+                statusText.textContent = 'Released';
+                statusText.className = 'font-bold text-xl text-emerald-400';
+            }
+
+            if (releasedTemplate && statusBlock) {
+                statusBlock.innerHTML = releasedTemplate.innerHTML;
+                statusBlock.classList.add('opacity-0');
+                requestAnimationFrame(() => statusBlock.classList.remove('opacity-0'));
+            }
+
+            button.remove();
+
+            if (actions) {
+                actions.classList.remove('md:grid-cols-2');
+            }
+        } catch (error) {
+            showFeedback('error', error.message || 'Failed to release deposit');
+            setLoading(false);
+        }
+    });
+});
+</script>
+@endpush

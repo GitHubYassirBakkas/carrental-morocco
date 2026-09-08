@@ -14,15 +14,23 @@ class ContactController extends Controller
 
     public function send(Request $request)
     {
-        $request->validate([
-            'name'    => 'required|string|max:100',
-            'email'   => 'required|email',
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'email' => 'required|email',
             'subject' => 'required|string',
             'message' => 'required|string|min:10',
         ]);
 
-        // هنا تقدر تزيد Mail::send() باش تجي الرسالة على email ديالك
-        // أو تحفظها في database
+        $recipient = config('mail.from.address');
+
+        Mail::raw(
+            "Name: {$data['name']}\nEmail: {$data['email']}\nSubject: {$data['subject']}\n\n{$data['message']}",
+            function ($mail) use ($data, $recipient) {
+                $mail->to($recipient)
+                    ->replyTo($data['email'], $data['name'])
+                    ->subject('Contact Form: ' . $data['subject']);
+            }
+        );
 
         return back()->with('success', true);
     }

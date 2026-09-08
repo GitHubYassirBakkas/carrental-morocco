@@ -123,7 +123,7 @@
 
                             <div>
                                 <label class="block text-sm font-semibold text-gray-400 mb-2">{{ __('messages.card_details') }}</label>
-                                <div id="card-element" class="bg-gray-900 border border-gray-700 rounded-xl p-4"></div>
+                                <div id="card-element" class="bg-black text-white"></div>
                                 <div id="card-errors" class="text-red-400 text-sm mt-2"></div>
                             </div>
 
@@ -248,25 +248,49 @@
     </div>
 </div>
 
+<style>
+#card-element {
+    min-height: 50px;
+    background-color: #111827; /* dark */
+    border-radius: 12px;
+    padding: 12px;
+}
+#card-element .StripeElement {
+    width: 100%;
+}
+</style>
+
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const stripe   = Stripe('{{ config('services.stripe.key') }}');
+    const stripeKey = '{{ config('services.stripe.key') }}';
+    if (!window.Stripe || !stripeKey) {
+        console.error('Stripe JS failed to initialize.', {
+            stripeLoaded: !!window.Stripe,
+            stripeKeyPresent: !!stripeKey
+        });
+        return;
+    }
+
+    const stripe   = Stripe(stripeKey);
     const elements = stripe.elements();
 
     // ── Card Element ──
-    const cardElement = elements.create('card', {
-        style: {
-            base: {
-                color: '#ffffff',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '16px',
-                '::placeholder': { color: '#6b7280' }
-            },
-            invalid: { color: '#ef4444' }
+   const cardElement = elements.create('card', {
+    style: {
+        base: {
+            color: '#ffffff',
+            fontSize: '16px',
+            '::placeholder': {
+                color: '#9ca3af'
+            }
+        },
+        invalid: {
+            color: '#ef4444'
         }
-    });
+    }
+});
     cardElement.mount('#card-element');
 
     cardElement.on('change', e => {
@@ -307,6 +331,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Form submission ──
     document.getElementById('payment-form').addEventListener('submit', async (e) => {
         e.preventDefault();
+        console.log('Stripe payment form submit handler running');
 
         const method = document.querySelector('input[name="payment_method"]:checked').value;
         const btn    = document.getElementById('submit-button');
@@ -343,9 +368,15 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             // 1. Confirm rental payment (charges immediately)
             const { paymentIntent: rentalResult, error: rentalError } = await stripe.confirmCardPayment(
-                '{{ $rentalIntent->client_secret }}',
+                document.getElementById('rental_payment_intent').value,
                 { payment_method: { card: cardElement } }
             );
+
+            console.log('Rental intent result', {
+                id: rentalResult?.id,
+                status: rentalResult?.status,
+                type: rentalResult?.metadata?.type ?? 'rental'
+            });
 
             if (rentalError) {
                 document.getElementById('card-errors').textContent = rentalError.message;
@@ -357,15 +388,29 @@ document.addEventListener('DOMContentLoaded', function () {
             @if($depositIntent)
             // 2. Authorize deposit (blocks but doesn't charge)
             const { paymentIntent: depositResult, error: depositError } = await stripe.confirmCardPayment(
-                '{{ $depositIntent->client_secret }}',
+                document.getElementById('deposit_payment_intent').value,
                 { payment_method: { card: cardElement } }
             );
+
+            console.log('Deposit intent result', {
+                id: depositResult?.id,
+                status: depositResult?.status,
+                type: depositResult?.metadata?.type ?? 'deposit'
+            });
 
             if (depositError) {
                 document.getElementById('card-errors').textContent = 'Deposit authorization failed: ' + depositError.message;
                 btn.disabled = false;
                 btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
                 return;
+            }
+
+            if (depositResult?.status !== 'requires_capture') {
+                console.warn('Deposit authorization was not held correctly.', {
+                    id: depositResult?.id,
+                    status: depositResult?.status,
+                    type: depositResult?.metadata?.type ?? 'deposit'
+                });
             }
             @endif
 
@@ -387,9 +432,11 @@ document.addEventListener('DOMContentLoaded', function () {
             form.appendChild(rpi);
 
             @if($depositIntent)
-            const dpi = document.createElement('input');
-            dpi.type = 'hidden'; dpi.name = 'deposit_payment_intent'; dpi.value = '{{ $depositIntent->id }}';
-            form.appendChild(dpi);
+            if (depositResult?.status === 'requires_capture') {
+                const dpi = document.createElement('input');
+                dpi.type = 'hidden'; dpi.name = 'deposit_payment_intent'; dpi.value = depositResult.id;
+                form.appendChild(dpi);
+            }
             @endif
 
             document.body.appendChild(form);

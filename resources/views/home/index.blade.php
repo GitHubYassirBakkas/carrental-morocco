@@ -307,12 +307,12 @@
         <div class="hc-slider" id="carSlider">
             @php
             $featuredCars = [
-                ['name'=>'Lamborghini Urus',     'img'=>'/images/placeholder/Lamborghini Urus.jpg',   'seats'=>4,'price'=>7500],
-                ['name'=>'Mercedes G63 AMG',     'img'=>'/images/placeholder/Mercedes G63.jpeg',      'seats'=>5,'price'=>6800],
-                ['name'=>'Audi RS7',             'img'=>'/images/placeholder/Audi RS7.jpeg',           'seats'=>4,'price'=>5400],
-                ['name'=>'Range Rover SVR',      'img'=>'/images/placeholder/Range Rover.jpeg',        'seats'=>5,'price'=>6000],
-                ['name'=>'BMW M5 Competition',   'img'=>'/images/placeholder/BMW M5.jpeg',             'seats'=>4,'price'=>5200],
-                ['name'=>'Porsche Cayenne Turbo','img'=>'/images/placeholder/Porsche Cayenne.jpeg',    'seats'=>5,'price'=>5900],
+                ['name'=>'Lamborghini Urus',     'img'=>asset('images/cars/Lamborghini-Urus.jpg'),     'seats'=>4,'price'=>7500],
+                ['name'=>'Mercedes C-Class',     'img'=>asset('images/cars/mercedes-c-class.jpg'),     'seats'=>5,'price'=>6800],
+                ['name'=>'Audi RS7',             'img'=>asset('images/cars/audi-rs7.jpg'),             'seats'=>4,'price'=>5400],
+                ['name'=>'Range Rover',          'img'=>asset('images/cars/range-rover.jpg'),          'seats'=>5,'price'=>6000],
+                ['name'=>'Bentley Bentayga',     'img'=>asset('images/cars/bentley-bentayga.jpg'),     'seats'=>5,'price'=>5200],
+                ['name'=>'Porsche Cayenne Turbo','img'=>asset('images/cars/porsche-cayenne.jpg'),      'seats'=>5,'price'=>5900],
             ];
             @endphp
 
@@ -595,7 +595,7 @@
 .section-h2 span { color: var(--gold); }
 
 /* ── HERO ── */
-.home-hero { position:relative; min-height:100vh; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+.home-hero { position:relative; min-height:100svh; height:auto; overflow:hidden; display:flex; flex-direction:column; }
 
 .hero-carousel { position:absolute; inset:0; z-index:0; }
 .hero-slide    { position:absolute; inset:0; background-size:cover; background-position:center; opacity:0; transition:opacity 1.5s ease; }
@@ -626,9 +626,9 @@
 /* Hero content */
 .hero-content {
     position:relative; z-index:1;
-    flex:1; display:flex; flex-direction:column;
+    flex:1 0 auto; display:flex; flex-direction:column;
     align-items:center; justify-content:center;
-    padding:120px 2rem 2rem;
+    padding:120px 2rem 2.5rem;
     gap:2rem;
     text-align:center;
 }
@@ -750,12 +750,33 @@
 .hs-div { width:1px; height:35px; background:rgba(255,255,255,0.07); }
 
 @media(max-width:900px) {
+    .home-hero { min-height:auto; }
+    .hero-content { justify-content:flex-start; padding:110px 1.25rem 1.5rem; gap:1.35rem; }
+    .hero-title { font-size:clamp(2.1rem, 8vw, 3.4rem); }
+    .hero-sub { font-size:1rem; margin-bottom:0; }
     .hf-bar { flex-wrap:wrap; border-radius:12px; min-height:auto; padding:8px; gap:0; }
     .hf-field { flex:1 1 calc(50% - 1px); border-radius:8px; min-width:0; }
     .hf-field--sm { flex:1 1 calc(50% - 1px); }
     .hf-sep { display:none; }
     .hf-btn { width:100%; border-radius:8px; padding:14px; margin-top:4px; }
     .hs-item { padding:0 1.25rem; }
+}
+
+@media(max-width:600px) {
+    .hero-content { padding:96px 1rem 1.25rem; }
+    .hf-field,
+    .hf-field--sm { flex-basis:100%; padding:12px 14px; }
+    .hero-stats-bar { padding:1rem; }
+    .hs-div { display:none; }
+    .hs-item { flex:1 1 45%; padding:0.4rem 0.75rem; }
+}
+
+@media(max-height:700px) and (max-width:900px) {
+    .hero-content { padding-top:92px; gap:1rem; }
+    .hero-eyebrow { margin-bottom:0.35rem; }
+    .hero-title { font-size:clamp(1.9rem, 7vw, 2.6rem); margin-bottom:0.35rem; }
+    .hf-field { padding:10px 14px; }
+    .hero-stats-bar { position:relative; }
 }
 
 /* Location dropdown */
@@ -1146,9 +1167,6 @@
 </style>
 
 @push('scripts')
-{{-- Swiper CSS --}}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -1262,10 +1280,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 @endpush
 
 @endsection

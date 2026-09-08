@@ -46,9 +46,17 @@ class Invoice extends Model
     // مجموع الدفوعات المكتملة
     public function getPaidAmountAttribute()
     {
-        return $this->payments()
+        $payments = $this->payments()
+            ->where('type', 'payment')
             ->where('status', 'completed')
             ->sum('amount');
+
+        $refunds = $this->payments()
+            ->where('type', 'refund')
+            ->where('status', 'completed')
+            ->sum('amount');
+
+        return $payments - $refunds;
     }
 
     // الرصيد المتبقي

@@ -6,49 +6,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Car Rental Morocco')</title>
 
-    {{--
-    ════════════════════════════════════════════════
-    Zid had l snippet JAWWA <head> f:
-      - resources/views/layouts/app.blade.php
-      - resources/views/layouts/auth.blade.php
-
-    Zidha ba3d @vite(['resources/css/app.css'])
-    ════════════════════════════════════════════════
---}}
-
-<style>
-    /* Global font scale */
-    html                { font-size: 17px !important; }
-    body                { font-size: 1rem !important; line-height: 1.7 !important; -webkit-font-smoothing: antialiased; }
-
-    /* Inputs */
-    input, select, textarea, button { font-size: 0.97rem !important; font-family: inherit; }
-
-    /* Labels & small text */
-    label, .muted, small { font-size: 0.82rem !important; }
-
-    /* Descriptions & body copy */
-    p, .desc, .subtitle  { font-size: 0.94rem !important; line-height: 1.75 !important; }
-
-    /* Card section headers */
-    h2 { font-size: clamp(1.1rem, 2vw, 1.5rem) !important; }
-    h3 { font-size: clamp(1rem, 1.8vw, 1.3rem) !important; }
-
-    /* Keep large hero titles untouched */
-    h1 { font-size: clamp(1.5rem, 4vw, 2.5rem) !important; }
-
-    /* Tailwind text-xs / text-sm override */
-    .text-xs  { font-size: 0.78rem !important; }
-    .text-sm  { font-size: 0.9rem  !important; }
-    .text-base{ font-size: 1rem    !important; }
-    .text-lg  { font-size: 1.15rem !important; }
-    .text-xl  { font-size: 1.3rem  !important; }
-    .text-2xl { font-size: 1.5rem  !important; }
-    .text-3xl { font-size: 1.85rem !important; }
-    .text-4xl { font-size: 2.2rem  !important; }
-    .text-5xl { font-size: 2.8rem  !important; }
-</style>
-
     <!-- Fonts & Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,29 +14,12 @@
 
     <!-- Swiper -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
-    <!-- Alpine -->
-    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-
-    <!-- Tailwind -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#C89D66',
-                        secondary: '#1A1A1A',
-                        accent: '#2A2A2A',
-                    }
-                }
-            }
-        }
-    </script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     @stack('styles')
 </head>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
 <body class="font-sans bg-secondary text-white min-h-screen">
 

@@ -32,8 +32,8 @@
         {{-- Booking summary card --}}
         <div class="rv-booking">
             <div class="rv-booking-img">
-                @if($booking->car->image)
-                    <img src="{{ asset('storage/cars/' . $booking->car->image) }}"
+                @if($booking->car)
+                    <img src="{{ $booking->car->image_url }}"
                          alt="{{ $booking->car->brand }} {{ $booking->car->model }}">
                 @else
                     <div class="rv-booking-img-placeholder">

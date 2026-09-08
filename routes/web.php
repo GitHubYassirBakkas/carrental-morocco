@@ -21,7 +21,8 @@ use App\Http\Controllers\TicketController;
 */
 // Language Switcher
 Route::get('language/{locale}', [LanguageController::class, 'switch'])->name('language.switch');
-
+Route::post('/stripe/webhook', [PaymentController::class, 'handleWebhook'])
+    ->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class]);
 // HOME
 Route::get('/', function () {
     return view('home.index');
@@ -284,14 +285,15 @@ Route::middleware(['auth', AdminMiddleware::class])
     Route::post('coupons/generate-code', [\App\Http\Controllers\Admin\CouponController::class, 'generateCode'])->name('coupons.generateCode');
 
 
-        Route::post('admin/payments/{booking}/cash', [PaymentController::class, 'processCash'])->name('admin.payments.cash');
+        Route::post('payments/{booking}/cash', [PaymentController::class, 'processCash'])->name('admin.payments.cash');
 
     Route::get('/support', [SupportController::class, 'index'])->name('support.index');
     Route::get('/support/{ticket}', [SupportController::class, 'show'])->name('support.show');
     Route::post('/support/{ticket}/reply', [SupportController::class, 'reply'])->name('support.reply');
 
-     Route::post('/bookings/{booking}/deposit/release', [PaymentController::class, 'releaseDeposit'])->name('.deposit.release');
-    Route::post('/bookings/{booking}/deposit/charge',  [PaymentController::class, 'chargeDeposit'])->name('.deposit.charge');
+     Route::post('bookings/{booking}/release-deposit', [PaymentController::class, 'releaseDeposit'])->name('deposit.release');
+     
+    Route::post('bookings/{booking}/deposit/charge',  [PaymentController::class, 'chargeDeposit'])->name('deposit.charge');
 
 });
 // ======= ADMIN ROUTES =======

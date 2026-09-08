@@ -36,6 +36,9 @@ class Booking extends Model
         'additional_driver_name',
         'additional_driver_license',
         'deposit_amount',
+        'deposit_payment_intent_id',
+        'deposit_status',
+        'deposit_charged_amount',
         'deposit_paid',
         'deposit_paid_at',      // ← Add this
         'deposit_due_at',       // ← Add this
@@ -56,6 +59,7 @@ class Booking extends Model
         'insurance_daily_rate' => 'decimal:2',
         'total_amount' => 'decimal:2',
         'deposit_amount' => 'decimal:2',
+        'deposit_charged_amount' => 'decimal:2',
         'deposit_paid' => 'boolean',
         'deposit_paid_at' => 'datetime',    // ← Add this
         'deposit_due_at' => 'datetime',     // ← Add this

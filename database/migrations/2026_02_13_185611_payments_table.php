@@ -24,11 +24,10 @@ return new class extends Migration
 
         $table->decimal('amount', 10, 2);
 
-        $table->enum('method', ['cash', 'card', 'online', 'bank_transfer'])
+        $table->enum('method', ['cash', 'card', 'online', 'bank_transfer','stripe'])
               ->default('cash');
 
-        $table->enum('type', ['payment', 'refund'])
-              ->default('payment');
+        $table->enum('type', ['payment', 'refund', 'deposit_charge'])->default('payment');
 
         $table->enum('status', ['pending', 'completed', 'failed'])
               ->default('pending');

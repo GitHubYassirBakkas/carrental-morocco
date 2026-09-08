@@ -130,22 +130,66 @@ public function getAvailableInsurancesAttribute()
     /**
      * ✅ Get all images (main + gallery)
      */
-   public function getAllImagesAttribute(): array
-{
-    $images = [];
+    /**
+     * Resolve a car image whether it came from an admin upload or the seeded
+     * public image set.
+     */
+    public function resolveImageUrl(?string $image = null): string
+    {
+        $image = $image ?: $this->image;
+        $fallback = asset('images/cars/Route.jpg');
 
-    if ($this->image) {
-        $images[] = Storage::url('cars/' . $this->image);
-    }
-
-    if (is_array($this->gallery)) {
-        foreach ($this->gallery as $img) {
-            $images[] = Storage::url('cars/' . $img);
+        if (!$image) {
+            return $fallback;
         }
+
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://')) {
+            return $image;
+        }
+
+        $filename = basename($image);
+        $storagePath = 'cars/' . $filename;
+
+        if (Storage::disk('public')->exists($storagePath)) {
+            return Storage::url($storagePath);
+        }
+
+        $publicPath = public_path('images/cars/' . $filename);
+
+        if (is_file($publicPath)) {
+            return asset('images/cars/' . $filename);
+        }
+
+        foreach (glob(public_path('images/cars/*')) ?: [] as $candidate) {
+            if (strtolower(basename($candidate)) === strtolower($filename)) {
+                return asset('images/cars/' . basename($candidate));
+            }
+        }
+
+        return $fallback;
     }
 
-    return array_unique($images);
-}
+    public function getImageUrlAttribute(): string
+    {
+        return $this->resolveImageUrl();
+    }
+
+    public function getAllImagesAttribute(): array
+    {
+        $images = [];
+
+        if ($this->image) {
+            $images[] = $this->image_url;
+        }
+
+        if (is_array($this->gallery)) {
+            foreach ($this->gallery as $img) {
+                $images[] = $this->resolveImageUrl($img);
+            }
+        }
+
+        return array_values(array_unique($images)) ?: [$this->image_url];
+    }
 
 
     /**

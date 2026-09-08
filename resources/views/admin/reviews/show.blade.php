@@ -165,9 +165,9 @@
                 </h2>
 
                 <!-- Car Image -->
-                @if($review->car->image)
+                @if($review->car)
                     <div class="mb-4 rounded-lg overflow-hidden">
-                        <img src="{{ asset('storage/cars/' . $review->car->image) }}" 
+                        <img src="{{ $review->car->image_url }}" 
                              alt="{{ $review->car->brand }} {{ $review->car->model }}" 
                              class="w-full h-40 object-cover">
                     </div>

@@ -45,7 +45,7 @@ class BookingService
             $deadlineHours = setting('deposit_deadline_hours', 24);
             $booking->update([
                 'deposit_amount' => $this->depositService->calculateMinimumDeposit($booking),
-                'deposit_due_at' => now()->addHours(24)
+                'deposit_due_at' => now()->addHours($deadlineHours)
             ]);
 
             Log::info('Booking confirmed', ['booking_id' => $booking->id]);
@@ -54,19 +54,13 @@ class BookingService
 
         // ✅ زيد هنا
         try {
+            Log::info('Sending email to: ' . $freshBooking->user->email);
             Mail::to($freshBooking->user->email)
                 ->send(new AdminPaymentConfirmedMail($freshBooking));
+            Log::info('Email sent successfully!');
         } catch (Exception $e) {
             Log::error('Failed to send confirmation email: ' . $e->getMessage());
         }
-        try {
-    Log::info('Sending email to: ' . $freshBooking->user->email);
-    Mail::to($freshBooking->user->email)
-        ->send(new AdminPaymentConfirmedMail($freshBooking));
-    Log::info('Email sent successfully!');
-} catch (Exception $e) {
-    Log::error('Failed to send email: ' . $e->getMessage());
-}
 
 Log::info('=== CONFIRM BOOKING CALLED ===', [
     'booking_id' => $booking->id,
@@ -121,7 +115,7 @@ Log::info('=== CONFIRM BOOKING CALLED ===', [
         'subtotal' => round($subtotal, 2),
         'tax_amount' => round($taxAmount, 2),
         'total_amount' => round($totalAmount, 2),
-        'status' => 'unpaid',
+        'status' => 'pending',
         'issued_at' => now(),
         'due_date' => $booking->start_date ?? now()->addDays(7),
     ]);

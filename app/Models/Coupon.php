@@ -181,6 +181,18 @@ class Coupon extends Model
             return $validation;
         }
 
+        $alreadyUsedForBooking = CouponUsage::where('coupon_id', $this->id)
+            ->where('booking_id', $bookingId)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if ($alreadyUsedForBooking) {
+            return [
+                'valid' => false,
+                'message' => 'This coupon has already been used for this booking by this user.',
+            ];
+        }
+
         $discountAmount = $this->calculateDiscount($originalAmount);
         $finalAmount = $originalAmount - $discountAmount;
 

@@ -182,7 +182,7 @@ color: #777;
 
             <div class="bp-car-body">
                 <div class="bp-car-img">
-                     <img src="{{ asset('storage/cars/'.$car->image) }}" alt="{{ $car->brand }} {{ $car->model }}">
+                     <img src="{{ $car->image_url }}" alt="{{ $car->brand }} {{ $car->model }}">
                 </div>
                 <div class="bp-car-info">
                     <h3>{{ $car->brand }} {{ $car->model }}</h3>

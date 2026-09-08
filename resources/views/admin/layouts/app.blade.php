@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <title>Admin Dashboard | CarRental</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100">
-
+<body class="bg-[#07090f]">
 <div class="flex min-h-screen">
 
     <!-- SIDEBAR -->
@@ -90,8 +90,8 @@
     </aside>
 
     <!-- MAIN -->
-    <main class="flex-1 p-8">
-        @yield('content')
+<main class="flex-1 p-8 bg-[#07090f] min-h-screen">
+    @yield('content')
     </main>
 
 </div>

@@ -49,8 +49,8 @@
 
                     {{-- Car image --}}
                     <div class="mb-card-img">
-                        @if($booking->car->image)
-                            <img src="{{ asset('storage/cars/' . $booking->car->image) }}"
+                        @if($booking->car)
+                            <img src="{{ $booking->car->image_url }}"
                                  alt="{{ $booking->car->brand }} {{ $booking->car->model }}">
                         @else
                             <div class="mb-card-img-placeholder">
@@ -122,8 +122,8 @@
 
                     {{-- Car image --}}
                     <div class="mb-card-img mb-card-img--past">
-                        @if($booking->car->image)
-                            <img src="{{ asset('storage/cars/' . $booking->car->image) }}"
+                        @if($booking->car)
+                            <img src="{{ $booking->car->image_url }}"
                                  alt="{{ $booking->car->brand }} {{ $booking->car->model }}">
                         @else
                             <div class="mb-card-img-placeholder">
