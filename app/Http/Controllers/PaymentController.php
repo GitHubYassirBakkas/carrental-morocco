@@ -3,24 +3,36 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
-use App\Models\Invoice;
-use App\Models\Payment;
-use App\Models\Setting;
+use App\Jobs\ProcessStripeWebhookEventJob;
 use Illuminate\Http\Request;
 use Stripe\Stripe;
-use Stripe\PaymentIntent;
 use Stripe\Exception\CardException;
+use Stripe\Exception\SignatureVerificationException;
+use Stripe\Webhook;
 use Exception;
 use App\Mail\BookingConfirmedMail;
 use App\Mail\BookingPendingMail;
+use App\Services\InvoiceService;
+use App\Services\PaymentService;
+use App\Services\PaymentWebhookMetrics;
+use App\Services\SecurityDepositService;
+use App\Services\StripePaymentIntentGateway;
+use App\Models\PaymentIdempotencyKey;
+use App\Models\StripeWebhookEvent;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 
 class PaymentController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private readonly StripePaymentIntentGateway $stripePaymentIntents,
+        private readonly SecurityDepositService $securityDeposits,
+        private readonly InvoiceService $invoices,
+        private readonly PaymentService $payments
+    ) {
         Stripe::setApiKey(config('services.stripe.secret'));
     }
 
@@ -31,261 +43,233 @@ class PaymentController extends Controller
         $webhookSecret = config('services.stripe.webhook_secret');
 
         try {
-            if ($webhookSecret && $signature) {
-                $event = \Stripe\Webhook::constructEvent($payload, $signature, $webhookSecret);
-            } else {
-                \Log::warning('Stripe webhook secret or signature missing.');
-                $event = json_decode($payload);
-            }
+            $event = $this->verifiedStripeEvent($payload, $signature, $webhookSecret);
 
             $object = $event->data->object ?? null;
             $eventType = $event->type ?? 'unknown';
-            $paymentIntentId = $object->payment_intent ?? $object->id ?? null;
+            $eventId = $event->id ?? null;
+            $paymentIntentId = $this->value($object, 'payment_intent') ?? $this->value($object, 'id');
+            $eventPayload = method_exists($event, 'toArray')
+                ? $event->toArray()
+                : json_decode(json_encode($event), true);
+            $eventPayload = $this->sanitizeStripePayload($eventPayload);
 
-            if (app()->environment('local')) {
-                \Log::debug('FULL STRIPE EVENT', [
-                    'payload' => method_exists($event, 'toArray')
-                        ? $event->toArray()
-                        : json_decode(json_encode($event), true),
-                ]);
-            }
-
-            if (str_starts_with($eventType, 'charge.')) {
-                \Log::info('Stripe webhook ignored charge event.', [
+            if (!$eventId) {
+                Log::warning('Stripe webhook rejected: missing event id.', [
                     'event_type' => $eventType,
                     'payment_intent_id' => $paymentIntentId,
                 ]);
 
-                return response()->json(['received' => true], 200);
+                return response()->json(['received' => false], 400);
             }
 
-            $metadata = [];
-            if ($object && isset($object->metadata)) {
-                $metadata = method_exists($object->metadata, 'toArray')
-                    ? $object->metadata->toArray()
-                    : (array) $object->metadata;
-            }
+            $eventPayload['correlation_id'] = $eventPayload['correlation_id'] ?? $eventId;
+
+            $metadata = $this->toArraySafe($this->value($object, 'metadata'));
 
             $bookingId = $metadata['booking_id'] ?? null;
             $metadataType = $metadata['type'] ?? null;
-            $paymentIntentStatus = $object->status ?? null;
+            $paymentIntentStatus = $this->value($object, 'status');
 
-            \Log::info('Stripe webhook received', [
+            Log::info('payment.webhook.lifecycle', [
                 'event_type' => $eventType,
-                'payment_intent_id' => $paymentIntentId,
                 'booking_id' => $bookingId,
-                'payment_intent_status' => $paymentIntentStatus,
-                'type' => $metadataType,
-                'metadata' => $metadata,
+                'payment_intent_id' => $paymentIntentId,
+                'status' => $paymentIntentStatus,
             ]);
 
-            if (in_array($eventType, ['payment_intent.amount_capturable_updated', 'payment_intent.canceled'], true)) {
-                // Webhook is the ONLY source of truth for deposit
-                // Never update deposit from controllers or store()
-                if ($metadataType !== 'deposit' || !$bookingId) {
-                    \Log::error('invalid deposit metadata', [
-                        'event_type' => $eventType,
-                        'payment_intent_id' => $paymentIntentId,
-                        'metadata' => $metadata,
-                    ]);
-
-                    return response()->json(['received' => true], 200);
-                }
-
-                $booking = Booking::find($bookingId);
-
-                if (!$booking) {
-                    \Log::error('booking not found for deposit webhook', [
-                        'booking_id' => $bookingId,
-                        'payment_intent_id' => $paymentIntentId,
-                    ]);
-
-                    return response()->json(['received' => true], 200);
-                }
-
-                \Log::info('DEPOSIT WEBHOOK INPUT', [
-                    'booking_id' => $bookingId,
-                    'intent_id' => $paymentIntentId,
-                    'status' => $paymentIntentStatus,
-                    'event' => $eventType,
-                ]);
-
-                if ($eventType === 'payment_intent.amount_capturable_updated') {
-                    if ($booking->deposit_status === 'held') {
-                        \Log::info('webhook deposit already handled', [
-                            'event_type' => $eventType,
-                            'payment_intent_id' => $paymentIntentId,
-                            'booking_id' => $bookingId,
-                            'payment_intent_status' => $paymentIntentStatus,
-                        ]);
-
-                        return response()->json(['received' => true], 200);
-                    }
-
-                    \DB::flushQueryLog();
-                    \DB::enableQueryLog();
-
-                    $updated = $booking->update([
-                        'deposit_payment_intent_id' => $paymentIntentId,
-                        'deposit_status' => 'held',
-                        'deposit_paid' => true,
-                        'deposit_paid_at' => $booking->deposit_paid_at ?? now(),
-                    ]);
-
-                    $queries = \DB::getQueryLog();
-                    \DB::disableQueryLog();
-                    $freshBooking = $booking->fresh();
-
-                    if ($updated === false) {
-                        \Log::error('deposit update failed', [
-                            'booking_id' => $bookingId,
-                            'payment_intent_id' => $paymentIntentId,
-                            'sql' => $queries,
-                            'booking_state' => $booking->toArray(),
-                        ]);
-
-                        return response()->json(['received' => true], 200);
-                    }
-
-                    if (
-                        !$freshBooking ||
-                        $freshBooking->deposit_payment_intent_id !== $paymentIntentId ||
-                        $freshBooking->deposit_status !== 'held' ||
-                        !$freshBooking->deposit_paid
-                    ) {
-                        \Log::error('deposit update verification failed', [
-                            'booking_id' => $bookingId,
-                            'payment_intent_id' => $paymentIntentId,
-                            'sql' => $queries,
-                            'booking_state' => $freshBooking?->toArray(),
-                        ]);
-                    }
-
-                    \Log::info('DEPOSIT BOOKING AFTER UPDATE', [
-                        'booking' => $freshBooking?->toArray(),
-                    ]);
-
-                    return response()->json(['received' => true], 200);
-                }
-
-                \DB::flushQueryLog();
-                \DB::enableQueryLog();
-
-                $updated = $booking->update([
-                    'deposit_status' => 'released',
-                    'deposit_paid' => false,
-                ]);
-
-                $queries = \DB::getQueryLog();
-                \DB::disableQueryLog();
-
-                if ($updated === false) {
-                    \Log::error('deposit release update failed', [
-                        'booking_id' => $bookingId,
-                        'payment_intent_id' => $paymentIntentId,
-                        'sql' => $queries,
-                        'booking_state' => $booking->toArray(),
-                    ]);
-
-                    return response()->json(['received' => true], 200);
-                }
-
-                \Log::info('webhook deposit released', [
-                    'event_type' => $eventType,
+            if (PaymentIdempotencyKey::where('idempotency_key', $eventId)
+                ->where('status', PaymentIdempotencyKey::STATUS_COMPLETED)
+                ->exists()) {
+                app(PaymentWebhookMetrics::class)->duplicate([
+                    'event_id' => $eventId,
+                    'booking_id' => $bookingId ? (int) $bookingId : null,
                     'payment_intent_id' => $paymentIntentId,
-                    'booking_id' => $bookingId,
-                    'payment_intent_status' => $paymentIntentStatus,
-                ]);
-
-                \Log::info('DEPOSIT BOOKING AFTER UPDATE', [
-                    'booking' => $booking->fresh()?->toArray(),
+                    'lock_status' => 'not_required',
+                    'idempotency_status' => PaymentIdempotencyKey::STATUS_COMPLETED,
                 ]);
 
                 return response()->json(['received' => true], 200);
             }
 
-            if (str_starts_with($eventType, 'payment_intent.') && $eventType !== 'payment_intent.succeeded') {
-                \Log::info('Stripe webhook ignored unrelated payment intent event.', [
-                    'event_type' => $eventType,
+            $storedEvent = $this->storeStripeWebhookEvent($eventId, $eventType, $eventPayload);
+
+            if ($storedEvent->status === StripeWebhookEvent::STATUS_PROCESSED) {
+                app(PaymentWebhookMetrics::class)->duplicate([
+                    'event_id' => $eventId,
+                    'booking_id' => $bookingId ? (int) $bookingId : null,
                     'payment_intent_id' => $paymentIntentId,
-                    'booking_id' => $bookingId,
-                    'type' => $metadataType,
-                    'payment_intent_status' => $paymentIntentStatus,
+                    'lock_status' => 'not_required',
+                    'idempotency_status' => 'event_store_processed',
                 ]);
 
                 return response()->json(['received' => true], 200);
             }
 
-            // Ignore non-rental success events so deposit never enters invoice/payment logic.
-            if ($eventType === 'payment_intent.succeeded' && $metadataType !== 'rental') {
-                \Log::info('Stripe webhook ignored non-rental success event.', [
-                    'payment_intent_id' => $paymentIntentId,
-                    'booking_id' => $bookingId,
-                    'type' => $metadataType,
-                    'payment_intent_status' => $paymentIntentStatus,
-                ]);
-
-                return response()->json(['received' => true], 200);
+            if ($storedEvent->status === StripeWebhookEvent::STATUS_FAILED) {
+                $storedEvent->forceFill([
+                    'status' => StripeWebhookEvent::STATUS_PENDING,
+                    'error_message' => null,
+                    'updated_at' => now(),
+                ])->save();
             }
 
-            if ($eventType === 'payment_intent.succeeded' && $paymentIntentId && $bookingId && $metadataType === 'rental') {
-                $booking = Booking::find($bookingId);
-
-                if (!$booking) {
-                    \Log::warning('Stripe webhook booking not found.', [
-                        'payment_intent_id' => $paymentIntentId,
-                        'booking_id' => $bookingId,
-                    ]);
-
-                    return response()->json(['received' => true], 200);
-                }
-
-                if (Payment::where('transaction_id', $paymentIntentId)->exists()) {
-                    \Log::info('Stripe webhook already processed.', [
-                        'payment_intent_id' => $paymentIntentId,
-                        'booking_id' => $bookingId,
-                    ]);
-
-                    return response()->json(['received' => true], 200);
-                }
-
-                $invoice = $booking->invoice ?? Invoice::create([
-                    'booking_id' => (string) $booking->id,
-                    'user_id' => $booking->user_id,
-                    'subtotal' => $booking->total_amount,
-                    'tax_amount' => 0,
-                    'total_amount' => $booking->total_amount,
-                    'status' => 'pending',
-                    'issued_at' => now(),
-                ]);
-
-                $invoice->payments()->create([
-                    'user_id' => $booking->user_id,
-                    'amount' => $booking->total_amount,
-                    'method' => 'card',
-                    'type' => 'payment',
-                    'status' => 'completed',
-                    'paid_at' => now(),
-                    'transaction_id' => $paymentIntentId,
-                    'notes' => 'Stripe webhook payment confirmation',
-                ]);
-
-                $invoice->update([
-                    'status' => 'paid',
-                ]);
-
-                $booking->update([
-                    'payment_method' => 'stripe',
-                    'status' => 'confirmed',
-                ]);
+            if (in_array($storedEvent->status, [StripeWebhookEvent::STATUS_PENDING, StripeWebhookEvent::STATUS_FAILED], true)) {
+                ProcessStripeWebhookEventJob::dispatch($storedEvent->id)->afterResponse();
             }
+
+            app(PaymentWebhookMetrics::class)->ingested([
+                'event_id' => $eventId,
+                'booking_id' => $bookingId ? (int) $bookingId : null,
+                'payment_intent_id' => $paymentIntentId,
+                'event_type' => $eventType,
+            ]);
+
+            Log::info('payment.webhook.lifecycle', [
+                'event_type' => $eventType,
+                'booking_id' => $bookingId,
+                'payment_intent_id' => $paymentIntentId,
+                'status' => $storedEvent->status,
+            ]);
+        } catch (HttpResponseException $e) {
+            return $e->getResponse();
         } catch (\Throwable $e) {
-            \Log::error('Stripe webhook handling failed', [
+            app(PaymentWebhookMetrics::class)->fail([
+                'lock_status' => 'unknown',
+                'idempotency_status' => 'unknown',
+            ]);
+
+            Log::error('Stripe webhook ingestion failed', [
                 'message' => $e->getMessage(),
             ]);
+
+            return response()->json(['received' => false], 500);
         }
 
         return response()->json(['received' => true], 200);
+    }
+
+    private function storeStripeWebhookEvent(string $eventId, string $eventType, array $payload): StripeWebhookEvent
+    {
+        $storedEvent = StripeWebhookEvent::where('event_id', $eventId)->first();
+
+        if ($storedEvent) {
+            return $storedEvent;
+        }
+
+        try {
+            return StripeWebhookEvent::create([
+                'event_id' => $eventId,
+                'type' => $eventType,
+                'payload' => $payload,
+                'status' => StripeWebhookEvent::STATUS_PENDING,
+                'attempts' => 0,
+            ]);
+        } catch (QueryException $e) {
+            $storedEvent = StripeWebhookEvent::where('event_id', $eventId)->first();
+
+            if ($storedEvent) {
+                return $storedEvent;
+            }
+
+            throw $e;
+        }
+    }
+
+    private function sanitizeStripePayload(array $payload): array
+    {
+        $blockedKeys = [
+            'client_secret',
+            'payment_method',
+            'payment_method_details',
+            'payment_method_options',
+            'billing_details',
+            'receipt_url',
+            'source',
+            'card',
+        ];
+
+        foreach ($payload as $key => $value) {
+            if (in_array($key, $blockedKeys, true)) {
+                $payload[$key] = '[redacted]';
+                continue;
+            }
+
+            if (is_array($value)) {
+                $payload[$key] = $this->sanitizeStripePayload($value);
+            }
+        }
+
+        return $payload;
+    }
+
+    private function verifiedStripeEvent(string $payload, ?string $signature, ?string $webhookSecret): object
+    {
+        if (!$webhookSecret || !$signature) {
+            Log::warning('Stripe webhook rejected: missing signing secret or signature.', [
+                'has_secret' => (bool) $webhookSecret,
+                'has_signature' => (bool) $signature,
+                'environment' => app()->environment(),
+            ]);
+
+            throw new HttpResponseException(response()->json(['received' => false], 400));
+        }
+
+        try {
+            return Webhook::constructEvent($payload, $signature, $webhookSecret);
+        } catch (SignatureVerificationException|\UnexpectedValueException $e) {
+            Log::warning('Stripe webhook rejected: signature verification failed.', [
+                'message' => $e->getMessage(),
+                'environment' => app()->environment(),
+            ]);
+
+            throw new HttpResponseException(response()->json(['received' => false], 400));
+        }
+    }
+
+    private function toArraySafe(mixed $value): array
+    {
+        $normalized = $this->normalizeValue($value);
+
+        return is_array($normalized) ? $normalized : [];
+    }
+
+    private function normalizeValue(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            return array_map(fn (mixed $item): mixed => $this->normalizeValue($item), $value);
+        }
+
+        if (is_object($value)) {
+            if (method_exists($value, 'toArray')) {
+                return $this->normalizeValue($value->toArray());
+            }
+
+            if ($value instanceof \JsonSerializable) {
+                return $this->normalizeValue($value->jsonSerialize());
+            }
+
+            if ($value instanceof \Traversable) {
+                return $this->normalizeValue(iterator_to_array($value));
+            }
+
+            return $this->normalizeValue(get_object_vars($value));
+        }
+
+        return $value;
+    }
+
+    private function value(mixed $source, string $key, mixed $default = null): mixed
+    {
+        if (is_array($source)) {
+            return $source[$key] ?? $default;
+        }
+
+        if (is_object($source) && isset($source->{$key})) {
+            return $source->{$key};
+        }
+
+        return $default;
     }
 
     /**
@@ -295,18 +279,32 @@ class PaymentController extends Controller
     {
         abort_if($booking->user_id !== auth()->id(), 403);
 
-    $invoice     = $booking->invoice;
-    $amountToPay = $invoice
-        ? ($invoice->total_amount - ($invoice->paid_amount ?? 0))
-        : $booking->total_amount;
+        $booking = $this->securityDeposits->normalizeSecurityDepositState($booking);
 
-    $depositAmount = $booking->car->deposit_amount ?? 0;
+    $invoice = $this->invoices->firstOrCreateForPaymentPage($booking);
+    $invoice->loadMissing('payments');
+
+    $remainingAmount = max(
+        0,
+        (int) round(((float) $invoice->total_amount - (float) $invoice->paid_amount) * 100)
+    );
+    $amountToPay = $remainingAmount / 100;
+    $rentalPaymentAlreadySettled = $remainingAmount <= 0;
+
+    $securityDepositAmount = $this->securityDeposits->getExpectedSecurityDepositAmount($booking);
     $rentalIntent = null;
+
+    if ($rentalPaymentAlreadySettled) {
+        \Log::info('Skipping rental PaymentIntent creation: booking already fully paid', [
+            'booking_id' => $booking->id,
+            'invoice_id' => $invoice->id,
+        ]);
+    } else {
 
     // ── Rental Intent: نعيد الاستخدام إذا موجود ──
     if ($booking->rental_payment_intent_id) {
         try {
-            $rentalIntent = PaymentIntent::retrieve($booking->rental_payment_intent_id);
+            $rentalIntent = $this->stripePaymentIntents->retrieve($booking->rental_payment_intent_id);
             // ila succeeded deja → redirect للـ success
             if ($rentalIntent->status === 'succeeded') {
                 return redirect()->route('bookings.success', $booking);
@@ -319,46 +317,51 @@ class PaymentController extends Controller
 
     // نخلقو جديد فقط إذا مكاينش
     if (empty($rentalIntent) || !isset($rentalIntent)) {
-        $rentalIntent = PaymentIntent::create([
-            'amount'   => (int)($amountToPay * 100),
+        $rentalIntent = $this->stripePaymentIntents->create([
+            'amount'   => $remainingAmount,
             'currency' => 'mad',
             'metadata' => [
                 'booking_id' => (string) $booking->id,
+                'invoice_id' => (string) $invoice->id,
                 'type'       => 'rental',
             ],
         ]);
         $booking->update(['rental_payment_intent_id' => $rentalIntent->id]);
     }
+    }
 
-    // ── Deposit Intent: نعيد الاستخدام إذا موجود ──
-    $depositIntent = null;
-    if ($depositAmount > 0) {
-        if ($booking->deposit_payment_intent_id) {
+    // ── Security Deposit Intent: نعيد الاستخدام إذا موجود ──
+    $securityDepositIntent = null;
+    if ($this->securityDeposits->requiresSecurityDepositAuthorization($booking)) {
+        if ($booking->security_deposit_intent_id) {
             try {
-                $depositIntent = PaymentIntent::retrieve($booking->deposit_payment_intent_id);
+                $securityDepositIntent = $this->stripePaymentIntents->retrieve($booking->security_deposit_intent_id);
                 // ila cancelled wla succeeded → نخلقو جديد
-                if (in_array($depositIntent->status, ['canceled', 'succeeded'])) {
-                    $depositIntent = null;
-                    $booking->update(['deposit_payment_intent_id' => null]);
+                if (in_array($securityDepositIntent->status, ['canceled', 'succeeded'])) {
+                    $securityDepositIntent = null;
+                    $booking->update(['security_deposit_intent_id' => null]);
                 }
             } catch (Exception $e) {
-                $booking->update(['deposit_payment_intent_id' => null]);
-                $depositIntent = null;
+                $booking->update(['security_deposit_intent_id' => null]);
+                $securityDepositIntent = null;
             }
         }
 
-        if (!$depositIntent) {
-            $depositIntent = PaymentIntent::create([
-                'amount'              => (int)($depositAmount * 100),
+        if (!$securityDepositIntent) {
+            $securityDepositIntent = $this->stripePaymentIntents->create([
+                'amount'              => (int)($securityDepositAmount * 100),
                 'currency'            => 'mad',
                 'capture_method'      => 'manual',
                 'confirmation_method' => 'automatic',
                 'metadata'            => [
                     'booking_id' => (string) $booking->id,
-                    'type'       => 'deposit',
+                    'type'       => 'security_deposit',
                 ],
             ]);
-            $booking->update(['deposit_payment_intent_id' => $depositIntent->id]);
+            $booking->update([
+                'security_deposit_amount' => $securityDepositAmount,
+                'security_deposit_intent_id' => $securityDepositIntent->id,
+            ]);
         }
     }
 
@@ -366,9 +369,10 @@ class PaymentController extends Controller
         'booking',
         'invoice',
         'amountToPay',
-        'depositAmount',
+        'securityDepositAmount',
         'rentalIntent',
-        'depositIntent'
+        'securityDepositIntent',
+        'rentalPaymentAlreadySettled'
     ));
     }
     /**
@@ -381,74 +385,100 @@ class PaymentController extends Controller
         $data = $request->validate([
             'payment_method'         => 'required|in:card,cash',
             'rental_payment_intent'  => 'required_if:payment_method,card',
-            'deposit_payment_intent' => 'nullable|string',
+            'security_deposit_intent' => 'nullable|string',
         ]);
 
+        $booking = $this->securityDeposits->normalizeSecurityDepositState($booking);
+        $requiresSecurityDeposit = $this->securityDeposits->requiresSecurityDepositAuthorization($booking);
+
+        if ($data['payment_method'] === 'card' && $requiresSecurityDeposit && !$request->filled('security_deposit_intent')) {
+            return back()->withErrors(['payment' => 'Security deposit authorization was not completed. Please try again.']);
+        }
+
         // ── Ensure invoice exists ──
-        $invoice = $booking->invoice ?? Invoice::create([
-            'booking_id'   => $booking->id,
-            'user_id'      => $booking->user_id,
-            'subtotal'     => $booking->total_amount,
-            'tax_amount'   => 0,
-            'total_amount' => $booking->total_amount,
-            'status'       => 'pending',
-            'issued_at'    => now(),
-        ]);
+        $invoice = $this->invoices->firstOrCreateForPaymentProcessing($booking);
 
         $isPaid      = false;
         $transactionId = null;
+        $paymentAmount = $booking->total_amount;
 
         if ($data['payment_method'] === 'card') {
             try {
                 // ── 1. Confirm rental payment (charges immediately) ──
-                $rentalIntent = PaymentIntent::retrieve($data['rental_payment_intent']);
+                $rentalIntent = $this->stripePaymentIntents->retrieve($data['rental_payment_intent']);
 
                 if ($rentalIntent->status !== 'succeeded') {
                     return back()->withErrors(['payment' => 'Rental payment not completed. Please try again.']);
                 }
 
-                $isPaid        = true;
-                $transactionId = $rentalIntent->id;
+                if (($rentalIntent->metadata->type ?? null) !== 'rental' || (string) ($rentalIntent->metadata->booking_id ?? $booking->id) !== (string) $booking->id) {
+                    \Log::warning('Stripe rental intent metadata mismatch in controller', [
+                        'booking_id' => $booking->id,
+                        'payment_intent_id' => $rentalIntent->id,
+                        'status' => $rentalIntent->status,
+                    ]);
+
+                    return back()->withErrors(['payment' => 'Payment verification failed. Please try again.']);
+                }
 
                 \Log::info('Stripe rental intent status', [
                     'booking_id' => $booking->id,
                     'payment_intent_id' => $rentalIntent->id,
                     'status' => $rentalIntent->status,
-                    'type' => $rentalIntent->metadata->type ?? 'rental',
                 ]);
 
-                // ── 2. Confirm deposit authorization (blocks, doesn't charge) ──
-                // Webhook is the ONLY source of truth for deposit.
-                $depositIntentId = null;
-                if ($request->filled('deposit_payment_intent')) {
-                    $depositIntent = PaymentIntent::retrieve($data['deposit_payment_intent']);
+                // ── 2. Confirm security deposit authorization (blocks, doesn't charge) ──
+                // Webhook is the source of truth for security deposits.
+                if ($request->filled('security_deposit_intent')) {
+                    $securityDepositIntent = $this->stripePaymentIntents->retrieve($data['security_deposit_intent']);
 
-                    \Log::info('Stripe deposit intent status', [
+                    \Log::info('Stripe security deposit intent status', [
                         'booking_id' => $booking->id,
-                        'payment_intent_id' => $depositIntent->id,
-                        'status' => $depositIntent->status,
-                        'type' => $depositIntent->metadata->type ?? 'deposit',
+                        'payment_intent_id' => $securityDepositIntent->id,
+                        'status' => $securityDepositIntent->status,
                     ]);
 
-                    if ($depositIntent->status === 'requires_capture') {
-                        // ✅ Deposit is blocked on card — don't capture yet
-                        $depositIntentId = $depositIntent->id;
-
-                        \Log::info('deposit accepted in store', [
+                    if (($securityDepositIntent->metadata->type ?? null) !== 'security_deposit' || (string) ($securityDepositIntent->metadata->booking_id ?? $booking->id) !== (string) $booking->id) {
+                        \Log::warning('Stripe security deposit intent metadata mismatch in controller', [
                             'booking_id' => $booking->id,
-                            'payment_intent_id' => $depositIntentId,
-                            'status' => $depositIntent->status,
-                            'type' => $depositIntent->metadata->type ?? 'deposit',
+                            'payment_intent_id' => $securityDepositIntent->id,
+                            'status' => $securityDepositIntent->status,
+                        ]);
+
+                        return back()->withErrors(['payment' => 'Security deposit verification failed. Please try again.']);
+                    }
+
+                    if ($securityDepositIntent->status === 'requires_capture') {
+                        // ✅ Security deposit is blocked on card — don't capture yet
+                        if (empty($booking->security_deposit_intent_id)) {
+                            $booking->update(['security_deposit_intent_id' => $securityDepositIntent->id]);
+                        }
+
+                        $this->securityDeposits->syncFromStripeIntent(
+                            $securityDepositIntent,
+                            'payment_intent.amount_capturable_updated',
+                            'controller_security_deposit_' . $securityDepositIntent->id
+                        );
+
+                        \Log::info('security deposit verified in store; webhook will persist hold', [
+                            'booking_id' => $booking->id,
+                            'payment_intent_id' => $securityDepositIntent->id,
+                            'status' => $securityDepositIntent->status,
                         ]);
                     } else {
-                        \Log::warning('deposit not held properly', [
+                        \Log::warning('security deposit not held properly', [
                             'booking_id' => $booking->id,
-                            'payment_intent_id' => $depositIntent->id,
-                            'status' => $depositIntent->status,
-                            'type' => $depositIntent->metadata->type ?? 'deposit',
+                            'payment_intent_id' => $securityDepositIntent->id,
+                            'status' => $securityDepositIntent->status,
                         ]);
+
+                        return back()->withErrors(['payment' => 'Security deposit authorization was not completed. Please try again.']);
                     }
                 }
+
+                return redirect()
+                    ->route('bookings.success', $booking)
+                    ->with('success', 'Payment submitted. We are confirming it with Stripe.');
 
             } catch (CardException $e) {
                 return back()->withErrors(['payment' => 'Card declined: ' . $e->getMessage()]);
@@ -463,36 +493,37 @@ class PaymentController extends Controller
             !$transactionId ||
             !$invoice->payments()->where('transaction_id', $transactionId)->exists()
         ) {
-            $invoice->payments()->create([
-                'user_id'        => auth()->id(),
-                'amount'         => $booking->total_amount,
-                'method'         => $data['payment_method'],
-                'type'           => 'payment',
-                'status'         => $isPaid ? 'completed' : 'pending',
-                'paid_at'        => $isPaid ? now() : null,
-                'transaction_id' => $transactionId,
-                'notes'          => $isPaid ? "Stripe PI: $transactionId" : "Cash on delivery",
-            ]);
+            if ($isPaid) {
+                $this->payments->recordCompletedPayment(
+                    $invoice,
+                    auth()->id(),
+                    $paymentAmount,
+                    $data['payment_method'],
+                    $transactionId,
+                    "Stripe PI: $transactionId"
+                );
+            } else {
+                $this->payments->recordPendingPayment(
+                    $invoice,
+                    auth()->id(),
+                    $paymentAmount,
+                    $data['payment_method'],
+                    $transactionId,
+                    'Cash on delivery'
+                );
+            }
         }
 
         // ── Update invoice ──
-        $invoice->update($isPaid
-            ? ['status' => 'paid', 'paid_amount' => $booking->total_amount]
-            : ['status' => 'pending']
-        );
+        $this->payments->updateInvoiceStatus($invoice);
 
         // ── Update booking ──
-        $booking->update($isPaid ? [
-            'payment_method'  => 'stripe',
-            'status'          => 'confirmed',
-            'deposit_due_at'  => null,
-        ] : [
-            'payment_method' => 'cash',
-            'status'         => 'pending',
-            'deposit_paid'   => false,
-            'deposit_status' => 'pending',
-            'deposit_due_at' => now()->addHours(24),
-        ]);
+        if ($isPaid && $rentalIntent->status === 'succeeded') {
+            $this->payments->confirmBookingAfterRentalPayment($booking);
+        } elseif ($booking->isPending()) {
+            $this->payments->markBookingPendingPayment($booking);
+        }
+
         // ── Send Email ──
         if ($isPaid) {
             Mail::to($booking->user->email)
@@ -511,20 +542,8 @@ class PaymentController extends Controller
     }
 
     // ══════════════════════════════════════════
-    // ADMIN: Release or charge deposit
+    // ADMIN: Release or charge security deposit
     // ══════════════════════════════════════════
-
-    /**
-     * Process Stripe payment through the existing payment flow.
-     */
-    public function processStripe(Request $request, Booking $booking)
-    {
-        $request->merge([
-            'payment_method' => 'card',
-        ]);
-
-        return $this->store($request, $booking);
-    }
 
     /**
      * Record an admin-side cash payment for a booking.
@@ -533,156 +552,44 @@ class PaymentController extends Controller
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
 
-        $invoice = $booking->invoice ?? Invoice::create([
-            'booking_id'   => $booking->id,
-            'user_id'      => $booking->user_id,
-            'subtotal'     => $booking->total_amount,
-            'tax_amount'   => 0,
-            'total_amount' => $booking->total_amount,
-            'status'       => 'pending',
-            'issued_at'    => now(),
-        ]);
+        $invoice = $this->invoices->firstOrCreateForPaymentProcessing($booking);
 
-        $invoice->payments()->create([
-            'user_id'        => auth()->id(),
-            'amount'         => $booking->total_amount,
-            'method'         => 'cash',
-            'type'           => 'payment',
-            'status'         => 'completed',
-            'paid_at'        => now(),
-            'transaction_id' => null,
-            'notes'          => 'Cash payment recorded by admin',
-        ]);
+        $this->payments->recordCompletedPayment(
+            $invoice,
+            auth()->id(),
+            $booking->total_amount,
+            'cash',
+            null,
+            'Cash payment recorded by admin'
+        );
 
-        $invoice->update([
-            'status' => 'paid',
-        ]);
-
-        $booking->update([
-            'payment_method' => 'cash',
-            'status'         => 'confirmed',
-            'deposit_due_at' => null,
-        ]);
+        $this->payments->updateInvoiceStatus($invoice);
+        $this->payments->markBookingPaidByCash($booking);
 
         return back()->with('success', 'Cash payment recorded successfully.');
     }
 
     /**
-     * Release deposit (car returned OK)
+     * Release security deposit (car returned OK)
      */
-    public function releaseDeposit(Booking $booking)
+    public function releaseSecurityDeposit(Booking $booking)
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
 
-        \Stripe\Stripe::setApiKey(config('services.stripe.secret'));
-
-        Log::info('STEP 1: entering releaseDeposit', [
-            'booking_id' => $booking->id,
-            'deposit_payment_intent_id' => $booking->deposit_payment_intent_id,
-            'deposit_status' => $booking->deposit_status
-        ]);
-
-        if (request()->boolean('debug')) {
-            return response()->json([
-                'debug' => 'releaseDeposit method reached',
-                'booking_id' => $booking->id,
-                'deposit_payment_intent_id' => $booking->deposit_payment_intent_id,
-                'deposit_status' => $booking->deposit_status,
-            ]);
-        }
-
-        // Validation
-        if (!$booking->deposit_payment_intent_id) {
-            Log::error('STEP 2: validation failed - no payment intent id', [
-                'booking_id' => $booking->id,
-                'deposit_status' => $booking->deposit_status,
-            ]);
-
-            return response()->json(['success' => false, 'error' => 'No deposit PaymentIntent ID found'], 400);
-        }
-
-        if ($booking->deposit_status !== 'held') {
-            Log::error('STEP 2: validation failed - wrong status', [
-                'booking_id' => $booking->id,
-                'current_status' => $booking->deposit_status,
-                'expected_status' => 'held'
-            ]);
-
-            return response()->json(['success' => false, 'error' => 'Deposit not held. Status: ' . $booking->deposit_status], 400);
-        }
-
-        Log::info('STEP 2: validation passed', [
-            'booking_id' => $booking->id,
-            'payment_intent_id' => $booking->deposit_payment_intent_id
-        ]);
-
         try {
-            $intent = \Stripe\PaymentIntent::retrieve($booking->deposit_payment_intent_id);
+            $intent = $this->securityDeposits->releaseSecurityDeposit($booking);
 
-            Log::info('STEP 3: intent retrieved', [
-                'id' => $intent->id,
+            return response()->json([
+                'success' => true,
+                'message' => 'Security deposit refund/release requested. Stripe webhook will update the booking.',
                 'status' => $intent->status,
-                'amount' => $intent->amount,
-                'currency' => $intent->currency
             ]);
-
-            if ($intent->status !== 'requires_capture') {
-                Log::error('INVALID STATUS FOR CANCEL', [
-                    'intent_id' => $intent->id,
-                    'status' => $intent->status,
-                    'required_status' => 'requires_capture',
-                    'booking_id' => $booking->id,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Cannot cancel PaymentIntent with status: ' . $intent->status,
-                    'status' => $intent->status,
-                ], 409);
-            }
-
-            Log::info('DEPOSIT CANCEL ATTEMPT', [
-                'intent_id' => $intent->id,
-                'status' => $intent->status,
-                'amount' => $intent->amount,
-                'booking_id' => $booking->id
-            ]);
-
-            $canceledIntent = $intent->cancel();
-
-            Log::info('DEPOSIT CANCEL SUCCESS', [
-                'intent_id' => $canceledIntent->id,
-                'booking_id' => $booking->id,
-                'final_status' => $canceledIntent->status
-            ]);
-
-            $booking->update([
-                'deposit_status' => 'released',
-                'deposit_paid' => false,
-                'deposit_charged_amount' => 0,
-            ]);
-
-            return response()->json(['success' => true, 'message' => 'Deposit released successfully']);
-
-        } catch (\Stripe\Exception\ApiErrorException $e) {
-            Log::error('DEPOSIT CANCEL ERROR', [
-                'message' => $e->getMessage(),
-                'code' => $e->getStripeCode(),
-                'type' => $e->getError()?->type,
-                'http_status' => $e->getHttpStatus(),
-                'booking_id' => $booking->id,
-                'payment_intent_id' => $booking->deposit_payment_intent_id
-            ]);
-
-            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         } catch (\Exception $e) {
-            Log::error('DEPOSIT RELEASE ERROR', [
+            Log::error('SECURITY DEPOSIT RELEASE REQUEST ERROR', [
                 'message' => $e->getMessage(),
-                'code' => $e->getCode(),
-                'type' => get_class($e),
-                'http_status' => null,
-                'trace' => $e->getTraceAsString(),
-                'booking_id' => $booking->id
+                'booking_id' => $booking->id,
+                'intent_id' => $booking->security_deposit_intent_id,
+                'action' => 'release',
             ]);
 
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
@@ -690,61 +597,44 @@ class PaymentController extends Controller
     }
 
     /**
-     * Charge deposit partially or fully (damage/late)
+     * Capture the full security deposit, then refund everything except the penalty.
      */
-    public function chargeDeposit(Request $request, Booking $booking)
+    public function chargeSecurityDeposit(Request $request, Booking $booking)
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
 
+        $booking = $this->securityDeposits->normalizeSecurityDepositState($booking);
+        $maxPenalty = $this->securityDeposits->getExpectedSecurityDepositAmount($booking);
+
         $request->validate([
-            'charge_amount' => 'required|numeric|min:1|max:' . ($booking->car->deposit_amount ?? 9999),
-            'reason'        => 'required|string|max:255',
+            'penalty_amount' => 'required|numeric|min:0|max:' . $maxPenalty,
+            'penalty_reason' => 'nullable|string|in:Late return,Damage,Cleaning fee,Other',
         ]);
 
-        if (!$booking->deposit_payment_intent_id) {
-            return back()->withErrors(['deposit' => 'No deposit intent found.']);
-        }
-
         try {
-            $intent = PaymentIntent::retrieve($booking->deposit_payment_intent_id);
+            $this->securityDeposits->captureSecurityDeposit(
+                $booking,
+                (float) $request->penalty_amount,
+                $request->input('penalty_reason')
+            );
 
-            $chargeAmountCents = (int)($request->charge_amount * 100);
-            $totalDepositCents = (int)(($booking->car->deposit_amount ?? 0) * 100);
-
-            if ($intent->status === 'requires_capture') {
-
-                if ($chargeAmountCents < $totalDepositCents) {
-                    // Capture partial amount
-                    $intent->capture(['amount_to_capture' => $chargeAmountCents]);
-
-                    // Cancel remaining
-                    // Note: Stripe cancels the rest automatically on partial capture
-                } else {
-                    // Capture full deposit
-                    $intent->capture();
-                }
-            }
-
-            $booking->update([
-                'deposit_status'          => 'charged',
-                'deposit_charged_amount'  => $request->charge_amount,
-            ]);
-
-            // Log the charge
-            $booking->invoice?->payments()->create([
-                'user_id'  => auth()->id(),
-                'amount'   => $request->charge_amount,
-                'method'   => 'stripe',
-                'type'     => 'deposit_charge',
-                'status'   => 'completed',
-                'paid_at'  => now(),
-                'notes'    => 'Deposit charge: ' . $request->reason,
-            ]);
-
-            return back()->with('success', 'Deposit of ' . $request->charge_amount . ' MAD charged. Reason: ' . $request->reason);
+            return back()->with('success', 'Full security deposit captured. The penalty was kept and the remaining deposit was refunded.');
 
         } catch (Exception $e) {
-            return back()->withErrors(['deposit' => 'Failed to charge: ' . $e->getMessage()]);
+            return back()->withErrors(['security_deposit' => 'Failed to capture security deposit: ' . $e->getMessage()]);
+        }
+    }
+
+    public function retrySecurityDepositRefund(Booking $booking)
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        try {
+            $this->securityDeposits->retrySecurityDepositRefund($booking);
+
+            return back()->with('success', 'Security deposit refund retried successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['security_deposit' => 'Failed to retry security deposit refund: ' . $e->getMessage()]);
         }
     }
 }

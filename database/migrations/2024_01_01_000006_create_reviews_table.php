@@ -10,9 +10,9 @@ return new class extends Migration
     {
         Schema::create('reviews', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('car_id')->constrained()->onDelete('cascade');
-            $table->foreignId('booking_id')->nullable()->constrained()->onDelete('set null');
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
+            $table->foreignId('car_id')->constrained()->restrictOnDelete();
+            $table->foreignId('booking_id')->nullable()->constrained()->restrictOnDelete();
             
             $table->unsignedTinyInteger('rating'); // 1-5 stars
             $table->text('comment')->nullable();

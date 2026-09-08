@@ -45,7 +45,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 28,
                 'fuel_policy' => 'Full to Full - Return with full tank',
                 'cancellation_policy' => 'Free cancellation up to 72 hours before pickup',
-                'deposit_amount' => 15000.00,
+                'security_deposit_amount' => 15000.00,
                 'required_documents' => [
                     'Valid driving license (3+ years)',
                     'Passport or National ID',
@@ -88,7 +88,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 27,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 48h before',
-                'deposit_amount' => 12000.00,
+                'security_deposit_amount' => 12000.00,
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'ID or Passport',
@@ -131,7 +131,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 30,
                 'fuel_policy' => 'Full to Full with premium fuel',
                 'cancellation_policy' => 'No refund within 7 days',
-                'deposit_amount' => 50000.00,
+                'security_deposit_amount' => 50000.00,
                 'required_documents' => [
                     'International driving license',
                     'Passport',
@@ -176,7 +176,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 28,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 72h before',
-                'deposit_amount' => 18000.00,
+                'security_deposit_amount' => 18000.00,
                 'required_documents' => [
                     'Driving license (3+ years)',
                     'Passport',
@@ -219,7 +219,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 30,
                 'fuel_policy' => 'Full to Full with premium fuel',
                 'cancellation_policy' => 'No refund within 5 days',
-                'deposit_amount' => 25000.00,
+                'security_deposit_amount' => 25000.00,
                 'required_documents' => [
                     'International driving license',
                     'Passport',
@@ -259,7 +259,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 23,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 24h before',
-                'deposit_amount' => 3000.00,
+                'security_deposit_amount' => 3000.00,
                 'required_documents' => [
                     'Driving license',
                     'ID card',
@@ -299,7 +299,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 21,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 12h before',
-                'deposit_amount' => 1000.00,
+                'security_deposit_amount' => 1000.00,
                 'required_documents' => [
                     'Driving license',
                     'ID card'
@@ -341,7 +341,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 26,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 48h before',
-                'deposit_amount' => 8000.00,
+                'security_deposit_amount' => 8000.00,
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'Passport',
@@ -381,7 +381,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 21,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 12h before',
-                'deposit_amount' => 1200.00,
+                'security_deposit_amount' => 1200.00,
                 'required_documents' => [
                     'Driving license',
                     'ID card'
@@ -423,7 +423,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 26,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 48h before',
-                'deposit_amount' => 7000.00,
+                'security_deposit_amount' => 7000.00,
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'Passport',
@@ -466,7 +466,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 27,
                 'fuel_policy' => 'Full to Full',
                 'cancellation_policy' => 'Free cancellation 48h before',
-                'deposit_amount' => 9000.00,
+                'security_deposit_amount' => 9000.00,
                 'required_documents' => [
                     'Driving license (2+ years)',
                     'Passport',
@@ -509,7 +509,7 @@ class CarSeeder extends Seeder
                 'minimum_age' => 28,
                 'fuel_policy' => 'Full to Full with premium fuel',
                 'cancellation_policy' => 'No refund within 3 days',
-                'deposit_amount' => 20000.00,
+                'security_deposit_amount' => 20000.00,
                 'required_documents' => [
                     'International driving license',
                     'Passport',

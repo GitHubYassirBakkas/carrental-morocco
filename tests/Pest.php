@@ -1,5 +1,30 @@
 <?php
 
+$phpunitConfig = dirname(__DIR__) . '/phpunit.xml';
+
+if (is_file($phpunitConfig)) {
+    $phpunit = simplexml_load_file($phpunitConfig);
+
+    foreach ($phpunit?->php?->server ?? [] as $server) {
+        $name = (string) $server['name'];
+
+        if (in_array($name, ['DB_CONNECTION', 'DB_DATABASE'], true)) {
+            $value = (string) $server['value'];
+            putenv($name . '=' . $value);
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
+    }
+}
+
+$testDbConnection = $_SERVER['DB_CONNECTION'] ?? $_ENV['DB_CONNECTION'] ?? env('DB_CONNECTION');
+
+if ($testDbConnection !== 'sqlite') {
+    throw new RuntimeException(
+        'ABORTED: Tests are trying to run on non-sqlite database.'
+    );
+}
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -44,4 +69,25 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function stripeWebhookSignature(string $payload, string $secret = 'whsec_test', ?int $timestamp = null): string
+{
+    $timestamp ??= time();
+    $signature = hash_hmac('sha256', $timestamp . '.' . $payload, $secret);
+
+    return "t={$timestamp},v1={$signature}";
+}
+
+function postStripeWebhook(mixed $test, array $payload, string $secret = 'whsec_test'): \Illuminate\Testing\TestResponse
+{
+    config(['services.stripe.webhook_secret' => $secret]);
+
+    $rawPayload = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+
+    return $test->call('POST', '/stripe/webhook', [], [], [], [
+        'CONTENT_TYPE' => 'application/json',
+        'HTTP_ACCEPT' => 'application/json',
+        'HTTP_STRIPE_SIGNATURE' => stripeWebhookSignature($rawPayload, $secret),
+    ], $rawPayload);
 }

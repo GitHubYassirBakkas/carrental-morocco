@@ -15,6 +15,10 @@ return [
 
     'default' => env('QUEUE_CONNECTION', 'database'),
 
+    'webhook_connection' => env('WEBHOOK_QUEUE_CONNECTION', env('QUEUE_CONNECTION', 'database')),
+
+    'webhook_queue' => env('WEBHOOK_QUEUE', 'stripe-webhooks'),
+
     /*
     |--------------------------------------------------------------------------
     | Queue Connections

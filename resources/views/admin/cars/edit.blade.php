@@ -161,14 +161,14 @@
     </div>
     <div class="cf-grid-2">
 
-        {{-- Deposit Amount --}}
+        {{-- Security Deposit Amount --}}
         <div class="cf-field">
             <label>Security Deposit (MAD)</label>
             <div class="cf-input-prefix">
                 <span>MAD</span>
                 <input type="number"
-                       name="deposit_amount"
-                       value="{{ old('deposit_amount', $car->deposit_amount ?? '') }}"
+                       name="security_deposit_amount"
+                       value="{{ old('security_deposit_amount', $car->security_deposit_amount ?? '') }}"
                        min="0"
                        step="100"
                        placeholder="e.g. 3000">
@@ -384,7 +384,7 @@
                             </div>
                             <p class="cf-ins-desc">{{ Str::limit($ins->description, 80) }}</p>
                             <div class="cf-ins-meta">
-                                <span>{{ number_format($ins->daily_rate, 0) }} MAD/day</span>
+                                <span>{{ number_format($ins->fixed_price, 0) }} MAD one-time</span>
                                 <span>Max {{ number_format($ins->max_coverage, 0) }} MAD</span>
                             </div>
                         </div>

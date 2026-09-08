@@ -94,11 +94,14 @@ class AdminReviewController extends Controller
      */
     public function destroy(Review $review)
     {
-        $review->delete();
+        $review->update([
+            'is_approved' => false,
+            'approved_at' => null,
+        ]);
 
         return redirect()
             ->route('admin.reviews.index')
-            ->with('success', 'Review deleted successfully!');
+            ->with('success', 'Review hidden successfully. Historical review data was preserved.');
     }
 
     /**

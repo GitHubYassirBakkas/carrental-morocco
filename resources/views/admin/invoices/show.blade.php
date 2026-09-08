@@ -43,7 +43,7 @@
                     <h1 class="text-4xl font-bold text-white">Invoice #{{ str_pad($invoice->id, 4, '0', STR_PAD_LEFT) }}</h1>
                     <span class="px-4 py-1.5 text-sm rounded-lg font-semibold
                         @if($invoice->status == 'paid') bg-emerald-900/30 text-emerald-400 border border-emerald-700/50
-                        @elseif($invoice->status == 'unpaid') bg-red-900/30 text-red-400 border border-red-700/50
+                        @elseif($invoice->status == 'pending') bg-red-900/30 text-red-400 border border-red-700/50
                         @elseif($invoice->status == 'partial') bg-yellow-900/30 text-yellow-400 border border-yellow-700/50
                         @elseif($invoice->status == 'refunded') bg-purple-900/30 text-purple-400 border border-purple-700/50
                         @elseif($invoice->status == 'cancelled') bg-gray-700 text-gray-300 border border-gray-600
@@ -105,18 +105,41 @@
         {{-- Invoice Details --}}
         <div class="bg-[#1a2332] border border-gray-800 rounded-xl p-6">
             <h3 class="text-sm font-semibold text-gray-400 uppercase mb-4">Invoice Details</h3>
+            @php
+                $pricingBreakdown = $invoice->pricing_breakdown;
+            @endphp
             
             <div class="space-y-3">
-                {{-- Subtotal --}}
+                {{-- Rental --}}
                 <div class="flex justify-between pb-3 border-b border-gray-800">
-                    <span class="text-gray-400 text-sm">Subtotal</span>
-                    <span class="text-white font-medium">{{ number_format($invoice->subtotal, 2) }} MAD</span>
+                    <span class="text-gray-400 text-sm">Rental</span>
+                    <span class="text-white font-medium">{{ number_format($pricingBreakdown['rental_amount'], 2) }} MAD</span>
                 </div>
+
+                {{-- Protection Plan --}}
+                <div class="flex justify-between pb-3 border-b border-gray-800">
+                    <span class="text-gray-400 text-sm">Protection Plan</span>
+                    <span class="text-white font-medium">{{ number_format($pricingBreakdown['protection_plan_amount'], 2) }} MAD</span>
+                </div>
+
+                @if($pricingBreakdown['extras_amount'] > 0)
+                <div class="flex justify-between pb-3 border-b border-gray-800">
+                    <span class="text-gray-400 text-sm">Extras</span>
+                    <span class="text-white font-medium">{{ number_format($pricingBreakdown['extras_amount'], 2) }} MAD</span>
+                </div>
+                @endif
+
+                @if($pricingBreakdown['discount_amount'] > 0)
+                <div class="flex justify-between pb-3 border-b border-gray-800">
+                    <span class="text-emerald-400 text-sm font-semibold">Discount</span>
+                    <span class="text-emerald-400 font-semibold">-{{ number_format($pricingBreakdown['discount_amount'], 2) }} MAD</span>
+                </div>
+                @endif
                 
                 {{-- Tax --}}
                 <div class="flex justify-between pb-3 border-b border-gray-800">
                     <span class="text-gray-400 text-sm">Tax (VAT)</span>
-                    <span class="text-white font-medium">{{ number_format($invoice->tax_amount, 2) }} MAD</span>
+                    <span class="text-white font-medium">{{ number_format($pricingBreakdown['tax_amount'], 2) }} MAD</span>
                 </div>
                 
                 {{-- Total --}}
@@ -271,18 +294,18 @@
         @endif
 
 {{-- Record Payment Form --}}
-@if(in_array($invoice->status, ['unpaid', 'partial']) && $invoice->balance > 0)
+@if(in_array($invoice->status, ['pending', 'partial']) && $invoice->balance > 0)
 <div class="bg-[#1a2332] border border-emerald-800 rounded-xl p-6">
     <h3 class="text-lg font-bold text-emerald-400 mb-4">💳 Record Payment</h3>
 
     @php
         $booking = $invoice->booking;
-        $minimumDeposit = $booking->minimum_deposit;
+        $minimumAdvancePayment = $minimumAdvancePayment ?? 0;
         $currentPaid = $invoice->paid_amount;
-        $remaining = max(0, $minimumDeposit - $currentPaid);
+        $remaining = max(0, $minimumAdvancePayment - $currentPaid);
     @endphp
 
-    {{-- Deposit Info --}}
+    {{-- Advance Payment Info --}}
     @if($booking->status === 'pending')
         <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
             <p class="text-yellow-300 text-sm mb-2">
@@ -291,7 +314,7 @@
             <div class="grid grid-cols-2 gap-3 text-xs">
                 <div>
                     <p class="text-yellow-200">Minimum Required:</p>
-                    <p class="text-yellow-300 font-bold">{{ number_format($minimumDeposit, 2) }} MAD</p>
+                    <p class="text-yellow-300 font-bold">{{ number_format($minimumAdvancePayment, 2) }} MAD</p>
                 </div>
                 <div>
                     <p class="text-yellow-200">Already Paid:</p>
@@ -303,11 +326,11 @@
                 </div>
                 <div>
                     <p class="text-yellow-200">Deadline:</p>
-                    <p class="text-white font-bold">{{ $booking->deposit_due_at->diffForHumans() }}</p>
+                    <p class="text-white font-bold">{{ $booking->advance_payment_due_at?->diffForHumans() ?? '-' }}</p>
                 </div>
             </div>
             <p class="text-yellow-200 text-xs mt-3">
-                💡 Customer can pay any amount. Booking confirms when total reaches {{ number_format($minimumDeposit, 2) }} MAD.
+                💡 Customer can pay any amount. Booking confirms when total reaches {{ number_format($minimumAdvancePayment, 2) }} MAD.
             </p>
         </div>
     @else

@@ -84,9 +84,9 @@ return [
     'total_price' => 'السعر الإجمالي',
     'confirm_booking' => 'تأكيد الحجز',
     'proceed_to_payment' => 'المتابعة للدفع',
-    'insurance' => 'التأمين',
-    'select_insurance' => 'اختر خطة التأمين',
-    'no_insurance' => 'بدون تأمين',
+    'insurance' => 'خطة الحماية',
+    'select_insurance' => 'اختر خطة الحماية',
+    'no_insurance' => 'بدون خطة حماية',
     
     // ============ PAYMENT ============
     'payment' => 'الدفع',
@@ -234,9 +234,9 @@ return [
     // Cars listing page
     'no_results_desc' => 'حاول تعديل الفلاتر للعثور على السيارة المثالية لرحلتك.',
  
-    // Insurance page
-    'select_insurance'     => 'اختر التأمين',
-    'insurance_subtitle'   => 'اختر التغطية التي تناسب احتياجاتك',
+    // Protection plan page
+    'select_insurance'     => 'اختر خطة الحماية',
+    'insurance_subtitle'   => 'اختر الحماية التي تناسب احتياجاتك',
     'insurance_choose_desc'=> 'اختر خطة حماية واحدة لإيجارك',
     'insurance_one_time'   => 'رسوم لمرة واحدة',
     'ins_essential'        => 'أساسي',
@@ -472,14 +472,14 @@ return [
 'login_to_contact_desc' => 'يرجى تسجيل الدخول لإرسال تذكرة دعم.',
 'view_my_tickets'       => 'عرض تذاكري',
 
-'not_covered_title'       => 'ما لا يشمله التأمين',
+'not_covered_title'       => 'ما لا تشمله الحماية',
 'late_return_title'       => 'رسوم التأخر في الإرجاع',
 'late_return_desc'        => 'لديك مهلة :grace ساعة مجانية. بعدها تُفرض :fee درهم لكل ساعة تأخير.',
-'deposit_title'           => 'وديعة الضمان',
-'deposit_desc'            => 'وديعة قابلة للاسترداد بقيمة :amount درهم عند الاستلام. تُرجع بعد فحص السيارة.',
-'deposit_review_desc'     => 'سيتم تحصيل وديعة :amount درهم عند الاستلام وإعادتها بعد الفحص.',
-'deposit_ins_desc'        => 'مطلوبة عند الاستلام، قابلة للاسترداد الكامل بعد فحص السيارة.',
-'ins_not_covered_title'   => '⚠️ غير مشمول بأي خطة تأمين',
+'security_deposit_title'           => 'وديعة الضمان',
+'security_deposit_desc'            => 'وديعة قابلة للاسترداد بقيمة :amount درهم عند الاستلام. تُرجع بعد فحص السيارة.',
+'security_deposit_review_desc'     => 'سيتم تحصيل وديعة :amount درهم عند الاستلام وإعادتها بعد الفحص.',
+'security_deposit_ins_desc'        => 'مطلوبة عند الاستلام، قابلة للاسترداد الكامل بعد فحص السيارة.',
+'ins_not_covered_title'   => '⚠️ غير مشمول بأي خطة حماية',
 'fuel_not_covered_desc'   => 'أرجع السيارة بنفس مستوى الوقود. سيتم احتساب الوقود الناقص.',
 'coverage_type'           => 'نوع التغطية',
 'cov_theft'               => 'الحماية من السرقة',
@@ -496,12 +496,12 @@ return [
 'not_covered'             => 'غير مشمول',
 'acknowledge_terms'       => 'لقد قرأت وفهمت شروط الإيجار وسياسة الوديعة ورسوم التأخير.',
 
-'deposit_stripe_notice' => 'سيتم حجز هذا المبلغ مؤقتاً على بطاقتك (دون خصمه). سيُعاد تلقائياً بعد فحص السيارة.',
-'deposit_refundable'    => 'الوديعة قابلة للاسترداد بالكامل',
-'deposit_held'          => 'محجوز على البطاقة (قابل للاسترداد)',
+'security_deposit_stripe_notice' => 'سيتم حجز هذا المبلغ مؤقتاً على بطاقتك (دون خصمه). سيُعاد تلقائياً بعد فحص السيارة.',
+'security_deposit_refundable'    => 'الوديعة قابلة للاسترداد بالكامل',
+'security_deposit_held'          => 'محجوز على البطاقة (قابل للاسترداد)',
 
-'cash_deposit_notice_title' => 'ما تحتاج إحضاره يوم الاستلام:',
-'deposit_cash_note'         => '(نقداً، يُسترد بالكامل بعد الفحص)',
-'deposit_desc' => 'وديعة قابلة للاسترداد بقيمة :amount درهم مطلوبة. محجوزة على بطاقتك وتُعاد تلقائياً بعد فحص السيارة.',
+'security_deposit_cash_notice_title' => 'ما تحتاج إحضاره يوم الاستلام:',
+'security_deposit_cash_note'         => '(نقداً، يُسترد بالكامل بعد الفحص)',
+'security_deposit_desc' => 'وديعة قابلة للاسترداد بقيمة :amount درهم مطلوبة. محجوزة على بطاقتك وتُعاد تلقائياً بعد فحص السيارة.',
 
 ];

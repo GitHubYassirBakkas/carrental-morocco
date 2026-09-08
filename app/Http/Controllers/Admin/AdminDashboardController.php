@@ -8,10 +8,7 @@ use App\Models\Car;
 use App\Models\User;
 use App\Models\Payment;
 use App\Models\EmailLog;
-use App\Models\BookingDamage;
 use App\Models\Review;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class AdminDashboardController extends Controller
 {
@@ -26,18 +23,18 @@ class AdminDashboardController extends Controller
 
         // 📋 Bookings
         $totalBookings = Booking::count();
-        $pendingBookings = Booking::where('status', 'pending')->count();
+        $pendingBookings = Booking::where('status', Booking::STATUS_PENDING)->count();
 
         // 👥 Users
         $totalUsers = User::where('role', 'user')->count();
 
         // 💰 Revenue
-        $totalRevenue = Payment::where('status', 'completed')
-            ->where('type', 'payment')
+        $totalRevenue = Payment::where('status', Payment::STATUS_COMPLETED)
+            ->where('type', Payment::TYPE_PAYMENT)
             ->sum('amount');
 
-        $monthlyRevenue = Payment::where('status', 'completed')
-            ->where('type', 'payment')
+        $monthlyRevenue = Payment::where('status', Payment::STATUS_COMPLETED)
+            ->where('type', Payment::TYPE_PAYMENT)
             ->whereHas('invoice.booking', function ($q) {
                 $q->whereMonth('end_date', now()->month)
                   ->whereYear('end_date', now()->year);
@@ -60,7 +57,7 @@ class AdminDashboardController extends Controller
 
         // 📅 Today's Activity
         $todayBookings = Booking::whereDate('created_at', today())->count();
-        $todayRevenue = Payment::where('status', 'completed')
+        $todayRevenue = Payment::where('status', Payment::STATUS_COMPLETED)
             ->whereDate('created_at', today())
             ->sum('amount');
         $todayCheckIns = Booking::whereDate('start_date', today())->count();
@@ -78,21 +75,21 @@ class AdminDashboardController extends Controller
         $repeatCustomers = User::has('bookings', '>=', 2)->count();
 
         // 🚨 Alerts
-        $lateBookings = Booking::where('status', 'active')
+        $lateBookings = Booking::where('status', Booking::STATUS_ACTIVE)
             ->where('end_date', '<', now())
             ->get();
 
-        $pendingOldBookings = Booking::where('status', 'pending')
+        $pendingOldBookings = Booking::where('status', Booking::STATUS_PENDING)
             ->where('created_at', '<=', now()->subHours(24))
             ->get();
 
-        $endingTodayBookings = Booking::where('status', 'active')
+        $endingTodayBookings = Booking::where('status', Booking::STATUS_ACTIVE)
             ->whereDate('end_date', now()->toDateString())
             ->get();
 
         // 📊 Charts
-        $monthlyChart = Payment::where('status', 'completed')
-            ->where('type', 'payment')
+        $monthlyChart = Payment::where('status', Payment::STATUS_COMPLETED)
+            ->where('type', Payment::TYPE_PAYMENT)
             ->whereYear('created_at', now()->year)
             ->selectRaw('MONTH(created_at) as month, SUM(amount) as total')
             ->groupBy('month')
@@ -122,17 +119,17 @@ class AdminDashboardController extends Controller
         });
 
         $bookingLifecycle = [
-            'pending' => Booking::where('status','pending')->count(),
-            'confirmed' => Booking::where('status','confirmed')->count(),
-            'active' => Booking::where('status','active')->count(),
+            'pending' => Booking::where('status', Booking::STATUS_PENDING)->count(),
+            'confirmed' => Booking::where('status', Booking::STATUS_CONFIRMED)->count(),
+            'active' => Booking::where('status', Booking::STATUS_ACTIVE)->count(),
             'ending_today' => Booking::whereDate('end_date', now())->count(),
-            'completed' => Booking::where('status','completed')->count(),
+            'completed' => Booking::where('status', Booking::STATUS_COMPLETED)->count(),
         ];
 
         // Top customers by bookings
         $topCustomers = \App\Models\User::withCount([
             'bookings' => function($q) {
-                $q->whereIn('status', ['completed', 'confirmed']);
+                $q->whereIn('status', [Booking::STATUS_COMPLETED, Booking::STATUS_CONFIRMED]);
             }
         ])
         ->having('bookings_count', '>', 0)

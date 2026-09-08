@@ -10,9 +10,9 @@ return new class extends Migration
     {
         Schema::create('coupon_usages', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('coupon_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->foreignId('booking_id')->constrained()->onDelete('cascade');
+            $table->foreignId('coupon_id')->constrained()->restrictOnDelete();
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
+            $table->foreignId('booking_id')->constrained()->restrictOnDelete();
             $table->decimal('discount_amount', 10, 2); // Actual discount applied
             $table->decimal('original_amount', 10, 2); // Before discount
             $table->decimal('final_amount', 10, 2);    // After discount

@@ -49,6 +49,17 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if (Auth::user()?->is_banned) {
+            Auth::logout();
+            $this->session()->invalidate();
+            $this->session()->regenerateToken();
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Your account has been blocked.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

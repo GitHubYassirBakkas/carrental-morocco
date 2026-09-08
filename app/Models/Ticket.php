@@ -12,6 +12,15 @@ class Ticket extends Model
     ];
 
     // العلاقات
+    protected static function booted(): void
+    {
+        static::deleting(function (Ticket $ticket): void {
+            if ($ticket->messages()->exists()) {
+                throw new \RuntimeException('Support tickets with messages cannot be deleted. Close the ticket instead.');
+            }
+        });
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

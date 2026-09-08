@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('email_logs', function (Blueprint $table) {
             // Add missing columns
-            $table->foreignId('booking_id')->nullable()->after('user_id')->constrained()->nullOnDelete();
+            $table->foreignId('booking_id')->nullable()->after('user_id')->constrained()->restrictOnDelete();
             $table->string('type')->nullable()->after('subject'); // booking, payment, damage
             $table->timestamp('sent_at')->nullable()->after('status');
             

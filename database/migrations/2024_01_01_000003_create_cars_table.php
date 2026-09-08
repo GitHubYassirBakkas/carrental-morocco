@@ -38,7 +38,7 @@ return new class extends Migration
             $table->boolean('is_available')->default(true);
 
             // Relations
-            $table->foreignId('location_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('location_id')->constrained()->restrictOnDelete();
 
             $table->timestamps();
 

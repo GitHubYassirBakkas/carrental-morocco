@@ -63,12 +63,12 @@ class SettingsSeeder extends Seeder
             |--------------------------------------------------------------------------
             */
             [
-                'key' => 'deposit_percentage',
+                'key' => 'advance_payment_percentage',
                 'value' => '30',
                 'type' => 'number',  // ← This is OK
                 'group' => 'payment',
-                'label' => 'Deposit Percentage',
-                'description' => 'Minimum deposit required to confirm booking (%)',
+                'label' => 'Advance Payment Percentage',
+                'description' => 'Minimum advance payment required to confirm booking (%)',
                 'autoload' => true,
             ],
             [
@@ -98,12 +98,36 @@ class SettingsSeeder extends Seeder
                 'description' => 'Late return fee charged per hour (MAD)',
             ],
             [
+                'key' => 'late_grace_minutes',
+                'value' => '60',
+                'type' => 'number',
+                'group' => 'payment',
+                'label' => 'Late Grace Period (Minutes)',
+                'description' => 'Free grace period before late fees start',
+            ],
+            [
+                'key' => 'dropoff_fee',
+                'value' => '200',
+                'type' => 'number',
+                'group' => 'payment',
+                'label' => 'Different Dropoff Location Fee',
+                'description' => 'Fee charged when pickup and dropoff locations are different (MAD)',
+            ],
+            [
                 'key' => 'fuel_price_per_liter',
                 'value' => '15',
                 'type' => 'number',  // ← Changed
                 'group' => 'payment',
                 'label' => 'Fuel Price Per Liter',
                 'description' => 'Fuel charge per liter if car not refueled',
+            ],
+            [
+                'key' => 'fuel_price_per_percent',
+                'value' => '5',
+                'type' => 'number',
+                'group' => 'payment',
+                'label' => 'Fuel Price Per Tank Percent',
+                'description' => 'Fuel charge per missing tank percentage point (MAD)',
             ],
 
             /*
@@ -130,12 +154,12 @@ class SettingsSeeder extends Seeder
                 'autoload' => true,
             ],
             [
-                'key' => 'deposit_deadline_hours',
+                'key' => 'advance_payment_deadline_hours',
                 'value' => '24',
                 'type' => 'number',  // ← Changed
                 'group' => 'booking',
-                'label' => 'Deposit Deadline (Hours)',
-                'description' => 'Hours allowed to pay deposit before auto-cancel',
+                'label' => 'Advance Payment Deadline (Hours)',
+                'description' => 'Hours allowed to pay the advance payment before auto-cancel',
                 'autoload' => true,
             ],
             [

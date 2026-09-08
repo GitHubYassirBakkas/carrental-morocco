@@ -84,9 +84,9 @@ return [
     'total_price' => 'Prix Total',
     'confirm_booking' => 'Confirmer la Réservation',
     'proceed_to_payment' => 'Procéder au Paiement',
-    'insurance' => 'Assurance',
-    'select_insurance' => 'Sélectionner une Assurance',
-    'no_insurance' => 'Sans Assurance',
+    'insurance' => 'Plan de protection',
+    'select_insurance' => 'Sélectionner un plan de protection',
+    'no_insurance' => 'Sans plan de protection',
     
     // ============ PAYMENT ============
     'payment' => 'Paiement',
@@ -234,9 +234,9 @@ return [
     // Cars listing page
     'no_results_desc' => 'Essayez d\'ajuster vos filtres pour trouver le véhicule idéal.',
  
-    // Insurance page
-    'select_insurance'     => 'Choisir une assurance',
-    'insurance_subtitle'   => 'Choisissez la couverture qui correspond le mieux à vos besoins',
+    // Protection plan page
+    'select_insurance'     => 'Choisir un plan de protection',
+    'insurance_subtitle'   => 'Choisissez la protection qui correspond le mieux à vos besoins',
     'insurance_choose_desc'=> 'Sélectionnez un plan de protection pour votre location',
     'insurance_one_time'   => 'frais unique',
     'ins_essential'        => 'Essentiel',
@@ -474,11 +474,11 @@ return [
 'not_covered_title'       => 'Ce qui n\'est pas couvert',
 'late_return_title'       => 'Frais de retard',
 'late_return_desc'        => 'Vous avez une période de grâce de :grace heure(s). Après, :fee MAD par heure de retard.',
-'deposit_title'           => 'Caution / Dépôt',
-'deposit_desc'            => 'Un dépôt remboursable de :amount MAD est requis à la prise en charge.',
-'deposit_review_desc'     => 'Un dépôt de :amount MAD sera collecté à la prise en charge et remboursé après inspection.',
-'deposit_ins_desc'        => 'Requis à la prise en charge, entièrement remboursable après inspection.',
-'ins_not_covered_title'   => '⚠️ Non couvert par aucun plan d\'assurance',
+'security_deposit_title'           => 'Caution / Dépôt',
+'security_deposit_desc'            => 'Un dépôt remboursable de :amount MAD est requis à la prise en charge.',
+'security_deposit_review_desc'     => 'Un dépôt de :amount MAD sera collecté à la prise en charge et remboursé après inspection.',
+'security_deposit_ins_desc'        => 'Requis à la prise en charge, entièrement remboursable après inspection.',
+'ins_not_covered_title'   => '⚠️ Non couvert par aucun plan de protection',
 'fuel_not_covered_desc'   => 'Retournez la voiture avec le même niveau de carburant. Le carburant manquant sera facturé.',
 'coverage_type'           => 'Couverture',
 'cov_theft'               => 'Protection contre le vol',
@@ -495,11 +495,11 @@ return [
 'not_covered'             => 'Non couvert',
 'acknowledge_terms'       => 'J\'ai lu et compris les conditions de location, la politique de caution et les frais de retard.',
 
-'deposit_stripe_notice' => 'Ce montant sera temporairement bloqué sur votre carte (non débité). Il sera automatiquement libéré après l\'inspection du véhicule.',
-'deposit_refundable'    => 'Dépôt entièrement remboursable',
-'deposit_held'          => 'bloqué sur carte (remboursable)',
+'security_deposit_stripe_notice' => 'Ce montant sera temporairement bloqué sur votre carte (non débité). Il sera automatiquement libéré après l\'inspection du véhicule.',
+'security_deposit_refundable'    => 'Dépôt entièrement remboursable',
+'security_deposit_held'          => 'bloqué sur carte (remboursable)',
 
-'cash_deposit_notice_title' => 'Ce qu\'il faut apporter le jour du retrait :',
-'deposit_cash_note'         => '(espèces, entièrement remboursable après inspection)',
-'deposit_desc' => 'Un dépôt remboursable de :amount MAD est requis. Bloqué sur votre carte et libéré automatiquement après inspection.',
+'security_deposit_cash_notice_title' => 'Ce qu\'il faut apporter le jour du retrait :',
+'security_deposit_cash_note'         => '(espèces, entièrement remboursable après inspection)',
+'security_deposit_desc' => 'Un dépôt remboursable de :amount MAD est requis. Bloqué sur votre carte et libéré automatiquement après inspection.',
 ];

@@ -8,7 +8,7 @@ use App\Services\BookingService;
 class CancelOverdueBookings extends Command
 {
     protected $signature = 'bookings:cancel-overdue';
-    protected $description = 'Cancel bookings with overdue deposits';
+    protected $description = 'Cancel bookings with overdue advance payments';
 
     private BookingService $bookingService;
 

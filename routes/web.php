@@ -6,8 +6,6 @@ use App\Http\Controllers\InsuranceController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PaymentController;
-use App\Services\PdfService;
-use Illuminate\Support\Facades\Mail;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\LanguageController;
 use App\Http\Controllers\ContactController;
@@ -32,6 +30,10 @@ Route::get('/', function () {
 Route::get('/about', function () {
     return view('about.index');
 })->name('about');
+
+Route::get('/contact', [ContactController::class, 'index'])->name('contact');
+Route::post('/contact/send', [ContactController::class, 'send'])->name('contact.send');
+
 // Cars
 Route::get('/cars', [CarController::class, 'index'])->name('cars.index');
 Route::get('/cars/{car}', [CarController::class, 'show'])->name('cars.show');
@@ -84,7 +86,6 @@ Route::post('/cars/{car}/check-availability',
         ->name('bookings.success');
 
        
-    Route::post('payments/{booking}/stripe', [PaymentController::class, 'processStripe'])->name('payments.stripe');
 });
 
 
@@ -99,16 +100,15 @@ Route::post('/cars/{car}/check-availability',
 
 Route::middleware('auth')->group(function () {
 
-   
+    Route::get('/dashboard', function () {
+        return view('dashboard');
+    })->middleware('verified')->name('dashboard');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::delete('/profile/photo', [ProfileController::class, 'deletePhoto'])
         ->name('profile.photo.delete');
-    Route::post('/logout', [ProfileController::class, 'logout'])
-        ->name('logout');
-
         Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])
     ->name('profile.password.update');
         
@@ -137,10 +137,6 @@ Route::middleware('auth')->group(function () {
 
   Route::post('coupons/apply', [\App\Http\Controllers\CouponController::class, 'apply'])->name('coupons.apply');
 
-// contact us
-Route::get('/contact', [ContactController::class, 'index'])->name('contact');
-Route::post('/contact/send', [ContactController::class, 'send'])->name('contact.send');
-
 Route::post('/contact', [TicketController::class, 'store'])->name('tickets.store');
 Route::get('/account/support', [TicketController::class, 'index'])->name('tickets.index');
 Route::get('/account/support/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
@@ -162,9 +158,7 @@ Route::post('/account/support/{ticket}/reply', [TicketController::class, 'reply'
 use App\Http\Controllers\Admin\BookingDamageController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminCarController;
-use App\Http\Controllers\Admin\AdminInsuranceController;
 use App\Http\Controllers\Admin\AdminBookingController;
-use App\Http\Controllers\Admin\UserController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Controllers\Admin\BookingInspectionController;
 use App\Http\Controllers\Admin\AdminInvoiceController;
@@ -181,7 +175,8 @@ Route::middleware(['auth', AdminMiddleware::class])
             ->name('dashboard');
 
         // Cars
-        Route::resource('cars', AdminCarController::class);
+        Route::resource('cars', AdminCarController::class)
+            ->except(['show']);
         
         // Bookings - Resource routes (index, show)
         Route::resource('bookings', AdminBookingController::class)
@@ -229,7 +224,8 @@ Route::middleware(['auth', AdminMiddleware::class])
             ->name('invoices.refund');
 
         // Insurance Management
-        Route::resource('insurances', \App\Http\Controllers\Admin\InsuranceController::class);
+        Route::resource('insurances', \App\Http\Controllers\Admin\InsuranceController::class)
+            ->except(['show']);
 
 
          // Users Management
@@ -275,7 +271,8 @@ Route::middleware(['auth', AdminMiddleware::class])
 
 
      // Locations
-    Route::resource('locations', \App\Http\Controllers\Admin\LocationController::class);
+    Route::resource('locations', \App\Http\Controllers\Admin\LocationController::class)
+        ->except(['show']);
     Route::post('locations/{location}/toggle', [\App\Http\Controllers\Admin\LocationController::class, 'toggleStatus'])->name('locations.toggle');
 
 
@@ -285,15 +282,16 @@ Route::middleware(['auth', AdminMiddleware::class])
     Route::post('coupons/generate-code', [\App\Http\Controllers\Admin\CouponController::class, 'generateCode'])->name('coupons.generateCode');
 
 
-        Route::post('payments/{booking}/cash', [PaymentController::class, 'processCash'])->name('admin.payments.cash');
+        Route::post('payments/{booking}/cash', [PaymentController::class, 'processCash'])->name('payments.cash');
 
     Route::get('/support', [SupportController::class, 'index'])->name('support.index');
     Route::get('/support/{ticket}', [SupportController::class, 'show'])->name('support.show');
     Route::post('/support/{ticket}/reply', [SupportController::class, 'reply'])->name('support.reply');
 
-     Route::post('bookings/{booking}/release-deposit', [PaymentController::class, 'releaseDeposit'])->name('deposit.release');
+     Route::post('bookings/{booking}/security-deposit/release', [PaymentController::class, 'releaseSecurityDeposit'])->name('security-deposit.release');
      
-    Route::post('bookings/{booking}/deposit/charge',  [PaymentController::class, 'chargeDeposit'])->name('deposit.charge');
+    Route::post('bookings/{booking}/security-deposit/charge',  [PaymentController::class, 'chargeSecurityDeposit'])->name('security-deposit.charge');
+    Route::post('bookings/{booking}/security-deposit/retry-refund', [PaymentController::class, 'retrySecurityDepositRefund'])->name('security-deposit.retry-refund');
 
 });
 // ======= ADMIN ROUTES =======

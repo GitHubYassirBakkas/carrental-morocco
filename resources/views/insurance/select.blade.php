@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $lateGraceHours = setting('late_grace_minutes', config('rental.late_grace_minutes')) / 60;
+    $lateFeePerHour = setting('late_fee_per_hour', config('rental.late_fee_per_hour'));
+@endphp
 <div class="ins-page" x-data="insurancePage()">
 
     {{-- ══════════════════════════════
@@ -54,7 +58,7 @@
     ══════════════════════════════ --}}
     <div class="ins-content">
 
-        {{-- ─────── LEFT: Insurance plans ─────── --}}
+        {{-- ─────── LEFT: Protection plans ─────── --}}
         <div class="ins-plans">
 
             <div class="plans-header">
@@ -82,7 +86,7 @@
             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
             <div>
                 <strong>{{ __('messages.late_return_title') }}</strong>
-                <p>{{ __('messages.late_return_desc', ['grace' => \App\Models\Booking::GRACE_MINUTES / 60, 'fee' => \App\Models\Booking::HOURLY_LATE_FEE]) }}</p>
+                <p>{{ __('messages.late_return_desc', ['grace' => $lateGraceHours, 'fee' => $lateFeePerHour]) }}</p>
             </div>
         </div>
         <div class="ins-notice-item ins-notice-item--orange">
@@ -95,8 +99,8 @@
         <div class="ins-notice-item ins-notice-item--blue">
             <svg viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/></svg>
             <div>
-                <strong>{{ __('messages.deposit_title') }}</strong>
-                <p>{{ __('messages.deposit_ins_desc') }}</p>
+                <strong>{{ __('messages.security_deposit_title') }}</strong>
+                <p>{{ __('messages.security_deposit_ins_desc') }}</p>
             </div>
         </div>
     </div>
@@ -107,6 +111,13 @@
 
                 @foreach($insurances as $insurance)
                     @php
+                        $planName = match (true) {
+                            str_contains(strtolower($insurance->name ?? ''), 'zero')     => 'Zero Excess Protection',
+                            str_contains(strtolower($insurance->name ?? ''), 'premium')  => 'Premium Protection',
+                            str_contains(strtolower($insurance->name ?? ''), 'standard') => 'Standard Protection',
+                            str_contains(strtolower($insurance->name ?? ''), 'basic')    => 'Basic Coverage Included',
+                            default => str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $insurance->name ?? ''),
+                        };
                         $tier = match(true) {
                             str_contains(strtolower($insurance->name), 'basic')    => ['label' => __('messages.ins_essential'),   'cls' => 'tier-basic'],
                             str_contains(strtolower($insurance->name), 'standard') => ['label' => __('messages.ins_recommended'), 'cls' => 'tier-standard'],
@@ -130,12 +141,12 @@
                         <div class="plan-body">
                             {{-- Title row --}}
                             <div class="plan-title-row">
-                                <h3 class="plan-name">{{ $insurance->name }}</h3>
+                                <h3 class="plan-name">{{ $planName }}</h3>
                                 <span class="plan-tier {{ $tier['cls'] }}">{{ $tier['label'] }}</span>
                             </div>
 
                             {{-- Description --}}
-                            <p class="plan-desc">{{ $insurance->description }}</p>
+                            <p class="plan-desc">{{ str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $insurance->description) }}</p>
 
                             {{-- Features --}}
                             @if($insurance->features && count($insurance->features) > 0)
@@ -143,7 +154,7 @@
                                     @foreach($insurance->features as $feature)
                                         <span class="plan-feat">
                                             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                                            {{ $feature }}
+                                            {{ str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $feature) }}
                                         </span>
                                     @endforeach
                                 </div>
@@ -152,7 +163,7 @@
                             {{-- Price --}}
                             <div class="plan-price-row">
                                 <div class="plan-price-wrap">
-                                    <strong class="plan-price">{{ number_format($insurance->daily_rate, 0) }}</strong>
+                                    <strong class="plan-price">{{ number_format($insurance->fixed_price, 0) }}</strong>
                                     <span class="plan-price-curr">MAD</span>
                                     <span class="plan-price-label">{{ __('messages.insurance_one_time') }}</span>
                                 </div>
@@ -468,7 +479,7 @@
 }
 
 
-/* Insurance Notice Box */
+/* Protection plan notice box */
 .ins-notice-box {
     margin-top: 1.5rem;
     background: rgba(255,255,255,0.02);
@@ -846,7 +857,7 @@ function insurancePage() {
         insurances: @json($insurances->keyBy('id')),
 
         get insurancePrice() {
-            return Number(this.insurances[this.selectedInsurance]?.daily_rate ?? 0).toFixed(0);
+            return Number(this.insurances[this.selectedInsurance]?.fixed_price ?? 0).toFixed(0);
         },
 
         get totalPrice() {

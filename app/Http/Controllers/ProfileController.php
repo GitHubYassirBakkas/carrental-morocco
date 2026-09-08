@@ -8,6 +8,7 @@ use Illuminate\View\View;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 
 
@@ -64,14 +65,14 @@ class ProfileController extends Controller
 
         // ✅ If email changed → unverify it (for email verification flow)
         if ($request->email !== $user->email) {
-            $validated['email_verified_at'] = null;
+            $user->email_verified_at = null;
         }
 
         // ✅ Update user
         $user->update($validated);
 
         // ✅ Redirect with success message
-        return back()->with('status', 'profile-updated');
+        return redirect()->route('profile.edit')->with('status', 'profile-updated');
     }
 
     /**
@@ -95,26 +96,26 @@ class ProfileController extends Controller
     /**
      * 🚪 Logout the user
      */
-    public function logout(Request $request): RedirectResponse
-    {
-        Auth::logout();
-        
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()->route('home');
-    }
-
     /**
      * 🗑️ Delete the user's account (optional - for GDPR compliance)
      */
     public function destroy(Request $request): RedirectResponse
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'password' => ['required', 'current_password'],
         ]);
 
+        if ($validator->fails()) {
+            return back()->withErrors($validator, 'userDeletion');
+        }
+
         $user = $request->user();
+
+        if ($user->hasBusinessHistory()) {
+            return back()->withErrors([
+                'password' => 'Your account has booking, payment, review, or support history and cannot be deleted. Please contact support to deactivate it.',
+            ], 'userDeletion');
+        }
 
         // Delete profile photo if exists
         if ($user->profile_photo_path) {

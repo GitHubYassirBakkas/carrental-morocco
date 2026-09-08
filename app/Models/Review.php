@@ -9,6 +9,13 @@ class Review extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::deleting(function (): void {
+            throw new \RuntimeException('Reviews are historical business records. Reject or hide the review instead of deleting it.');
+        });
+    }
+
     protected $fillable = [
         'user_id',
         'car_id',

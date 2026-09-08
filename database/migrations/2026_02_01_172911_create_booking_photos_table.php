@@ -15,7 +15,7 @@ return new class extends Migration
                 $table->id();
                 $table->foreignId('booking_inspection_id')
                     ->constrained()
-                    ->cascadeOnDelete();
+                    ->restrictOnDelete();
                 $table->string('path');
                 $table->timestamps();
 });

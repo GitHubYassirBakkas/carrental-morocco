@@ -41,7 +41,7 @@
                         <td class="px-6 py-4">
                             <span class="px-3 py-1 text-xs rounded-lg font-semibold
                                 @if($invoice->status == 'paid') bg-emerald-900/30 text-emerald-400 border border-emerald-700/50
-                                @elseif($invoice->status == 'unpaid') bg-red-900/30 text-red-400 border border-red-700/50
+                                @elseif($invoice->status == 'pending') bg-red-900/30 text-red-400 border border-red-700/50
                                 @elseif($invoice->status == 'partial') bg-yellow-900/30 text-yellow-400 border border-yellow-700/50
                                 @else bg-gray-700 text-gray-300 border border-gray-600
                                 @endif">

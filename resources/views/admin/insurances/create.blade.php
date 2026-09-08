@@ -77,17 +77,17 @@
             <div class="grid grid-cols-3 gap-6">
                 <div>
                     <label class="block text-sm font-semibold text-gray-300 mb-2">
-                        Daily Rate (MAD) *
+                        Fixed Price (MAD) *
                     </label>
                     <input type="number" 
-                           name="daily_rate" 
-                           value="{{ old('daily_rate', 0) }}"
+                           name="fixed_price" 
+                           value="{{ old('fixed_price', 0) }}"
                            step="0.01" 
                            min="0" 
                            required
                            placeholder="100"
                            class="w-full px-4 py-3 bg-black/40 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-orange-500">
-                    @error('daily_rate')
+                    @error('fixed_price')
                         <p class="text-red-400 text-xs mt-1">{{ $message }}</p>
                     @enderror
                 </div>

@@ -7,7 +7,6 @@ use App\Models\TicketMessage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Mail\TicketCreatedMail;
-use App\Mail\TicketRepliedMail;
 use Illuminate\Support\Facades\Mail;
 
 class TicketController extends Controller
@@ -70,10 +69,6 @@ class TicketController extends Controller
         return view('tickets.show', compact('ticket', 'messages'));
     }
     // زيد هاد الـ method فـ TicketController.php
-public function contact()
-{
-    return view('contact');
-}
 
     // User يرد على ticket
     public function reply(Request $request, Ticket $ticket)

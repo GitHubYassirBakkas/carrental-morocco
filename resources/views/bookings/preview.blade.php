@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $lateGraceHours = setting('late_grace_minutes', config('rental.late_grace_minutes')) / 60;
+    $lateFeePerHour = setting('late_fee_per_hour', config('rental.late_fee_per_hour'));
+@endphp
 @push('styles')
 <style>
 
@@ -306,7 +310,7 @@ color: #777;
             @endif
         </div>
 
-        {{-- ══════════ INSURANCE ══════════ --}}
+        {{-- ══════════ PROTECTION PLAN ══════════ --}}
         <div class="bp-card">
             <div class="bp-card-header bp-card-header--green">
                 <div class="bp-card-hicon bp-card-hicon--green">
@@ -317,12 +321,21 @@ color: #777;
 
             <div style="padding:1.5rem 1.75rem">
                 @if($insurance)
+                    @php
+                        $protectionPlanName = match (true) {
+                            str_contains(strtolower($insurance->name ?? ''), 'zero')     => 'Zero Excess Protection',
+                            str_contains(strtolower($insurance->name ?? ''), 'premium')  => 'Premium Protection',
+                            str_contains(strtolower($insurance->name ?? ''), 'standard') => 'Standard Protection',
+                            str_contains(strtolower($insurance->name ?? ''), 'basic')    => 'Basic Coverage Included',
+                            default => str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $insurance->name ?? ''),
+                        };
+                    @endphp
                     <div class="bp-insurance-row">
                         <div class="bp-ins-icon">
                             <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         </div>
                         <div class="bp-ins-info">
-                            <h3>{{ $insurance->name }}</h3>
+                            <h3>{{ $protectionPlanName }}</h3>
                             <p>{{ __('messages.insurance_choose_desc') }}</p>
                         </div>
                         <div class="bp-ins-price">
@@ -353,8 +366,8 @@ color: #777;
     <div style="padding: 1.5rem;">
         <div class="bp-notice-grid">
 
-            {{-- Deposit --}}
-            @if($car->deposit_amount)
+            {{-- Security Deposit --}}
+            @if($car->security_deposit_amount)
             <div class="bp-notice-item bp-notice-item--purple">
                 <div class="bp-notice-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -362,9 +375,9 @@ color: #777;
                     </svg>
                 </div>
                 <div>
-                    <h4>{{ __('messages.deposit_title') }}</h4>
-                    <p>{{ __('messages.deposit_review_desc', ['amount' => number_format($car->deposit_amount, 0)]) }}</p>
-                    <span class="bp-notice-amount">{{ number_format($car->deposit_amount, 0) }} MAD</span>
+                    <h4>{{ __('messages.security_deposit_title') }}</h4>
+                    <p>{{ __('messages.security_deposit_review_desc', ['amount' => number_format($car->security_deposit_amount, 0)]) }}</p>
+                    <span class="bp-notice-amount">{{ number_format($car->security_deposit_amount, 0) }} MAD</span>
                 </div>
             </div>
             @endif
@@ -379,10 +392,10 @@ color: #777;
                 <div>
                     <h4>{{ __('messages.late_return_title') }}</h4>
                     <p>{{ __('messages.late_return_desc', [
-                        'grace' => \App\Models\Booking::GRACE_MINUTES / 60,
-                        'fee'   => \App\Models\Booking::HOURLY_LATE_FEE,
+                        'grace' => $lateGraceHours,
+                        'fee'   => $lateFeePerHour,
                     ]) }}</p>
-                    <span class="bp-notice-amount">{{ \App\Models\Booking::HOURLY_LATE_FEE }} MAD / {{ __('messages.per_hour') }}</span>
+                    <span class="bp-notice-amount">{{ $lateFeePerHour }} MAD / {{ __('messages.per_hour') }}</span>
                 </div>
             </div>
 
@@ -399,7 +412,7 @@ color: #777;
                 </div>
             </div>
 
-            {{-- Damage (depends on insurance) --}}
+            {{-- Damage (depends on protection plan) --}}
             <div class="bp-notice-item {{ $insurance && str_contains(strtolower($insurance->name ?? ''), 'premium') ? 'bp-notice-item--green' : 'bp-notice-item--red' }}">
                 <div class="bp-notice-icon">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -714,7 +727,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .bp-diff-notice p { font-size: 0.78rem; color: var(--muted); }
 .bp-diff-notice p span { color: #fb923c; font-weight: 700; }
 
-/* Insurance */
+/* Protection plan */
 .bp-insurance-row { display: flex; align-items: center; gap: 14px; background: rgba(74,222,128,0.04); border: 1px solid rgba(74,222,128,0.1); border-radius: 10px; padding: 1rem 1.1rem; }
 .bp-ins-icon { width: 44px; height: 44px; border-radius: 12px; background: rgba(74,222,128,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #4ade80; }
 .bp-ins-icon svg { width: 22px; height: 22px; }

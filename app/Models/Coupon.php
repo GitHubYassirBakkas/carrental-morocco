@@ -5,11 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 
 class Coupon extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Coupon $coupon): void {
+            if ($coupon->usages()->exists()) {
+                throw new \RuntimeException('Coupons with usage history cannot be deleted. Deactivate the coupon instead.');
+            }
+        });
+    }
 
     protected $fillable = [
         'code',
@@ -134,7 +142,7 @@ class Coupon extends Model
             $user = User::find($userId);
             
             if ($this->min_bookings) {
-                $userBookingsCount = $user->bookings()->whereIn('status', ['completed', 'confirmed'])->count();
+                $userBookingsCount = $user->bookings()->whereIn('status', [Booking::STATUS_COMPLETED, Booking::STATUS_CONFIRMED])->count();
                 if ($userBookingsCount < $this->min_bookings) {
                     return [
                         'valid' => false,
@@ -144,7 +152,7 @@ class Coupon extends Model
             }
 
             if ($this->min_total_spent) {
-                $userTotalSpent = $user->bookings()->whereIn('status', ['completed', 'confirmed'])->sum('total_amount');
+                $userTotalSpent = $user->bookings()->whereIn('status', [Booking::STATUS_COMPLETED, Booking::STATUS_CONFIRMED])->sum('total_amount');
                 if ($userTotalSpent < $this->min_total_spent) {
                     return [
                         'valid' => false,

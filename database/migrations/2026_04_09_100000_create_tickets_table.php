@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('tickets', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained()->restrictOnDelete();
             $table->string('ticket_number')->unique(); // TKT-0001
             $table->string('subject');
             $table->enum('category', ['booking', 'payment', 'complaint', 'other'])->default('other');

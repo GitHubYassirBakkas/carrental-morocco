@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -52,10 +53,10 @@ class UserController extends Controller
         // User statistics
         $stats = [
             'total_bookings' => $user->bookings()->count(),
-            'active_bookings' => $user->bookings()->where('status', 'active')->count(),
-            'completed_bookings' => $user->bookings()->where('status', 'completed')->count(),
-            'cancelled_bookings' => $user->bookings()->where('status', 'cancelled')->count(),
-            'total_spent' => $user->bookings()->where('status', 'completed')->sum('total_amount'),
+            'active_bookings' => $user->bookings()->where('status', Booking::STATUS_ACTIVE)->count(),
+            'completed_bookings' => $user->bookings()->where('status', Booking::STATUS_COMPLETED)->count(),
+            'cancelled_bookings' => $user->bookings()->where('status', Booking::STATUS_CANCELLED)->count(),
+            'total_spent' => $user->bookings()->where('status', Booking::STATUS_COMPLETED)->sum('total_amount'),
             'total_reviews' => $user->reviews()->count(),
             'avg_rating' => $user->reviews()->avg('rating'),
         ];
@@ -80,7 +81,7 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:20',
-            'role' => 'required|in:customer,admin',
+            'role' => 'required|in:user,admin',
             'password' => 'nullable|min:8|confirmed',
         ]);
 
@@ -130,8 +131,8 @@ class UserController extends Controller
             return back()->with('error', 'Cannot delete admin users!');
         }
 
-        if ($user->bookings()->whereIn('status', ['active', 'confirmed'])->exists()) {
-            return back()->with('error', 'Cannot delete user with active bookings!');
+        if ($user->hasBusinessHistory()) {
+            return back()->with('error', 'Cannot delete users with booking, payment, review, coupon, or support history. Ban the user instead.');
         }
 
         $user->delete();

@@ -257,7 +257,7 @@
                             </div>
                             <p class="cf-ins-desc">{{ Str::limit($ins->description, 80) }}</p>
                             <div class="cf-ins-meta">
-                                <span>{{ number_format($ins->daily_rate, 0) }} MAD/day</span>
+                                <span>{{ number_format($ins->fixed_price, 0) }} MAD one-time</span>
                                 <span>Max {{ number_format($ins->max_coverage, 0) }} MAD</span>
                                 <span>{{ number_format($ins->deductible, 0) }} deductible</span>
                             </div>

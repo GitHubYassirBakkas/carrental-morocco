@@ -15,7 +15,7 @@ class InsuranceController extends Controller
     {
         $insurances = Insurance::withCount('cars')
             ->orderBy('sort_order')
-            ->orderBy('daily_rate')
+            ->orderBy('fixed_price')
             ->get();
 
         return view('admin.insurances.index', compact('insurances'));
@@ -38,7 +38,7 @@ class InsuranceController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:basic,standard,premium',
             'description' => 'required|string',
-            'daily_rate' => 'required|numeric|min:0',
+            'fixed_price' => 'required|numeric|min:0',
             'max_coverage' => 'required|numeric|min:0',
             'deductible' => 'required|numeric|min:0',
             'features' => 'nullable|array',
@@ -80,7 +80,7 @@ class InsuranceController extends Controller
             'name' => 'required|string|max:255',
             'type' => 'required|in:basic,standard,premium',
             'description' => 'required|string',
-            'daily_rate' => 'required|numeric|min:0',
+            'fixed_price' => 'required|numeric|min:0',
             'max_coverage' => 'required|numeric|min:0',
             'deductible' => 'required|numeric|min:0',
             'features' => 'nullable|array',
@@ -110,6 +110,13 @@ class InsuranceController extends Controller
      */
     public function destroy(Insurance $insurance)
     {
+        if ($insurance->bookings()->withTrashed()->exists()) {
+            $insurance->update(['is_active' => false]);
+
+            return redirect()->route('admin.insurances.index')
+                ->with('error', 'Cannot delete insurance used by bookings. It was deactivated instead.');
+        }
+
         // Check if insurance is used in any bookings
         if ($insurance->cars()->count() > 0) {
             return redirect()->route('admin.insurances.index')

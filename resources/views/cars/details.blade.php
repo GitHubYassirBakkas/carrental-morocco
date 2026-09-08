@@ -3,7 +3,10 @@
 @section('title', $car->brand . ' ' . $car->model)
 
 @section('content')
-
+@php
+    $lateGraceHours = setting('late_grace_minutes', config('rental.late_grace_minutes')) / 60;
+    $lateFeePerHour = setting('late_fee_per_hour', config('rental.late_fee_per_hour'));
+@endphp
 
 <div class="cd-page" x-data="carDetails()">
 
@@ -264,14 +267,14 @@
                     </div>
                     @endif
 
-                    @if($car->deposit_amount)
+                    @if($car->security_deposit_amount)
                     <div class="cd-policy">
                         <div class="cd-policy-icon cd-policy-icon--purple">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </div>
                         <div>
                             <span class="cd-policy-label">{{ __('messages.security_deposit') }}</span>
-                            <strong>{{ number_format($car->deposit_amount, 0) }} MAD</strong>
+                            <strong>{{ number_format($car->security_deposit_amount, 0) }} MAD</strong>
                         </div>
                     </div>
                     @endif
@@ -296,14 +299,14 @@
         <div>
             <h4>{{ __('messages.late_return_title') }}</h4>
             <p>{{ __('messages.late_return_desc', [
-                'grace' => \App\Models\Booking::GRACE_MINUTES / 60,
-                'fee'   => \App\Models\Booking::HOURLY_LATE_FEE,
+                'grace' => $lateGraceHours,
+                'fee'   => $lateFeePerHour,
             ]) }}</p>
         </div>
     </div>
 
-    {{-- Deposit Info --}}
-    @if($car->deposit_amount)
+    {{-- Security Deposit Info --}}
+    @if($car->security_deposit_amount)
     <div class="cd-warning-box cd-warning-box--purple">
         <div class="cd-warn-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -311,19 +314,19 @@
             </svg>
         </div>
         <div>
-            <h4>{{ __('messages.deposit_title') }}</h4>
-            <p>{{ __('messages.deposit_desc', ['amount' => number_format($car->deposit_amount, 0)]) }}</p>
+            <h4>{{ __('messages.security_deposit_title') }}</h4>
+            <p>{{ __('messages.security_deposit_desc', ['amount' => number_format($car->security_deposit_amount, 0)]) }}</p>
         </div>
     </div>
     @endif
 
-    {{-- Insurance Coverage Table --}}
+    {{-- Protection Coverage Table --}}
     <div class="cd-coverage-table">
         <div class="cd-cov-header">
             <span>{{ __('messages.coverage_type') }}</span>
-            <span>Basic</span>
-            <span>Standard</span>
-            <span>Premium</span>
+            <span>Basic Coverage Included</span>
+            <span>Standard Protection</span>
+            <span>Premium Protection</span>
         </div>
         @php
         $coverageRows = [

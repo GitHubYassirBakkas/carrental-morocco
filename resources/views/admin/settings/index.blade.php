@@ -168,7 +168,7 @@
                     <h3 class="text-blue-300 font-semibold mb-2">Important Notes</h3>
                     <ul class="space-y-1 text-blue-200 text-sm">
                         <li>• Settings are cached for performance - changes may take a few seconds to apply</li>
-                        <li>• Tax and deposit percentages are used in booking calculations</li>
+                        <li>• Tax and advance payment percentages are used in booking calculations</li>
                         <li>• Minimum driver age affects booking eligibility</li>
                         <li>• Late fees are calculated automatically based on return time</li>
                         <li>• Changes to payment settings affect new bookings only</li>

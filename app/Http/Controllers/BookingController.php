@@ -5,15 +5,24 @@ namespace App\Http\Controllers;
 use App\Models\Car;
 use App\Models\Booking;
 use App\Models\Insurance;
-use App\Models\Payment;
 use App\Models\Location;
-use App\Models\Invoice;
 use App\Models\Coupon;
+use App\Services\InvoiceService;
+use App\Services\Pricing\BookingPricingService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private BookingPricingService $pricingService,
+        private readonly InvoiceService $invoices
+    )
+    {
+    }
+
     /**
      * STEP 1️⃣ - Save booking data to SESSION (Preview)
      */
@@ -44,16 +53,18 @@ class BookingController extends Controller
             ? Insurance::find(session('insurance_id'))
             : null;
 
-        $carTotal = $car->price_per_day * $days;
-        $insuranceTotal = $insurance ? $insurance->daily_rate : 0;
-
         // 📍 Calculate dropoff fee if different location
-        $dropoffFee = 0;
-        if ($data['pickup_location_id'] != $data['dropoff_location_id']) {
-            $dropoffFee = 200; // 200 MAD for different dropoff location
-        }
+        $dropoffFee = $this->pricingService->calculateDropoffFee(
+            $data['pickup_location_id'],
+            $data['dropoff_location_id']
+        );
 
-        $grandTotal = $carTotal + $insuranceTotal + $dropoffFee;
+        $pricingBreakdown = $this->pricingService->breakdownForPreview(
+            (float) $car->price_per_day,
+            $days,
+            $insurance?->fixed_price,
+            ['dropoff_fee' => $dropoffFee]
+        );
 
         session()->put('booking_preview', [
             'car_id' => $car->id,
@@ -68,11 +79,16 @@ class BookingController extends Controller
             'days' => $days,
             'car_price' => $car->price_per_day,
             'insurance_id' => $insurance?->id,
-            'insurance_price' => $insurance?->daily_rate ?? 0,
-            'car_total' => $carTotal,
-            'insurance_total' => $insuranceTotal,
+            'insurance_price' => $insurance?->fixed_price ?? 0,
+            'car_total' => $pricingBreakdown['rental_amount'],
+            'insurance_total' => $pricingBreakdown['insurance_amount'],
             'dropoff_fee' => $dropoffFee,
-            'grand_total' => $grandTotal,
+            'rental_amount' => $pricingBreakdown['rental_amount'],
+            'insurance_amount' => $pricingBreakdown['insurance_amount'],
+            'protection_plan_amount' => $pricingBreakdown['protection_plan_amount'],
+            'extras_amount' => $pricingBreakdown['extras_amount'],
+            'pricing_breakdown' => $pricingBreakdown,
+            'grand_total' => $pricingBreakdown['total_amount'],
         ]);
 
         if (!auth()->user()->hasVerifiedEmail()) {
@@ -134,10 +150,27 @@ class BookingController extends Controller
             ->withErrors(['dates' => 'Car is no longer available.']);
     }
 
-    // Get final total (with coupon if applied)
-    $finalTotal = session('final_total', $preview['grand_total']);
     $couponDiscount = session('coupon_discount', 0);
     $appliedCoupon = session('applied_coupon');
+    $pricingBreakdown = $this->pricingService->breakdown(
+        (float) ($preview['rental_amount'] ?? $preview['car_total'] ?? 0),
+        (float) ($preview['insurance_amount'] ?? $preview['insurance_total'] ?? 0),
+        (float) ($preview['extras_amount'] ?? $preview['dropoff_fee'] ?? 0),
+        (float) $couponDiscount
+    );
+
+    // Get final total (with coupon if applied). Keep session value for full compatibility.
+    $finalTotal = session('final_total', $pricingBreakdown['total_amount']);
+
+    try {
+        $booking = DB::transaction(function () use ($car, $preview, $pricingBreakdown, $finalTotal, $couponDiscount, $appliedCoupon) {
+            $car = Car::whereKey($car->id)->lockForUpdate()->firstOrFail();
+
+            if (!$car->isAvailableForDates($preview['start_date'], $preview['end_date'])) {
+                throw ValidationException::withMessages([
+                    'dates' => 'Car is no longer available.',
+                ]);
+            }
 
     // ✅ CREATE BOOKING WITH ALL REQUIRED FIELDS
     $booking = Booking::create([
@@ -148,26 +181,30 @@ class BookingController extends Controller
         'dropoff_location_id' => $preview['dropoff_location_id'],
         'start_date' => $preview['start_date'],
         'end_date' => $preview['end_date'],
-        'total_days' => $preview['days'],
-        'daily_rate' => $preview['car_price'],
-        'price_per_day' => $preview['car_price'],
-        'insurance_daily_rate' => $preview['insurance_price'] ?? 0,
+        'rental_price_per_day' => $preview['car_price'],
+        'insurance_fixed_price' => $preview['insurance_price'] ?? 0,
         'total_amount' => $finalTotal,
-        'status' => 'pending',
+        'status' => Booking::STATUS_PENDING,
         'payment_method' => null,
-        'deposit_paid' => false,
-        'deposit_due_at' => now()->addHours(24),
+        'advance_payment_amount' => $this->pricingService->calculateAdvancePayment((float) $finalTotal, true),
+        'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PENDING,
+        'advance_payment_due_at' => now()->addHours(setting(
+            'advance_payment_deadline_hours',
+            config('rental.advance_payment_deadline_hours', 24)
+        )),
+        'security_deposit_amount' => $car->security_deposit_amount ?? 0,
+        'security_deposit_status' => Booking::SECURITY_DEPOSIT_STATUS_PENDING,
+        'discount_amount' => $couponDiscount,
     ]);
 
     // ✅ CREATE INVOICE WITH DISCOUNT FIELDS
-    $invoice = Invoice::create([
-        'booking_id' => $booking->id,
-        'user_id' => auth()->id(),
-        'subtotal' => $preview['grand_total'], // Before discount
-        'discount_amount' => $couponDiscount, // Discount amount
-        'total_amount' => $finalTotal, // After discount
-        'status' => 'pending',
-    ]);
+    $this->invoices->createForCustomerBooking(
+        $booking,
+        auth()->id(),
+        $pricingBreakdown['subtotal_amount'], // Before discount
+        $couponDiscount, // Discount amount
+        $finalTotal // After discount
+    );
 
     // ✅ APPLY COUPON IF USED
     if ($appliedCoupon && $couponDiscount > 0) {
@@ -181,6 +218,14 @@ class BookingController extends Controller
                 $preview['grand_total'] // Original amount
             );
         }
+    }
+
+            return $booking;
+        });
+    } catch (ValidationException $e) {
+        return redirect()
+            ->route('cars.details', $car)
+            ->withErrors($e->errors());
     }
 
     // Clear session
@@ -209,6 +254,21 @@ class BookingController extends Controller
         return view('bookings.success', compact('booking'));
     }
 
+    public function show(Booking $booking)
+    {
+        abort_if($booking->user_id !== auth()->id(), 403);
+
+        $booking->load([
+            'car',
+            'insurance',
+            'pickupLocation',
+            'dropoffLocation',
+            'invoice.payments',
+        ]);
+
+        return view('bookings.success', compact('booking'));
+    }
+
     /**
      * My Bookings Page
      */
@@ -230,7 +290,7 @@ class BookingController extends Controller
 
         // ✅ Total spent (only completed/confirmed bookings)
         $totalSpent = $user->bookings()
-            ->whereIn('status', ['completed', 'confirmed'])
+            ->whereIn('status', [Booking::STATUS_COMPLETED, Booking::STATUS_CONFIRMED])
             ->sum('total_amount');
 
         return view('my_booking.index', compact(

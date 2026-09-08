@@ -9,6 +9,13 @@ use Exception;
 
 class RefundService
 {
+    public function __construct(
+        private readonly InvoiceService $invoiceService,
+        private readonly PaymentService $paymentService
+    )
+    {
+    }
+
     public function processRefund(Invoice $invoice, float $amount, ?string $reason = null): Payment
     {
         if ($amount <= 0) {
@@ -23,51 +30,12 @@ class RefundService
 
         return DB::transaction(function () use ($invoice, $amount, $reason) {
 
-            $payment = Payment::create([
-                'invoice_id' => $invoice->id,
-                'user_id' => auth()->id(),
-                'amount' => $amount,
-                'method' => 'bank_transfer',
-                'type' => 'refund',
-                'status' => 'completed',
-                'transaction_id' => 'REF-' . strtoupper(uniqid()),
-                'paid_at' => now(),
-                'notes' => $reason ?? 'Refund processed'
-            ]);
-
-            $this->updateInvoiceStatus($invoice);
-
-            return $payment;
+            return $this->paymentService->recordRefund($invoice, $amount, $reason);
         });
     }
 
     public function calculatePaidAmount(Invoice $invoice): float
     {
-        $payments = $invoice->payments()
-            ->where('type', 'payment')
-            ->where('status', 'completed')
-            ->sum('amount');
-
-        $refunds = $invoice->payments()
-            ->where('type', 'refund')
-            ->where('status', 'completed')
-            ->sum('amount');
-
-        return $payments - $refunds;
-    }
-
-    private function updateInvoiceStatus(Invoice $invoice): void
-    {
-        $paidAmount = $this->calculatePaidAmount($invoice);
-
-        if ($paidAmount <= 0) {
-            $invoice->status = 'refunded';
-        } elseif ($paidAmount < $invoice->total_amount) {
-            $invoice->status = 'partial';
-        } else {
-            $invoice->status = 'paid';
-        }
-
-        $invoice->save();
+        return $this->invoiceService->calculatePaidAmount($invoice);
     }
 }

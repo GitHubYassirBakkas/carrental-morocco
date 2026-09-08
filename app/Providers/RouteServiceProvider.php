@@ -10,7 +10,7 @@ class RouteServiceProvider extends ServiceProvider
     /**
      * Where to redirect users after login & email verification.
      */
-    public const HOME = '/';
+    public const HOME = '/dashboard';
   public function boot(): void
 {
     $this->routes(function () {

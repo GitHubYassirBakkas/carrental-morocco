@@ -28,7 +28,7 @@
                 <div>
                     <select name="role" class="w-full px-4 py-3 bg-black/40 border border-gray-700 rounded-xl text-white">
                         <option value="">All Roles</option>
-                        <option value="customer" {{ request('role') == 'customer' ? 'selected' : '' }}>Customers</option>
+                        <option value="user" {{ request('role') == 'user' ? 'selected' : '' }}>Users</option>
                         <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admins</option>
                     </select>
                 </div>

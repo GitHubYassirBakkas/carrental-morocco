@@ -6,22 +6,24 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Invoice;
 use App\Services\BookingService;
-use App\Services\DepositService;
+use App\Services\AdvancePaymentService;
+use App\Services\SecurityDepositService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
-use App\Services\RentalService;
 
 class AdminBookingController extends Controller
 {
     private BookingService $bookingService;
-    private DepositService $depositService;
+    private AdvancePaymentService $advancePaymentService;
 
     public function __construct(
         BookingService $bookingService,
-        DepositService $depositService
+        AdvancePaymentService $advancePaymentService,
+        private readonly SecurityDepositService $securityDepositService
     ) {
         $this->bookingService = $bookingService;
-        $this->depositService = $depositService;
+        $this->advancePaymentService = $advancePaymentService;
     }
 
     public function index(Request $request)
@@ -47,6 +49,8 @@ class AdminBookingController extends Controller
 
     public function show(Booking $booking)
     {
+        $booking = $this->securityDepositService->normalizeSecurityDepositState($booking);
+
         $booking->load([
             'user',
             'car',
@@ -55,20 +59,23 @@ class AdminBookingController extends Controller
             'damages',
             'checkinInspection.photos',
             'checkoutInspection.photos',
-            'invoice'
+            'invoice',
+            'securityDepositCapturedBy',
+            'securityDepositRefundedBy',
+            'securityDepositProcessedBy',
         ]);
 
-        // Calculate deposit info using service
-        $depositProgress = $this->depositService->calculateDepositProgress($booking);
-        $minimumDeposit = $this->depositService->calculateMinimumDeposit($booking);
-        $remainingDeposit = $this->depositService->getRemainingDeposit($booking);
-        $isOverdue = $this->depositService->isDepositOverdue($booking);
+        // Calculate advance payment info using service.
+        $advancePaymentProgress = $this->advancePaymentService->calculateAdvancePaymentProgress($booking);
+        $minimumAdvancePayment = $this->advancePaymentService->calculateMinimumAdvancePayment($booking);
+        $remainingAdvancePayment = $this->advancePaymentService->getRemainingAdvancePayment($booking);
+        $isOverdue = $this->advancePaymentService->isAdvancePaymentOverdue($booking);
 
         return view('admin.bookings.show', compact(
             'booking',
-            'depositProgress',
-            'minimumDeposit',
-            'remainingDeposit',
+            'advancePaymentProgress',
+            'minimumAdvancePayment',
+            'remainingAdvancePayment',
             'isOverdue'
         ));
     }
@@ -117,10 +124,14 @@ class AdminBookingController extends Controller
      public function update(Request $request, Booking $booking)
     {
         $request->validate([
-            'status' => 'required|in:pending,confirmed,cancelled',
+            'status' => ['required', Rule::in([
+                Booking::STATUS_PENDING,
+                Booking::STATUS_CONFIRMED,
+                Booking::STATUS_CANCELLED,
+            ])],
         ]);
 
-        if ($booking->status !== 'pending') {
+        if (!$booking->isPending()) {
             return back()->with('error', 'This booking cannot be updated.');
         }
 

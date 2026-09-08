@@ -2,22 +2,28 @@
 
 namespace App\Services;
 
+use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\Payment;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Services\Pricing\BookingPricingService;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class PaymentService
 {
+    private AdvancePaymentService $advancePaymentService;
+
+    public function __construct(
+        AdvancePaymentService $advancePaymentService,
+        private readonly InvoiceService $invoiceService,
+        private readonly BookingPricingService $pricingService
+    ) {
+        $this->advancePaymentService = $advancePaymentService;
+    }
+
     /**
-     * Record a payment for an invoice
+     * Record a completed payment for an invoice.
      *
-     * @param Invoice $invoice
-     * @param float $amount
-     * @param string $method
-     * @param string|null $notes
-     * @return Payment
      * @throws Exception
      */
     public function recordPayment(
@@ -27,113 +33,184 @@ class PaymentService
         int $userId,
         ?string $notes = null
     ): Payment {
-        return DB::transaction(function () use ($invoice, $amount, $method, $userId, $notes) {
-            // Lock invoice to prevent race conditions
-            $invoice = Invoice::where('id', $invoice->id)
-                ->lockForUpdate()
-                ->first();
+        return $this->recordPaymentWithBookingSync($invoice, $amount, $method, $userId, $notes)['payment'];
+    }
 
-            // Validate amount
+    public function recordPaymentWithBookingSync(
+        Invoice $invoice,
+        float $amount,
+        string $method,
+        int $userId,
+        ?string $notes = null
+    ): array {
+        return DB::transaction(function () use ($invoice, $amount, $method, $userId, $notes) {
+            $invoice = Invoice::whereKey($invoice->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             if ($amount <= 0) {
                 throw new Exception('Payment amount must be greater than zero');
             }
 
-            $balance = $invoice->total_amount - $invoice->paid_amount;
+            $balance = (float) $invoice->balance;
             if ($amount > $balance) {
                 throw new Exception("Payment amount ({$amount} MAD) exceeds balance ({$balance} MAD)");
             }
 
-            // Create payment record
-            $payment = Payment::create([
+            $payment = $this->createPaymentRecord($invoice, [
                 'invoice_id' => $invoice->id,
                 'user_id' => $userId,
                 'amount' => $amount,
                 'method' => $method,
-                'type' => 'payment',
-                'status' => 'completed',
-                'transaction_id' => 'PAY-' . strtoupper(uniqid()),
+                'type' => Payment::TYPE_PAYMENT,
+                'status' => Payment::STATUS_COMPLETED,
+                'transaction_id' => $this->generateTransactionId('PAY'),
                 'paid_at' => now(),
-                'notes' => $notes
+                'notes' => $notes,
             ]);
 
-            // Update invoice status
             $this->updateInvoiceStatus($invoice);
- // 🎯 FIX #2: Check deposit inside transaction
+
             $booking = $invoice->booking;
-            if ($booking && $booking->status === 'pending') {
-                $newPaidAmount = $paidAmount + $amount;
-                $this->depositService->confirmBookingIfDepositReached(
+            $confirmed = false;
+
+            if ($booking && $booking->isPending()) {
+                $confirmed = $this->advancePaymentService->confirmBookingIfAdvancePaymentReached(
                     $booking,
-                    $newPaidAmount
+                    (float) $invoice->fresh()->paid_amount
                 );
             }
-            
-            Log::info('Payment recorded', [
+
+            \Log::info('Payment recorded', [
                 'invoice_id' => $invoice->id,
                 'payment_id' => $payment->id,
                 'amount' => $amount,
-                'method' => $method
+                'method' => $method,
             ]);
 
-            return $payment;
+            return [
+                'payment' => $payment,
+                'booking_confirmed' => $confirmed,
+            ];
         });
     }
 
-    /**
-     * Automatically update invoice status based on paid amount
-     *
-     * @param Invoice $invoice
-     * @return void
-     */
-    public function updateInvoiceStatus(Invoice $invoice): void
+    public function recordPendingPayment(Invoice $invoice, int $userId, float $amount, string $method, ?string $transactionId, ?string $notes): Payment
     {
-        // Refresh to get latest payments
-        $invoice->refresh();
-        
-        $paidAmount = $invoice->paid_amount;
-        $totalAmount = $invoice->total_amount;
+        return $this->createPaymentRecord($invoice, [
+            'user_id' => $userId,
+            'amount' => $amount,
+            'method' => $method,
+            'type' => Payment::TYPE_PAYMENT,
+            'status' => Payment::STATUS_PENDING,
+            'paid_at' => null,
+            'transaction_id' => $transactionId,
+            'notes' => $notes,
+        ]);
+    }
 
-        $newStatus = $this->calculateInvoiceStatus($paidAmount, $totalAmount);
+    public function recordCompletedPayment(Invoice $invoice, int $userId, float $amount, string $method, ?string $transactionId, ?string $notes): Payment
+    {
+        return $this->createPaymentRecord($invoice, [
+            'user_id' => $userId,
+            'amount' => $amount,
+            'method' => $method,
+            'type' => Payment::TYPE_PAYMENT,
+            'status' => Payment::STATUS_COMPLETED,
+            'paid_at' => now(),
+            'transaction_id' => $transactionId,
+            'notes' => $notes,
+        ]);
+    }
 
-        if ($invoice->status !== $newStatus) {
-            $invoice->update(['status' => $newStatus]);
-            
-            Log::info('Invoice status updated', [
-                'invoice_id' => $invoice->id,
-                'old_status' => $invoice->status,
-                'new_status' => $newStatus,
-                'paid_amount' => $paidAmount,
-                'total_amount' => $totalAmount
+    public function recordRefund(Invoice $invoice, float $amount, ?string $reason = null): Payment
+    {
+        $payment = $this->createPaymentRecord($invoice, [
+            'invoice_id' => $invoice->id,
+            'user_id' => auth()->id(),
+            'amount' => $amount,
+            'method' => 'bank_transfer',
+            'type' => Payment::TYPE_REFUND,
+            'status' => Payment::STATUS_COMPLETED,
+            'transaction_id' => $this->generateTransactionId('REF'),
+            'paid_at' => now(),
+            'notes' => $reason ?? 'Refund processed',
+        ]);
+
+        $this->invoiceService->syncRefundStatus($invoice);
+
+        return $payment;
+    }
+
+    public function markBookingPendingPayment(Booking $booking): void
+    {
+        if ($booking->isPending()) {
+            $booking->update([
+                'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PENDING,
+                'advance_payment_due_at' => now()->addHours(24),
             ]);
         }
     }
 
-    /**
-     * Calculate invoice status based on amounts
-     *
-     * @param float $paidAmount
-     * @param float $totalAmount
-     * @return string
-     */
-    public function calculateInvoiceStatus(float $paidAmount, float $totalAmount): string
+    public function markBookingPaidByCash(Booking $booking): void
     {
-        if ($paidAmount >= $totalAmount) {
-            return 'paid';
-        }
-
-        if ($paidAmount > 0) {
-            return 'partial';
-        }
-
-        return 'unpaid';
+        $booking->update([
+            'payment_method' => 'cash',
+            'status' => Booking::STATUS_CONFIRMED,
+            'advance_payment_due_at' => null,
+            'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PAID,
+            'advance_payment_paid_at' => now(),
+        ]);
     }
 
-    /**
-     * Generate unique transaction ID
-     *
-     * @param string $prefix
-     * @return string
-     */
+    public function confirmBookingAfterRentalPayment(Booking $booking): void
+    {
+        $booking->refresh();
+
+        $updates = [
+            'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PAID,
+            'advance_payment_paid_at' => $booking->advance_payment_paid_at ?? now(),
+            'advance_payment_due_at' => null,
+        ];
+
+        if ($booking->isPending()) {
+            if (app(PaymentStateTransitionValidator::class)->validateBookingTransition($booking->status, Booking::STATUS_CONFIRMED, [
+                'booking_id' => $booking->id,
+                'action' => 'rental_payment_confirm_booking',
+            ])) {
+                $updates['status'] = Booking::STATUS_CONFIRMED;
+            }
+        }
+
+        $booking->update($updates);
+
+        \Log::info('Booking synchronized after rental payment success', [
+            'booking' => $booking->fresh()->only([
+                'id',
+                'status',
+                'advance_payment_status',
+                'advance_payment_paid_at',
+                'advance_payment_due_at',
+                'security_deposit_status',
+            ]),
+        ]);
+    }
+
+    public function updateInvoiceStatus(Invoice $invoice): void
+    {
+        $this->invoiceService->syncPaymentStatus($invoice);
+    }
+
+    public function calculateInvoiceStatus(float $paidAmount, float $totalAmount): string
+    {
+        return $this->pricingService->calculateInvoiceStatus($paidAmount, $totalAmount);
+    }
+
+    private function createPaymentRecord(Invoice $invoice, array $attributes): Payment
+    {
+        return $invoice->payments()->create($attributes);
+    }
+
     private function generateTransactionId(string $prefix): string
     {
         return $prefix . '-' . strtoupper(uniqid());

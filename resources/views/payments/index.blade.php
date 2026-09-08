@@ -2,6 +2,7 @@
 @section('title', __('messages.payment'))
 
 @section('content')
+@php($rentalPaymentAlreadySettled = $rentalPaymentAlreadySettled ?? ($amountToPay <= 0))
 <div class="min-h-screen bg-[#0a0a0a] py-12">
     <div class="max-w-6xl mx-auto px-6">
 
@@ -35,13 +36,28 @@
                     </div>
 
                     <form id="payment-form" class="p-8">
+                        @if($rentalPaymentAlreadySettled)
+                            <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                                        <svg class="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-white font-bold mb-1">Rental payment already completed</p>
+                                        <p class="text-sm text-gray-400">No additional rental payment is due for this booking.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        @else
                         @csrf
 
                         {{-- Hidden fields --}}
                         <input type="hidden" name="_method" value="POST">
                         <input type="hidden" id="rental_payment_intent" name="rental_payment_intent" value="{{ $rentalIntent->client_secret }}">
-                        @if($depositIntent)
-                            <input type="hidden" id="deposit_payment_intent" name="deposit_payment_intent" value="{{ $depositIntent->client_secret }}">
+                        @if($securityDepositIntent)
+                            <input type="hidden" id="security_deposit_intent" name="security_deposit_intent" value="{{ $securityDepositIntent->client_secret }}">
                         @endif
 
                         {{-- Payment Methods --}}
@@ -84,8 +100,8 @@
                         </div>
 
                         {{-- ✅ زيد هنا --}}
-@if($depositAmount > 0)
-<div id="cashDepositNotice" style="display:none;"
+@if($securityDepositAmount > 0)
+<div id="cashSecurityDepositNotice" style="display:none;"
      class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mt-2">
     <div class="flex items-start gap-3">
         <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,7 +109,7 @@
         </svg>
         <div>
             <p class="text-amber-300 font-bold text-sm mb-2">
-                {{ __('messages.cash_deposit_notice_title') }}
+                {{ __('messages.security_deposit_cash_notice_title') }}
             </p>
             <ul class="text-gray-400 text-xs space-y-1.5">
                 <li class="flex items-center gap-2">
@@ -103,9 +119,9 @@
                 </li>
                 <li class="flex items-center gap-2">
                     <span class="w-1.5 h-1.5 bg-purple-400 rounded-full flex-shrink-0"></span>
-                    {{ __('messages.deposit_title') }}: 
-                    <strong class="text-purple-300">{{ number_format($depositAmount, 0) }} MAD</strong>
-                    <span class="text-gray-500">{{ __('messages.deposit_cash_note') }}</span>
+                    {{ __('messages.security_deposit_title') }}: 
+                    <strong class="text-purple-300">{{ number_format($securityDepositAmount, 0) }} MAD</strong>
+                    <span class="text-gray-500">{{ __('messages.security_deposit_cash_note') }}</span>
                 </li>
             </ul>
         </div>
@@ -127,8 +143,8 @@
                                 <div id="card-errors" class="text-red-400 text-sm mt-2"></div>
                             </div>
 
-                            {{-- Deposit Notice --}}
-                            @if($depositAmount > 0)
+                            {{-- Security Deposit Notice --}}
+                            @if($securityDepositAmount > 0)
                             <div class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
                                 <div class="flex items-start gap-3">
                                     <svg class="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,10 +152,10 @@
                                     </svg>
                                     <div>
                                         <p class="text-purple-300 font-bold text-sm mb-1">
-                                            {{ __('messages.deposit_title') }}: {{ number_format($depositAmount, 0) }} MAD
+                                            {{ __('messages.security_deposit_title') }}: {{ number_format($securityDepositAmount, 0) }} MAD
                                         </p>
                                         <p class="text-gray-400 text-xs leading-relaxed">
-                                            {{ __('messages.deposit_stripe_notice') }}
+                                            {{ __('messages.security_deposit_stripe_notice') }}
                                         </p>
                                     </div>
                                 </div>
@@ -162,8 +178,8 @@
                             </svg>
                             <span id="btnText">
                                 {{ __('messages.pay_now') }} {{ number_format($amountToPay, 0) }} MAD
-                                @if($depositAmount > 0)
-                                    + {{ __('messages.deposit_title') }} {{ number_format($depositAmount, 0) }} MAD
+                                @if($securityDepositAmount > 0)
+                                    + {{ __('messages.security_deposit_title') }} {{ number_format($securityDepositAmount, 0) }} MAD
                                 @endif
                             </span>
                         </button>
@@ -174,6 +190,7 @@
                             </svg>
                             {{ __('messages.payment_stripe_ssl') }}
                         </p>
+                        @endif
                     </form>
                 </div>
             </div>
@@ -208,13 +225,13 @@
                                 <span class="text-white font-semibold">{{ number_format($amountToPay, 0) }} MAD</span>
                             </div>
 
-                            {{-- Deposit --}}
-                            @if($depositAmount > 0)
+                            {{-- Security Deposit --}}
+                            @if($securityDepositAmount > 0)
                             <div class="flex justify-between text-sm">
-                                <span class="text-purple-400">{{ __('messages.deposit_title') }} 🔒</span>
-                                <span class="text-purple-300 font-semibold">{{ number_format($depositAmount, 0) }} MAD</span>
+                                <span class="text-purple-400">{{ __('messages.security_deposit_title') }} 🔒</span>
+                                <span class="text-purple-300 font-semibold">{{ number_format($securityDepositAmount, 0) }} MAD</span>
                             </div>
-                            <p class="text-xs text-gray-600">{{ __('messages.deposit_refundable') }}</p>
+                            <p class="text-xs text-gray-600">{{ __('messages.security_deposit_refundable') }}</p>
                             @endif
                         </div>
 
@@ -222,9 +239,9 @@
                         <div class="bg-gradient-to-r from-[#C89D66]/20 to-[#C89D66]/10 rounded-2xl p-4 border border-[#C89D66]/20">
                             <p class="text-xs text-gray-400 mb-1">{{ __('messages.total_price') }}</p>
                             <p class="text-3xl font-bold text-[#C89D66]">{{ number_format($amountToPay, 0) }} MAD</p>
-                            @if($depositAmount > 0)
+                            @if($securityDepositAmount > 0)
                                 <p class="text-xs text-purple-400 mt-1">
-                                    + {{ number_format($depositAmount, 0) }} MAD {{ __('messages.deposit_held') }}
+                                    + {{ number_format($securityDepositAmount, 0) }} MAD {{ __('messages.security_deposit_held') }}
                                 </p>
                             @endif
                         </div>
@@ -237,7 +254,7 @@
                             </div>
                             <div class="flex items-center gap-2 text-xs text-gray-500">
                                 <svg class="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                                {{ __('messages.deposit_refundable') }}
+                                {{ __('messages.security_deposit_refundable') }}
                             </div>
                         </div>
                     </div>
@@ -260,16 +277,14 @@
 }
 </style>
 
+@unless($rentalPaymentAlreadySettled)
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
     const stripeKey = '{{ config('services.stripe.key') }}';
     if (!window.Stripe || !stripeKey) {
-        console.error('Stripe JS failed to initialize.', {
-            stripeLoaded: !!window.Stripe,
-            stripeKeyPresent: !!stripeKey
-        });
+        document.getElementById('card-errors').textContent = 'Payment form failed to load. Please refresh and try again.';
         return;
     }
 
@@ -305,8 +320,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Show/hide card form
             document.getElementById('cardForm').style.display = isCard ? 'block' : 'none';
 
-            // Show/hide cash deposit notice
-            const cashNotice = document.getElementById('cashDepositNotice');
+            // Show/hide cash security deposit notice
+            const cashNotice = document.getElementById('cashSecurityDepositNotice');
             if (cashNotice) cashNotice.style.display = isCard ? 'none' : 'block';
 
             // Update label styles
@@ -321,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Update button text
             const btnText = document.getElementById('btnText');
             if (isCard) {
-                btnText.textContent = '{{ __("messages.pay_now") }} {{ number_format($amountToPay, 0) }} MAD{{ $depositAmount > 0 ? " + " . __("messages.deposit_title") . " " . number_format($depositAmount, 0) . " MAD" : "" }}';
+                btnText.textContent = '{{ __("messages.pay_now") }} {{ number_format($amountToPay, 0) }} MAD{{ $securityDepositAmount > 0 ? " + " . __("messages.security_deposit_title") . " " . number_format($securityDepositAmount, 0) . " MAD" : "" }}';
             } else {
                 btnText.textContent = '{{ __("messages.pay_on_arrival") }}';
             }
@@ -331,8 +346,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Form submission ──
     document.getElementById('payment-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        console.log('Stripe payment form submit handler running');
-
         const method = document.querySelector('input[name="payment_method"]:checked').value;
         const btn    = document.getElementById('submit-button');
 
@@ -372,12 +385,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 { payment_method: { card: cardElement } }
             );
 
-            console.log('Rental intent result', {
-                id: rentalResult?.id,
-                status: rentalResult?.status,
-                type: rentalResult?.metadata?.type ?? 'rental'
-            });
-
             if (rentalError) {
                 document.getElementById('card-errors').textContent = rentalError.message;
                 btn.disabled = false;
@@ -385,32 +392,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            @if($depositIntent)
-            // 2. Authorize deposit (blocks but doesn't charge)
-            const { paymentIntent: depositResult, error: depositError } = await stripe.confirmCardPayment(
-                document.getElementById('deposit_payment_intent').value,
+            @if($securityDepositIntent)
+            // 2. Authorize security deposit (blocks but doesn't charge)
+            const { paymentIntent: securityDepositResult, error: securityDepositError } = await stripe.confirmCardPayment(
+                document.getElementById('security_deposit_intent').value,
                 { payment_method: { card: cardElement } }
             );
 
-            console.log('Deposit intent result', {
-                id: depositResult?.id,
-                status: depositResult?.status,
-                type: depositResult?.metadata?.type ?? 'deposit'
-            });
-
-            if (depositError) {
-                document.getElementById('card-errors').textContent = 'Deposit authorization failed: ' + depositError.message;
+            if (securityDepositError) {
+                document.getElementById('card-errors').textContent = 'Security deposit authorization failed: ' + securityDepositError.message;
                 btn.disabled = false;
                 btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
                 return;
             }
 
-            if (depositResult?.status !== 'requires_capture') {
-                console.warn('Deposit authorization was not held correctly.', {
-                    id: depositResult?.id,
-                    status: depositResult?.status,
-                    type: depositResult?.metadata?.type ?? 'deposit'
-                });
+            if (securityDepositResult?.status !== 'requires_capture') {
+                document.getElementById('card-errors').textContent = 'Security deposit authorization was not completed. Please try again.';
+                btn.disabled = false;
+                btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
+                return;
             }
             @endif
 
@@ -431,10 +431,10 @@ document.addEventListener('DOMContentLoaded', function () {
             rpi.type = 'hidden'; rpi.name = 'rental_payment_intent'; rpi.value = rentalResult.id;
             form.appendChild(rpi);
 
-            @if($depositIntent)
-            if (depositResult?.status === 'requires_capture') {
+            @if($securityDepositIntent)
+            if (securityDepositResult?.status === 'requires_capture') {
                 const dpi = document.createElement('input');
-                dpi.type = 'hidden'; dpi.name = 'deposit_payment_intent'; dpi.value = depositResult.id;
+                dpi.type = 'hidden'; dpi.name = 'security_deposit_intent'; dpi.value = securityDepositResult.id;
                 form.appendChild(dpi);
             }
             @endif
@@ -443,7 +443,6 @@ document.addEventListener('DOMContentLoaded', function () {
             form.submit();
 
         } catch (err) {
-            console.error('Payment error:', err);
             document.getElementById('card-errors').textContent = 'An error occurred. Please try again.';
             btn.disabled = false;
             btn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>{{ __('messages.pay_now') }}</span>`;
@@ -451,3 +450,5 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+@endunless
+@endsection

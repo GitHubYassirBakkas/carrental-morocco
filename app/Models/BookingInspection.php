@@ -2,12 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ProtectsHistoricalRecords;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class BookingInspection extends Model
 {
-    use HasFactory;
+    use HasFactory, ProtectsHistoricalRecords;
+
+    protected static function historicalRecordDeleteMessage(): string
+    {
+        return 'Booking inspections are historical handover records and cannot be deleted.';
+    }
 
     protected $fillable = [
         'booking_id',

@@ -4,26 +4,24 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
-use App\Models\Booking;
-use App\Models\Payment;
-use App\Services\RefundService;
+use App\Services\AdvancePaymentService;
 use App\Services\PaymentService;
-use App\Services\DepositService;
+use App\Services\RefundService;
 use Illuminate\Http\Request;
 
 class AdminInvoiceController extends Controller
 {
     private PaymentService $paymentService;
-    private DepositService $depositService;
+    private AdvancePaymentService $advancePaymentService;
     private RefundService $refundService;
 
     public function __construct(
         PaymentService $paymentService,
-        DepositService $depositService,
+        AdvancePaymentService $advancePaymentService,
         RefundService $refundService
     ) {
         $this->paymentService = $paymentService;
-        $this->depositService = $depositService;
+        $this->advancePaymentService = $advancePaymentService;
         $this->refundService = $refundService;
     }
 
@@ -32,24 +30,24 @@ class AdminInvoiceController extends Controller
         $invoices = Invoice::with('booking.user')
             ->latest()
             ->paginate(20);
-            
+
         return view('admin.invoices.index', compact('invoices'));
     }
 
     public function show(Invoice $invoice)
     {
         $invoice->load(['booking.user', 'payments']);
-        
+
         $booking = $invoice->booking;
-        
-        // Calculate deposit info
-        $minimumDeposit = $this->depositService->calculateMinimumDeposit($booking);
-        $remainingDeposit = $this->depositService->getRemainingDeposit($booking);
-        
+
+        // Calculate advance payment info.
+        $minimumAdvancePayment = $this->advancePaymentService->calculateMinimumAdvancePayment($booking);
+        $remainingAdvancePayment = $this->advancePaymentService->getRemainingAdvancePayment($booking);
+
         return view('admin.invoices.show', compact(
             'invoice',
-            'minimumDeposit',
-            'remainingDeposit'
+            'minimumAdvancePayment',
+            'remainingAdvancePayment'
         ));
     }
 
@@ -63,29 +61,19 @@ class AdminInvoiceController extends Controller
 
         try {
             // Record payment
-                $payment = $this->paymentService->recordPayment(
+            $result = $this->paymentService->recordPaymentWithBookingSync(
                 $invoice,
                 $request->amount,
                 $request->method,
-                auth()->id(),  // ← Pass userId
+                auth()->id(),
                 $request->notes
-        );
-
-            // Check if deposit reached and confirm booking
-            $booking = $invoice->booking;
-            $newPaidAmount = $invoice->fresh()->paid_amount;
-            
-            $confirmed = $this->depositService->confirmBookingIfDepositReached(
-                $booking,
-                $newPaidAmount
             );
 
-            $message = $confirmed 
+            $message = $result['booking_confirmed']
                 ? 'Payment recorded & booking confirmed!'
                 : 'Payment recorded successfully!';
 
             return back()->with('success', $message);
-            
         } catch (\Exception $e) {
             return back()->withErrors($e->getMessage());
         }

@@ -51,11 +51,16 @@ public function isAdmin(): bool
 
 
 /**
- * Scope: Only customers
+ * Scope: Only regular users.
  */
+public function scopeUsers($query)
+{
+    return $query->where('role', 'user');
+}
+
 public function scopeCustomers($query)
 {
-    return $query->where('role', 'customer');
+    return $this->scopeUsers($query);
 }
 
 /**
@@ -88,5 +93,56 @@ public function scopeActive($query)
 public function reviews()
 {
     return $this->hasMany(Review::class);
+}
+
+public function invoices()
+{
+    return $this->hasMany(Invoice::class);
+}
+
+public function payments()
+{
+    return $this->hasMany(Payment::class);
+}
+
+public function tickets()
+{
+    return $this->hasMany(Ticket::class);
+}
+
+public function ticketMessages()
+{
+    return $this->hasMany(TicketMessage::class);
+}
+
+public function couponUsages()
+{
+    return $this->hasMany(CouponUsage::class);
+}
+
+public function hasBusinessHistory(): bool
+{
+    return $this->bookings()->withTrashed()->exists()
+        || $this->invoices()->exists()
+        || $this->payments()->exists()
+        || $this->reviews()->exists()
+        || $this->tickets()->exists()
+        || $this->ticketMessages()->exists()
+        || $this->couponUsages()->exists();
+}
+
+protected static function boot()
+{
+    parent::boot();
+
+    static::deleting(function ($user) {
+        if ($user->hasBusinessHistory()) {
+            throw new \RuntimeException('Users with booking, payment, review, coupon, or support history cannot be deleted. Ban the user instead.');
+        }
+
+        if (app()->environment(['production', 'staging'])) {
+            abort(403, '🚨 Deleting users is blocked in Safe Mode');
+        }
+    });
 }
 }

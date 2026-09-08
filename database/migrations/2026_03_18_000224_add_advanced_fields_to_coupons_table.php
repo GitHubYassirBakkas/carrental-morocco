@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::table('coupons', function (Blueprint $table) {
             // User-specific coupon (NULL = everyone can use)
-            $table->foreignId('user_id')->nullable()->after('id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->nullable()->after('id')->constrained()->nullOnDelete();
             
             // Coupon category
             $table->enum('category', [

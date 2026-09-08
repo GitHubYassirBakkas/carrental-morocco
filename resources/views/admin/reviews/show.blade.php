@@ -180,7 +180,7 @@
                     </div>
 
                     <div>
-                        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Daily Rate</p>
+                        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Rental Price</p>
                         <p class="text-gray-300">{{ number_format($review->car->price_per_day, 0) }} MAD</p>
                     </div>
 

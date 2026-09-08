@@ -14,7 +14,7 @@ class Insurance extends Model
         'name',
         'type',
         'description',
-        'daily_rate',
+        'fixed_price',
         'max_coverage',
         'deductible',
         'excess_fee',
@@ -24,7 +24,7 @@ class Insurance extends Model
     ];
 
     protected $casts = [
-        'daily_rate' => 'decimal:2',
+        'fixed_price' => 'decimal:2',
         'max_coverage' => 'decimal:2',
         'deductible' => 'decimal:2',
         'excess_fee' => 'decimal:2',
@@ -43,6 +43,11 @@ class Insurance extends Model
             ->withTimestamps();
     }
 
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
+
     /**
      * Scope: Active insurances only
      */
@@ -52,11 +57,11 @@ class Insurance extends Model
     }
 
     /**
-     * Scope: Ordered by sort_order and daily_rate
+     * Scope: Ordered by sort_order and fixed_price
      */
     public function scopeOrdered($query)
     {
-        return $query->orderBy('sort_order')->orderBy('daily_rate');
+        return $query->orderBy('sort_order')->orderBy('fixed_price');
     }
 
     /**
@@ -88,6 +93,6 @@ class Insurance extends Model
 
     public function getInsuranceFeeAttribute()
     {
-        return $this->daily_rate; // Actually one-time fee
+        return $this->fixed_price; // One-time protection fee.
     }
 }

@@ -16,18 +16,18 @@ return new class extends Migration
 
         $table->foreignId('invoice_id')
               ->constrained()
-              ->cascadeOnDelete();
+              ->restrictOnDelete();
 
         $table->foreignId('user_id')
               ->constrained()
-              ->cascadeOnDelete();
+              ->restrictOnDelete();
 
         $table->decimal('amount', 10, 2);
 
         $table->enum('method', ['cash', 'card', 'online', 'bank_transfer','stripe'])
               ->default('cash');
 
-        $table->enum('type', ['payment', 'refund', 'deposit_charge'])->default('payment');
+        $table->enum('type', ['payment', 'refund', 'security_deposit_charge'])->default('payment');
 
         $table->enum('status', ['pending', 'completed', 'failed'])
               ->default('pending');

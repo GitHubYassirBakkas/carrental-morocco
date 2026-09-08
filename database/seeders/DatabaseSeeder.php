@@ -8,6 +8,11 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (app()->environment(['production', 'staging'])) {
+            return; // BLOCK ALL SEEDING IN PRODUCTION
+        }
+
+        // only dev allowed
         $this->command->info('Starting database seeding...');
         $this->command->line('----------------------------');
 

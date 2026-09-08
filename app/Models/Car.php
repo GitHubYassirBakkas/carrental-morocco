@@ -34,7 +34,7 @@ class Car extends Model
         'minimum_age',
         'fuel_policy',
         'cancellation_policy',
-        'deposit_amount',
+        'security_deposit_amount',
         'required_documents',
     ];
 
@@ -44,13 +44,22 @@ class Car extends Model
         'required_documents' => 'array',
         'is_available' => 'boolean',
         'price_per_day' => 'decimal:2',
-        'deposit_amount' => 'decimal:2',
+        'security_deposit_amount' => 'decimal:2',
         'year' => 'integer',
         'seats' => 'integer',
         'doors' => 'integer',
         'luggage' => 'integer',
         'minimum_age' => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (Car $car): void {
+            if ($car->hasBusinessHistory()) {
+                throw new \RuntimeException('Cars with booking or review history cannot be deleted. Mark the car unavailable instead.');
+            }
+        });
+    }
 
     public function location()
     {
@@ -71,6 +80,12 @@ public function search(Request $request)
     public function reviews()
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function hasBusinessHistory(): bool
+    {
+        return $this->bookings()->withTrashed()->exists()
+            || $this->reviews()->exists();
     }
 
    /**
@@ -116,14 +131,8 @@ public function getAvailableInsurancesAttribute()
     public function isAvailableForDates($startDate, $endDate): bool
     {
         return !$this->bookings()
-            ->where(function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('start_date', [$startDate, $endDate])
-                    ->orWhereBetween('end_date', [$startDate, $endDate])
-                    ->orWhere(function ($q) use ($startDate, $endDate) {
-                        $q->where('start_date', '<=', $startDate)
-                            ->where('end_date', '>=', $endDate);
-                    });
-            })
+            ->activeOrReserved()
+            ->overlapping($startDate, $endDate)
             ->exists();
     }
 

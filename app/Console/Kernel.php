@@ -22,10 +22,31 @@ class Kernel extends ConsoleKernel
     /**
      * Register the commands for the application.
      */
-    protected function commands(): void
-    {
-        $this->load(__DIR__.'/Commands');
+   protected function commands()
+{
+    if (app()->environment(['production', 'staging'])) {
 
-        require base_path('routes/console.php');
+        $this->app['events']->listen('artisan.start', function ($command) {
+
+            $blocked = [
+                'migrate:fresh',
+                'migrate:refresh',
+                'db:wipe',
+                'db:reset',
+            ];
+
+            foreach ($blocked as $bad) {
+                if (str_contains($command, $bad)) {
+                    abort(403, '🚨 This artisan command is blocked in Safe Mode');
+                }
+            }
+        });
     }
+
+    $this->load(__DIR__.'/Commands');
+
+    require base_path('routes/console.php');
+}
+
+    
 }

@@ -2,28 +2,51 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    private array $statuses = [
+        'pending',
+        'partial',
+        'paid',
+        'refunded',
+        'cancelled',
+    ];
+
+    public function up(): void
     {
-        // Simply add 'pending' to existing ENUM
-        DB::statement("
-            ALTER TABLE `invoices` 
-            MODIFY COLUMN `status` 
-            ENUM('pending', 'unpaid', 'paid', 'cancelled', 'refunded') 
-            DEFAULT 'pending'
-        ");
+        if (!Schema::hasTable('invoices') || !Schema::hasColumn('invoices', 'status')) {
+            return;
+        }
+
+        DB::table('invoices')
+            ->whereIn('status', ['draft', 'unpaid'])
+            ->update(['status' => 'pending']);
+
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                ALTER TABLE `invoices`
+                MODIFY COLUMN `status`
+                ENUM('pending', 'partial', 'paid', 'refunded', 'cancelled')
+                DEFAULT 'pending'
+            ");
+        }
     }
 
-    public function down()
+    public function down(): void
     {
-        // Revert back
-        DB::statement("
-            ALTER TABLE `invoices` 
-            MODIFY COLUMN `status` 
-            ENUM('unpaid', 'paid') 
-            DEFAULT 'unpaid'
-        ");
+        if (!Schema::hasTable('invoices') || !Schema::hasColumn('invoices', 'status')) {
+            return;
+        }
+
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                ALTER TABLE `invoices`
+                MODIFY COLUMN `status`
+                ENUM('pending', 'partial', 'paid', 'refunded', 'cancelled')
+                DEFAULT 'pending'
+            ");
+        }
     }
 };

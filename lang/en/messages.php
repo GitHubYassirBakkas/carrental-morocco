@@ -84,9 +84,9 @@ return [
     'total_price' => 'Total Price',
     'confirm_booking' => 'Confirm Booking',
     'proceed_to_payment' => 'Proceed to Payment',
-    'insurance' => 'Insurance',
-    'select_insurance' => 'Select Insurance Plan',
-    'no_insurance' => 'No Insurance',
+    'insurance' => 'Protection Plan',
+    'select_insurance' => 'Select Protection Plan',
+    'no_insurance' => 'No Protection Plan',
     
     // ============ PAYMENT ============
     'payment' => 'Payment',
@@ -237,9 +237,9 @@ return [
      // Cars listing page
     'no_results_desc' => 'Try adjusting your filters to find the perfect car for your trip.',
  
-    // Insurance page
-    'select_insurance'     => 'Select Insurance',
-    'insurance_subtitle'   => 'Choose the coverage that best suits your needs',
+    // Protection plan page
+    'select_insurance'     => 'Select Protection Plan',
+    'insurance_subtitle'   => 'Choose the protection that best suits your needs',
     'insurance_choose_desc'=> 'Select one protection plan for your rental',
     'insurance_one_time'   => 'one-time fee',
     'ins_essential'        => 'Essential',
@@ -478,11 +478,11 @@ return [
 'not_covered_title'       => 'What\'s Not Covered',
 'late_return_title'       => 'Late Return Fee',
 'late_return_desc'        => 'You have a :grace hour grace period. After that, :fee MAD is charged per hour late.',
-'deposit_title'           => 'Security Deposit',
-'deposit_desc'            => 'A refundable deposit of :amount MAD is required at pickup. Returned after car inspection.',
-'deposit_review_desc'     => 'A deposit of :amount MAD will be collected at pickup and returned after inspection.',
-'deposit_ins_desc'        => 'Required at pickup, fully refundable after vehicle inspection.',
-'ins_not_covered_title'   => '⚠️ Not covered by any insurance plan',
+'security_deposit_title'           => 'Security Deposit',
+'security_deposit_desc'            => 'A refundable security deposit of :amount MAD is required at pickup. Returned after car inspection.',
+'security_deposit_review_desc'     => 'A security deposit of :amount MAD will be collected at pickup and returned after inspection.',
+'security_deposit_ins_desc'        => 'Required at pickup, fully refundable after vehicle inspection.',
+'ins_not_covered_title'   => '⚠️ Not covered by any protection plan',
 'fuel_not_covered_desc'   => 'Return the car with the same fuel level. Missing fuel will be charged.',
 'coverage_type'           => 'Coverage',
 'cov_theft'               => 'Theft Protection',
@@ -497,16 +497,16 @@ return [
 'damage_not_covered_desc' => 'Body damage is NOT covered. Upgrade to Premium for full protection.',
 'covered'                 => 'Covered',
 'not_covered'             => 'Not Covered',
-'acknowledge_terms'       => 'I have read and understood the rental conditions, deposit policy, and late return fees.',
+'acknowledge_terms'       => 'I have read and understood the rental conditions, security deposit policy, and late return fees.',
 
-'deposit_stripe_notice' => 'This amount will be temporarily blocked on your card (not charged). It will be automatically released after vehicle inspection.',
-'deposit_refundable'    => 'Deposit is fully refundable',
-'deposit_held'          => 'held on card (refundable)',
+'security_deposit_stripe_notice' => 'This amount will be temporarily blocked on your card (not charged). It will be automatically released after vehicle inspection.',
+'security_deposit_refundable'    => 'Security deposit is fully refundable',
+'security_deposit_held'          => 'held on card (refundable)',
 
 
-'cash_deposit_notice_title' => 'What to bring on pickup day:',
-'deposit_cash_note'         => '(cash, fully refundable after inspection)',
-'deposit_desc' => 'A refundable deposit of :amount MAD is required. Held on your card and automatically released after vehicle inspection.',
+'security_deposit_cash_notice_title' => 'What to bring on pickup day:',
+'security_deposit_cash_note'         => '(cash, fully refundable after inspection)',
+'security_deposit_desc' => 'A refundable security deposit of :amount MAD is required. Held on your card and automatically released after vehicle inspection.',
 
 
 ];

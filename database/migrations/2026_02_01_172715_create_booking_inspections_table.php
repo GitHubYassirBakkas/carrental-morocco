@@ -13,7 +13,7 @@ return new class extends Migration
     {
     Schema::create('booking_inspections', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
+        $table->foreignId('booking_id')->constrained()->restrictOnDelete();
         $table->enum('type', ['checkin', 'checkout']);
         $table->integer('mileage')->nullable();
         $table->integer('fuel_level')->nullable(); // % 0–100

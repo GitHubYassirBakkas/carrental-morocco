@@ -3,14 +3,72 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\ProtectsHistoricalRecords;
 use App\Models\Location;
-use Carbon\Carbon;
 
 class Booking extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, ProtectsHistoricalRecords;
+
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_ACTIVE = 'active';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_CANCELED_ALIAS = 'canceled';
+
+    public const STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_ACTIVE,
+        self::STATUS_COMPLETED,
+        self::STATUS_CANCELLED,
+    ];
+
+    public const ACTIVE_OR_RESERVED_STATUSES = [
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
+        self::STATUS_ACTIVE,
+    ];
+
+    public const CANCELLABLE_STATUSES = self::ACTIVE_OR_RESERVED_STATUSES;
+
+    public const ADVANCE_PAYMENT_STATUS_PENDING = 'pending';
+    public const ADVANCE_PAYMENT_STATUS_PAID = 'paid';
+
+    public const SECURITY_DEPOSIT_STATUS_PENDING = 'pending';
+    public const SECURITY_DEPOSIT_STATUS_HELD = 'held';
+    public const SECURITY_DEPOSIT_STATUS_CAPTURED = 'captured';
+    public const SECURITY_DEPOSIT_STATUS_REFUND_PENDING = 'refund_pending';
+    public const SECURITY_DEPOSIT_STATUS_PARTIALLY_REFUNDED = 'partially_refunded';
+    public const SECURITY_DEPOSIT_STATUS_REFUNDED = 'refunded';
+    public const SECURITY_DEPOSIT_STATUS_RELEASED = 'released';
+
+    public const SECURITY_DEPOSIT_FINAL_STATUSES = [
+        self::SECURITY_DEPOSIT_STATUS_CAPTURED,
+        self::SECURITY_DEPOSIT_STATUS_REFUND_PENDING,
+        self::SECURITY_DEPOSIT_STATUS_PARTIALLY_REFUNDED,
+        self::SECURITY_DEPOSIT_STATUS_REFUNDED,
+    ];
+
+    public const SECURITY_DEPOSIT_ACTIONABLE_STATUSES = [
+        self::SECURITY_DEPOSIT_STATUS_HELD,
+    ];
+
+    public const SECURITY_DEPOSIT_REFUNDED_STATUSES = [
+        self::SECURITY_DEPOSIT_STATUS_REFUNDED,
+        self::SECURITY_DEPOSIT_STATUS_RELEASED,
+    ];
+
+    public const SECURITY_DEPOSIT_HELD_OR_FINAL_UNRELEASED_STATUSES = [
+        self::SECURITY_DEPOSIT_STATUS_HELD,
+        self::SECURITY_DEPOSIT_STATUS_CAPTURED,
+        self::SECURITY_DEPOSIT_STATUS_REFUND_PENDING,
+        self::SECURITY_DEPOSIT_STATUS_PARTIALLY_REFUNDED,
+    ];
 
     protected $fillable = [
         'user_id',
@@ -20,8 +78,8 @@ class Booking extends Model
         'dropoff_location_id',
         'start_date',
         'end_date',
-        'daily_rate',
-        'insurance_daily_rate',
+        'rental_price_per_day',
+        'insurance_fixed_price',
         'total_amount',
         'status',
         'special_requests',
@@ -35,13 +93,27 @@ class Booking extends Model
         'driver_license_number',
         'additional_driver_name',
         'additional_driver_license',
-        'deposit_amount',
-        'deposit_payment_intent_id',
-        'deposit_status',
-        'deposit_charged_amount',
-        'deposit_paid',
-        'deposit_paid_at',      // ← Add this
-        'deposit_due_at',       // ← Add this
+        'advance_payment_amount',
+        'security_deposit_amount',
+        'security_deposit_capturable_amount',
+        'security_deposit_intent_id',
+        'rental_payment_intent_id',
+        'security_deposit_status',
+        'security_deposit_released_at',
+        'security_deposit_charged_amount',
+        'security_deposit_penalty_amount',
+        'security_deposit_refunded_amount',
+        'security_deposit_refund_id',
+        'security_deposit_captured_by',
+        'security_deposit_captured_at',
+        'security_deposit_refunded_by',
+        'security_deposit_refunded_at',
+        'security_deposit_penalty_reason',
+        'security_deposit_refund_error_message',
+        'security_deposit_processed_by',
+        'advance_payment_status',
+        'advance_payment_paid_at',      // ← Add this
+        'advance_payment_due_at',       // ← Add this
         'pickup_instructions',
         'return_instructions',
         'coupon_id',
@@ -55,14 +127,20 @@ class Booking extends Model
         'started_at' => 'datetime',
         'pickup_actual' => 'datetime',
         'return_actual' => 'datetime',
-        'daily_rate' => 'decimal:2',
-        'insurance_daily_rate' => 'decimal:2',
+        'rental_price_per_day' => 'decimal:2',
+        'insurance_fixed_price' => 'decimal:2',
         'total_amount' => 'decimal:2',
-        'deposit_amount' => 'decimal:2',
-        'deposit_charged_amount' => 'decimal:2',
-        'deposit_paid' => 'boolean',
-        'deposit_paid_at' => 'datetime',    // ← Add this
-        'deposit_due_at' => 'datetime',     // ← Add this
+        'advance_payment_amount' => 'decimal:2',
+        'security_deposit_amount' => 'decimal:2',
+        'security_deposit_capturable_amount' => 'decimal:2',
+        'security_deposit_charged_amount' => 'decimal:2',
+        'security_deposit_penalty_amount' => 'decimal:2',
+        'security_deposit_refunded_amount' => 'decimal:2',
+        'security_deposit_released_at' => 'datetime',
+        'security_deposit_captured_at' => 'datetime',
+        'security_deposit_refunded_at' => 'datetime',
+        'advance_payment_paid_at' => 'datetime',    // ← Add this
+        'advance_payment_due_at' => 'datetime',     // ← Add this
         'discount_amount' => 'decimal:2',
     ];
 
@@ -76,15 +154,32 @@ class Booking extends Model
         'total_days',
     ];
 
-    /* ================= SETTINGS ================= */
-    const GRACE_MINUTES = 60;     // 1 hours free
-    const HOURLY_LATE_FEE = 50;    // MAD per hour
+    protected static function historicalRecordDeleteMessage(): string
+    {
+        return 'Bookings are historical business records and cannot be permanently deleted. Archive them with soft delete instead.';
+    }
 
+    /* ================= SETTINGS ================= */
     /* ================= RELATIONS ================= */
 
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function securityDepositCapturedBy()
+    {
+        return $this->belongsTo(User::class, 'security_deposit_captured_by');
+    }
+
+    public function securityDepositRefundedBy()
+    {
+        return $this->belongsTo(User::class, 'security_deposit_refunded_by');
+    }
+
+    public function securityDepositProcessedBy()
+    {
+        return $this->belongsTo(User::class, 'security_deposit_processed_by');
     }
 
     public function car()
@@ -122,11 +217,31 @@ class Booking extends Model
         return max(1, $this->start_date->diffInDays($this->end_date));
     }
 
-    public function isPending()   { return $this->status === 'pending'; }
-    public function isConfirmed() { return $this->status === 'confirmed'; }
-    public function isActive()    { return $this->status === 'active'; }
-    public function isCompleted() { return $this->status === 'completed'; }
-    public function isCancelled() { return $this->status === 'cancelled'; }
+    public function hasStatus(string $status): bool
+    {
+        return $this->status === $status;
+    }
+
+    public function isPending()   { return $this->hasStatus(self::STATUS_PENDING); }
+    public function isConfirmed() { return $this->hasStatus(self::STATUS_CONFIRMED); }
+    public function isActive()    { return $this->hasStatus(self::STATUS_ACTIVE); }
+    public function isCompleted() { return $this->hasStatus(self::STATUS_COMPLETED); }
+    public function isCancelled() { return $this->hasStatus(self::STATUS_CANCELLED); }
+
+    public function hasAdvancePaymentStatus(string $status): bool
+    {
+        return $this->advance_payment_status === $status;
+    }
+
+    public function isAdvancePaymentPaid(): bool
+    {
+        return $this->hasAdvancePaymentStatus(self::ADVANCE_PAYMENT_STATUS_PAID);
+    }
+
+    public function hasSecurityDepositStatus(string $status): bool
+    {
+        return $this->security_deposit_status === $status;
+    }
 
     /* ================= TIMELINE ================= */
 
@@ -134,8 +249,8 @@ class Booking extends Model
     {
         $now = now();
 
-        if ($this->status === 'cancelled') return 'cancelled';
-        if ($this->status === 'completed') return 'completed';
+        if ($this->isCancelled()) return self::STATUS_CANCELLED;
+        if ($this->isCompleted()) return self::STATUS_COMPLETED;
 
         if ($this->start_date && $now->lt($this->start_date)) {
             return 'upcoming';
@@ -176,14 +291,16 @@ class Booking extends Model
     {
         if (!$this->is_late) return 0;
 
-        if ($this->late_minutes <= self::GRACE_MINUTES) {
+        $graceMinutes = (int) config('rental.late_grace_minutes', 60);
+
+        if ($this->late_minutes <= $graceMinutes) {
             return 0;
         }
 
-        $chargeableMinutes = $this->late_minutes - self::GRACE_MINUTES;
+        $chargeableMinutes = $this->late_minutes - $graceMinutes;
         $hours = ceil($chargeableMinutes / 60);
 
-        return $hours * self::HOURLY_LATE_FEE;
+        return $hours * (float) config('rental.late_fee_per_hour', 50);
     }
 
     /* ================= PROGRESS ================= */
@@ -323,7 +440,7 @@ public function calculateFuelCharge()
 
 public function calculateLate()
 {
-    if ($this->status === 'completed') {
+    if ($this->isCompleted()) {
         return [
             'minutes' => $this->late_minutes,
             'fee' => $this->late_fee
@@ -358,27 +475,63 @@ public function invoice()
     return $this->hasOne(Invoice::class);
 }
 
+public function getPricingBreakdownAttribute(): array
+{
+    return app(\App\Services\Pricing\BookingPricingService::class)
+        ->breakdownForBooking($this);
+}
+
+public function getInvoiceLineItemsAttribute(): array
+{
+    return app(\App\Services\Pricing\BookingPricingService::class)
+        ->lineItems($this->pricing_breakdown);
+}
+
 
 public function canComplete()
 {
     // Define the logic for when a booking can be completed
     // For example, check if the booking is in 'active' status
-    return $this->status === 'active';
+    return $this->isActive();
     
     // Or you might want to check multiple conditions:
-    // return $this->status === 'active' && $this->payment_status === 'paid';
+    // return $this->status === self::STATUS_ACTIVE && $this->payment_status === self::ADVANCE_PAYMENT_STATUS_PAID;
 }
 
-public function isDepositOverdue(): bool
+public function isAdvancePaymentOverdue(): bool
 {
-    // ila ma kaynach deposit_due_at → false
-    if (!$this->deposit_due_at) return false;
+    // ila ma kaynach advance_payment_due_at → false
+    if (!$this->advance_payment_due_at) return false;
 
     // ila tpaid deja → false
-    if ($this->deposit_paid) return false;
+    if ($this->isAdvancePaymentPaid()) return false;
 
     // ila deadline fat w ma tpaidch → true
-    return now()->greaterThan($this->deposit_due_at);
+    return now()->greaterThan($this->advance_payment_due_at);
+}
+
+public function isSecurityDepositSafeToRelease(): bool
+{
+    return $this->isSecurityDepositActionable()
+        && !$this->isCompleted();
+}
+
+public function getSecurityDepositEffectiveState(): string
+{
+    return app(\App\Services\SecurityDepositService::class)
+        ->getSecurityDepositEffectiveState($this);
+}
+
+public function isSecurityDepositActionable(): bool
+{
+    return app(\App\Services\SecurityDepositService::class)
+        ->isSecurityDepositActionable($this);
+}
+
+public function isSecurityDepositRefundable(): bool
+{
+    return app(\App\Services\SecurityDepositService::class)
+        ->isSecurityDepositRefundable($this);
 }
 
 public function couponUsage()
@@ -388,11 +541,22 @@ public function couponUsage()
 
 
 /**
- * Scope for pending deposit bookings
+ * Scope for bookings waiting on advance payment.
  */
-public function scopePendingDeposit($query)
+public function scopePendingAdvancePayment($query)
 {
-    return $query->where('deposit_paid', false)
-                 ->where('status', 'pending');
+    return $query->where('advance_payment_status', '!=', self::ADVANCE_PAYMENT_STATUS_PAID)
+                 ->where('status', self::STATUS_PENDING);
+}
+
+public function scopeActiveOrReserved(Builder $query): Builder
+{
+    return $query->whereIn('status', self::ACTIVE_OR_RESERVED_STATUSES);
+}
+
+public function scopeOverlapping(Builder $query, $startDate, $endDate): Builder
+{
+    return $query->where('start_date', '<', $endDate)
+                 ->where('end_date', '>', $startDate);
 }
     }

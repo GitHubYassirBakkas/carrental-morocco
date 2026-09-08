@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('invoices', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('booking_id')->constrained()->restrictOnDelete();
 
             $table->decimal('subtotal', 12, 2);
             $table->decimal('tax_amount', 12, 2)->default(0);
@@ -21,13 +21,12 @@ return new class extends Migration
 
 
             $table->enum('status', [
-                'draft',
-                'unpaid',
+                'pending',
                 'partial',
                 'paid',
-                'cancelled',
-                'refunded'
-            ])->default('draft');
+                'refunded',
+                'cancelled'
+            ])->default('pending');
 
             $table->timestamp('issued_at')->nullable();
             $table->timestamp('due_date')->nullable();

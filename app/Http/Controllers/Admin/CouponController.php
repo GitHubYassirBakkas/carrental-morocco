@@ -192,7 +192,7 @@ class CouponController extends Controller
     public function destroy(Coupon $coupon)
     {
         // Check if coupon has been used
-        if ($coupon->used_count > 0) {
+        if ($coupon->used_count > 0 || $coupon->usages()->exists()) {
             return back()->withErrors(['error' => 'Cannot delete coupon that has been used. Deactivate it instead.']);
         }
 

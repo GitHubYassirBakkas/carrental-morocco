@@ -31,6 +31,31 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
+test('banned users can not authenticate', function () {
+    $user = User::factory()->create([
+        'is_banned' => true,
+    ]);
+
+    $response = $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertGuest();
+    $response->assertSessionHasErrors('email');
+});
+
+test('banned users are logged out from existing sessions', function () {
+    $user = User::factory()->create([
+        'is_banned' => true,
+    ]);
+
+    $response = $this->actingAs($user)->get('/dashboard');
+
+    $this->assertGuest();
+    $response->assertRedirect(route('login', absolute: false));
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 

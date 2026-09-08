@@ -77,8 +77,8 @@
                     <!-- Stats Grid -->
                     <div class="grid grid-cols-2 gap-3 mb-4">
                         <div class="bg-[#0f1520] border border-gray-700 rounded-lg p-3">
-                            <p class="text-xs text-gray-500 mb-1">Daily Rate</p>
-                            <p class="text-orange-400 font-bold">{{ number_format($insurance->daily_rate, 0) }} MAD</p>
+                            <p class="text-xs text-gray-500 mb-1">Fixed Price</p>
+                            <p class="text-orange-400 font-bold">{{ number_format($insurance->fixed_price, 0) }} MAD</p>
                         </div>
 
                         <div class="bg-[#0f1520] border border-gray-700 rounded-lg p-3">

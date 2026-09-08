@@ -65,12 +65,26 @@ class Setting extends Model
      * @param string $type
      * @return void
      */
-    public static function set(string $key, mixed $value, string $type = 'text'): void
+    public static function set(string $key, mixed $value, ?string $type = null): void
     {
-        // Convert arrays/objects to JSON
+        $setting = static::where('key', $key)->first();
+        $type = $type ?? $setting?->getRawOriginal('type') ?? 'text';
+
         if (is_array($value) || is_object($value)) {
+            $type = $type === 'array' ? 'array' : 'json';
             $value = json_encode($value);
-            $type = 'json';
+        } elseif (in_array($type, ['array', 'json'], true) && is_string($value)) {
+            json_decode($value);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $value = json_encode([$value]);
+            }
+        } elseif ($type === 'boolean') {
+            $value = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
+        } elseif (in_array($type, ['number', 'integer'], true)) {
+            $value = (string) (int) $value;
+        } elseif ($type === 'float') {
+            $value = (string) (float) $value;
         }
 
         static::updateOrCreate(
@@ -218,4 +232,3 @@ class Setting extends Model
             ->toArray();
     }
 }
-

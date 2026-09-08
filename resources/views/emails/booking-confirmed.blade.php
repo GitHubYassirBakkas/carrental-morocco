@@ -47,11 +47,11 @@
             font-size: 16px; font-weight: bold;
             color: #C89D66; padding-top: 10px; margin-top: 5px;
         }
-        .deposit-box {
+        .security-deposit-box {
             background: #f5f3ff; border: 1px solid #ddd6fe;
             border-radius: 10px; padding: 14px; margin: 15px 0;
         }
-        .deposit-box p { font-size: 13px; color: #5b21b6; }
+        .security-deposit-box p { font-size: 13px; color: #5b21b6; }
         .btn {
             display: inline-block; background: #C89D66;
             color: #fff; padding: 12px 28px;
@@ -119,13 +119,22 @@
         <div class="receipt-box">
             <h3>🧾 Payment Receipt</h3>
             <div class="receipt-row">
-                <span>Car Rental ({{ $booking->total_days }} days × {{ number_format($booking->daily_rate, 0) }} MAD)</span>
-                <span>{{ number_format($booking->total_days * $booking->daily_rate, 0) }} MAD</span>
+                <span>Car Rental ({{ $booking->total_days }} days × {{ number_format($booking->rental_price_per_day, 0) }} MAD)</span>
+                <span>{{ number_format($booking->total_days * $booking->rental_price_per_day, 0) }} MAD</span>
             </div>
             @if($booking->insurance)
+            @php
+                $protectionPlanName = match (true) {
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'zero')     => 'Zero Excess Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'premium')  => 'Premium Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'standard') => 'Standard Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'basic')    => 'Basic Coverage Included',
+                    default => str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $booking->insurance->name ?? ''),
+                };
+            @endphp
             <div class="receipt-row">
-                <span>Insurance - {{ $booking->insurance->name }}</span>
-                <span>{{ number_format($booking->insurance->daily_rate ?? 0, 0) }} MAD</span>
+                <span>Protection Plan - {{ $protectionPlanName }}</span>
+                <span>{{ number_format($booking->insurance->fixed_price ?? 0, 0) }} MAD</span>
             </div>
             @endif
             @if($booking->discount_amount > 0)
@@ -141,12 +150,12 @@
             </div>
         </div>
 
-        {{-- Deposit Notice --}}
-        @if($booking->car->deposit_amount > 0)
-        <div class="deposit-box">
+        {{-- Security Deposit Notice --}}
+        @if($booking->car->security_deposit_amount > 0)
+        <div class="security-deposit-box">
             <p>
                 🔒 <strong>Security Deposit:</strong>
-                {{ number_format($booking->car->deposit_amount, 0) }} MAD has been temporarily held on your card.
+                {{ number_format($booking->car->security_deposit_amount, 0) }} MAD has been temporarily held on your card.
                 This amount will be automatically released after vehicle inspection upon return.
             </p>
         </div>

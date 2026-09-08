@@ -74,13 +74,22 @@
         <div class="receipt-box">
             <h3 style="font-size:14px;color:#C89D66;margin-bottom:12px;">🧾 Payment Receipt</h3>
             <div class="receipt-row">
-                <span>Car Rental ({{ $booking->total_days }} days × {{ number_format($booking->daily_rate, 0) }} MAD)</span>
-                <span>{{ number_format($booking->total_days * $booking->daily_rate, 0) }} MAD</span>
+                <span>Car Rental ({{ $booking->total_days }} days × {{ number_format($booking->rental_price_per_day, 0) }} MAD)</span>
+                <span>{{ number_format($booking->total_days * $booking->rental_price_per_day, 0) }} MAD</span>
             </div>
             @if($booking->insurance)
+            @php
+                $protectionPlanName = match (true) {
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'zero')     => 'Zero Excess Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'premium')  => 'Premium Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'standard') => 'Standard Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'basic')    => 'Basic Coverage Included',
+                    default => str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $booking->insurance->name ?? ''),
+                };
+            @endphp
             <div class="receipt-row">
-                <span>Insurance - {{ $booking->insurance->name }}</span>
-                <span>{{ number_format($booking->insurance->daily_rate ?? 0, 0) }} MAD</span>
+                <span>Protection Plan - {{ $protectionPlanName }}</span>
+                <span>{{ number_format($booking->insurance->fixed_price ?? 0, 0) }} MAD</span>
             </div>
             @endif
             <div class="receipt-total">
@@ -89,9 +98,9 @@
             </div>
         </div>
 
-        @if($booking->car->deposit_amount > 0)
+        @if($booking->car->security_deposit_amount > 0)
         <p style="font-size:13px;color:#7c3aed;background:#f5f3ff;padding:12px;border-radius:8px;margin:15px 0;">
-            🔒 Security deposit of <strong>{{ number_format($booking->car->deposit_amount, 0) }} MAD</strong>
+            🔒 Security deposit of <strong>{{ number_format($booking->car->security_deposit_amount, 0) }} MAD</strong>
             will be returned to you after vehicle inspection upon return.
         </p>
         @endif

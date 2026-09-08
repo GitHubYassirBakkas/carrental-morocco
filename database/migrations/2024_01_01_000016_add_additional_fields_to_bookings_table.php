@@ -13,11 +13,11 @@ return new class extends Migration
             $table->string('driver_license_number', 50)->nullable()->after('driver_name');
             $table->string('additional_driver_name')->nullable()->after('driver_license_number');
             $table->string('additional_driver_license')->nullable()->after('additional_driver_name');
-            $table->decimal('deposit_amount', 10, 2)->default(0)->after('additional_driver_license');
-            $table->boolean('deposit_paid')->default(false)->after('deposit_amount');
-            $table->text('pickup_instructions')->nullable()->after('deposit_paid');
+            $table->decimal('advance_payment_amount', 10, 2)->default(0)->after('additional_driver_license');
+            $table->string('advance_payment_status')->default('pending')->after('advance_payment_amount');
+            $table->text('pickup_instructions')->nullable()->after('advance_payment_status');
             $table->text('return_instructions')->nullable()->after('pickup_instructions');
-            $table->foreignId('coupon_id')->nullable()->constrained()->onDelete('set null')->after('return_instructions');
+            $table->foreignId('coupon_id')->nullable()->constrained()->restrictOnDelete()->after('return_instructions');
             $table->decimal('discount_amount', 10, 2)->default(0)->after('coupon_id');
         });
     }
@@ -31,8 +31,8 @@ return new class extends Migration
                 'driver_license_number',
                 'additional_driver_name',
                 'additional_driver_license',
-                'deposit_amount',
-                'deposit_paid',
+                'advance_payment_amount',
+                'advance_payment_status',
                 'pickup_instructions',
                 'return_instructions',
                 'coupon_id',

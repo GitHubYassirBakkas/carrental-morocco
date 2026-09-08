@@ -35,7 +35,7 @@ class InsuranceController extends Controller
             'insurance_id'         => $insurance->id,
             'insurance_name'       => $insurance->name,
             'insurance_type'       => $insurance->type,
-            'insurance_price'      => $insurance->daily_rate,
+            'insurance_price'      => $insurance->fixed_price,
             'insurance_max_coverage' => $insurance->max_coverage,
             'insurance_deductible' => $insurance->deductible,
             'insurance_features'   => $insurance->features,

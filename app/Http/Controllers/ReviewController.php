@@ -15,7 +15,7 @@ class ReviewController extends Controller
     {
         // Security checks
         abort_if($booking->user_id !== auth()->id(), 403);
-        abort_if($booking->status !== 'completed', 403, 'You can only review completed bookings.');
+        abort_if(!$booking->isCompleted(), 403, 'You can only review completed bookings.');
         abort_if($booking->review, 403, 'You have already reviewed this booking.');
 
         return view('reviews.create', compact('booking'));
@@ -28,7 +28,7 @@ class ReviewController extends Controller
     {
         // Security checks
         abort_if($booking->user_id !== auth()->id(), 403);
-        abort_if($booking->status !== 'completed', 403);
+        abort_if(!$booking->isCompleted(), 403);
         abort_if($booking->review, 403);
 
         $data = $request->validate([

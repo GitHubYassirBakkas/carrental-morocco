@@ -5,10 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\Car;
 use App\Models\Location;
 use App\Models\Insurance;
+use App\Services\Pricing\BookingPricingService;
 use Illuminate\Http\Request;
 
 class CarController extends Controller
 {
+    public function __construct(private readonly BookingPricingService $pricingService)
+    {
+    }
+
+    public function show(Request $request, Car $car)
+    {
+        return $this->details($request, $car);
+    }
+
     public function index(Request $request)
     {
         $query = Car::query()
@@ -56,15 +66,8 @@ class CarController extends Controller
             $return = $request->return_date;
 
             $query->whereDoesntHave('bookings', function ($q) use ($pickup, $return) {
-                $q->whereIn('status', ['confirmed', 'pending'])
-                  ->where(function ($q2) use ($pickup, $return) {
-                      $q2->whereBetween('start_date', [$pickup, $return])
-                         ->orWhereBetween('end_date', [$pickup, $return])
-                         ->orWhere(function ($q3) use ($pickup, $return) {
-                             $q3->where('start_date', '<=', $pickup)
-                                ->where('end_date', '>=', $return);
-                         });
-                  });
+                $q->activeOrReserved()
+                    ->overlapping($pickup, $return);
             });
         }
 
@@ -123,7 +126,7 @@ class CarController extends Controller
 
         if (session()->has('insurance_id')) {
             $insurance = Insurance::find(session('insurance_id'));
-            $insurancePrice = $insurance?->daily_rate ?? 0;
+            $insurancePrice = $insurance?->fixed_price ?? 0;
         }
 
         $pickupDate = $request->get('pickup_date');
@@ -132,16 +135,13 @@ class CarController extends Controller
         $returnTime = $request->get('return_time');
 
         $rentalDays = 1;
-        $carTotal = $car->price_per_day;
-        $total = $carTotal + $insurancePrice;
+        $carTotal = $this->pricingService->calculateRentalAmount((float) $car->price_per_day, $rentalDays);
+        $total = $this->pricingService->calculateTotal($carTotal, (float) $insurancePrice);
 
         if ($pickupDate && $returnDate) {
-            $rentalDays = max(1, (int) ceil(
-                (strtotime($returnDate) - strtotime($pickupDate)) / 86400
-            ));
-
-            $carTotal = $car->price_per_day * $rentalDays;
-            $total = $carTotal + $insurancePrice;
+            $rentalDays = $this->pricingService->calculateRentalDays($pickupDate, $returnDate);
+            $carTotal = $this->pricingService->calculateRentalAmount((float) $car->price_per_day, $rentalDays);
+            $total = $this->pricingService->calculateTotal($carTotal, (float) $insurancePrice);
         }
 
         // ✅ GET APPROVED REVIEWS
@@ -168,6 +168,7 @@ class CarController extends Controller
         $reviewCount   = $reviewStats['count'];
 
         $bookedRanges = $car->bookings()
+            ->activeOrReserved()
             ->get(['start_date', 'end_date'])
             ->map(function ($b) {
                 return [

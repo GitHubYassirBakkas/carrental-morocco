@@ -96,23 +96,32 @@
         <div class="amount-box">
             <div class="amount-row">
                 <span>Car Rental ({{ $booking->total_days }} days)</span>
-                <span>{{ number_format($booking->total_days * $booking->daily_rate, 0) }} MAD</span>
+                <span>{{ number_format($booking->total_days * $booking->rental_price_per_day, 0) }} MAD</span>
             </div>
             @if($booking->insurance)
+            @php
+                $protectionPlanName = match (true) {
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'zero')     => 'Zero Excess Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'premium')  => 'Premium Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'standard') => 'Standard Protection',
+                    str_contains(strtolower($booking->insurance->name ?? ''), 'basic')    => 'Basic Coverage Included',
+                    default => str_ireplace(['Insurance', 'insurance'], ['Protection Plan', 'protection plan'], $booking->insurance->name ?? ''),
+                };
+            @endphp
             <div class="amount-row">
-                <span>Insurance</span>
-                <span>{{ number_format($booking->insurance->daily_rate ?? 0, 0) }} MAD</span>
+                <span>Protection Plan - {{ $protectionPlanName }}</span>
+                <span>{{ number_format($booking->insurance->fixed_price ?? 0, 0) }} MAD</span>
             </div>
             @endif
-            @if($booking->car->deposit_amount > 0)
+            @if($booking->car->security_deposit_amount > 0)
             <div class="amount-row" style="color:#7c3aed;">
                 <span>Security Deposit (cash, refundable)</span>
-                <span>{{ number_format($booking->car->deposit_amount, 0) }} MAD</span>
+                <span>{{ number_format($booking->car->security_deposit_amount, 0) }} MAD</span>
             </div>
             @endif
             <div class="amount-total">
                 <span>Total to Pay at Agency</span>
-                <span>{{ number_format($booking->total_amount + ($booking->car->deposit_amount ?? 0), 0) }} MAD</span>
+                <span>{{ number_format($booking->total_amount + ($booking->car->security_deposit_amount ?? 0), 0) }} MAD</span>
             </div>
         </div>
 
@@ -122,9 +131,9 @@
             <ul>
                 <li>✅ Valid driving license</li>
                 <li>✅ National ID or Passport</li>
-                <li>✅ Payment: <strong>{{ number_format($booking->total_amount, 0) }} MAD</strong> (rental + insurance)</li>
-                @if($booking->car->deposit_amount > 0)
-                <li>✅ Security Deposit: <strong>{{ number_format($booking->car->deposit_amount, 0) }} MAD</strong> (cash, fully refundable)</li>
+                <li>✅ Payment: <strong>{{ number_format($booking->total_amount, 0) }} MAD</strong> (rental + protection plan)</li>
+                @if($booking->car->security_deposit_amount > 0)
+                <li>✅ Security Deposit: <strong>{{ number_format($booking->car->security_deposit_amount, 0) }} MAD</strong> (cash, fully refundable)</li>
                 @endif
             </ul>
         </div>
