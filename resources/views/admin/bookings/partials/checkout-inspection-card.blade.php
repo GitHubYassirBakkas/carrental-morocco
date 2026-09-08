@@ -220,7 +220,7 @@
     </h4>
 
     <form method="POST"
-          action="{{ route('admin.booking-damages.store', $booking) }}"
+          action="{{ route('admin.bookings.damages.store', $booking) }}"
           class="space-y-3">
         @csrf
 

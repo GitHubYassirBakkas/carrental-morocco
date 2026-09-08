@@ -4,19 +4,21 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\BookingDamage;
 use App\Models\Car;
-use App\Models\User;
-use App\Models\Payment;
 use App\Models\EmailLog;
+use App\Models\Payment;
 use App\Models\Review;
+use App\Models\User;
+use App\Services\BookingService;
 
 class AdminDashboardController extends Controller
 {
-    public function index()
+    public function index(BookingService $bookingService)
     {
         // 🔄 Auto-cancel overdue bookings
-        app(\App\Services\BookingService::class)->cancelOverdueBookings();
-        
+        $bookingService->cancelOverdueBookings();
+
         // 🚗 Cars
         $totalCars = Car::count();
         $availableCars = Car::where('is_available', 1)->count();
@@ -37,7 +39,7 @@ class AdminDashboardController extends Controller
             ->where('type', Payment::TYPE_PAYMENT)
             ->whereHas('invoice.booking', function ($q) {
                 $q->whereMonth('end_date', now()->month)
-                  ->whereYear('end_date', now()->year);
+                    ->whereYear('end_date', now()->year);
             })
             ->sum('amount');
 
@@ -46,14 +48,13 @@ class AdminDashboardController extends Controller
         $failedEmails = EmailLog::where('status', 'failed')->count();
         $todayEmails = EmailLog::whereDate('created_at', today())->count();
 
-       // 🔧 Damage Statistics (commented out - column doesn't exist yet)
-        $totalDamages = \App\Models\BookingDamage::count();
-        $unresolvedDamages = 0; // BookingDamage::where('is_resolved', false)->count();
-        $damagesThisMonth = 0; // BookingDamage::whereMonth('reported_at', now()->month)->count();
+        $totalDamages = BookingDamage::count();
+        $unresolvedDamages = 0;
+        $damagesThisMonth = 0;
 
-      $totalReviews = Review::count();
-      $pendingReviews = 0;
-      $averageRating = Review::avg('rating');
+        $totalReviews = Review::count();
+        $pendingReviews = 0;
+        $averageRating = Review::avg('rating');
 
         // 📅 Today's Activity
         $todayBookings = Booking::whereDate('created_at', today())->count();
@@ -64,14 +65,14 @@ class AdminDashboardController extends Controller
         $todayCheckOuts = Booking::whereDate('end_date', today())->count();
 
         // 📊 Performance Metrics
-        $conversionRate = $totalUsers > 0 
-            ? round(($totalBookings / $totalUsers) * 100, 1) 
+        $conversionRate = $totalUsers > 0
+            ? round(($totalBookings / $totalUsers) * 100, 1)
             : 0;
-        
+
         $averageBookingValue = $totalBookings > 0
             ? round($totalRevenue / $totalBookings, 2)
             : 0;
-        
+
         $repeatCustomers = User::has('bookings', '>=', 2)->count();
 
         // 🚨 Alerts
@@ -127,16 +128,15 @@ class AdminDashboardController extends Controller
         ];
 
         // Top customers by bookings
-        $topCustomers = \App\Models\User::withCount([
-            'bookings' => function($q) {
+        $topCustomers = User::withCount([
+            'bookings' => function ($q) {
                 $q->whereIn('status', [Booking::STATUS_COMPLETED, Booking::STATUS_CONFIRMED]);
-            }
+            },
         ])
-        ->having('bookings_count', '>', 0)
-        ->orderByDesc('bookings_count')
-        ->limit(10)
-        ->get();
-
+            ->having('bookings_count', '>', 0)
+            ->orderByDesc('bookings_count')
+            ->limit(10)
+            ->get();
 
         return view('admin.dashboard', compact(
             // Core Stats
@@ -147,7 +147,7 @@ class AdminDashboardController extends Controller
             'totalUsers',
             'totalRevenue',
             'monthlyRevenue',
-            
+
             // New Stats
             'totalEmails',
             'failedEmails',
@@ -158,29 +158,29 @@ class AdminDashboardController extends Controller
             'totalReviews',
             'pendingReviews',
             'averageRating',
-            
+
             // Today's Activity
             'todayBookings',
             'todayRevenue',
             'todayCheckIns',
             'todayCheckOuts',
-            
+
             // Performance
             'conversionRate',
             'averageBookingValue',
             'repeatCustomers',
-            
+
             // Alerts
             'lateBookings',
             'pendingOldBookings',
             'endingTodayBookings',
-            
+
             // Charts
             'monthlyChart',
             'bookingStatusChart',
             'lowAvailabilityChart',
             'bookingLifecycle',
-            
+
             // Lists
             'topRentedCars',
             'lowAvailabilityCars',

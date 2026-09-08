@@ -14,12 +14,15 @@ use Illuminate\Support\Facades\Mail;
 class BookingService
 {
     private AdvancePaymentService $advancePaymentService;
+
     private BookingPricingService $pricingService;
 
     public function __construct(
         AdvancePaymentService $advancePaymentService,
         BookingPricingService $pricingService,
-        private readonly InvoiceService $invoiceService
+        private readonly InvoiceService $invoiceService,
+        private readonly RefundService $refundService,
+        private readonly SecurityDepositService $securityDepositService
     ) {
         $this->advancePaymentService = $advancePaymentService;
         $this->pricingService = $pricingService;
@@ -28,13 +31,11 @@ class BookingService
     /**
      * Confirm a booking and create invoice
      *
-     * @param Booking $booking
-     * @return Booking
      * @throws Exception
      */
     public function confirmBooking(Booking $booking): Booking
     {
-        if (!$booking->isPending()) {
+        if (! $booking->isPending()) {
             throw new Exception('Only pending bookings can be confirmed');
         }
 
@@ -43,7 +44,7 @@ class BookingService
             $booking->update(['status' => Booking::STATUS_CONFIRMED]);
 
             // Create invoice if doesn't exist
-            if (!$booking->invoice) {
+            if (! $booking->invoice) {
                 $this->invoiceService->createForConfirmedBooking($booking);
             }
 
@@ -54,7 +55,7 @@ class BookingService
             );
             $booking->update([
                 'advance_payment_amount' => $this->advancePaymentService->calculateMinimumAdvancePayment($booking),
-                'advance_payment_due_at' => now()->addHours($deadlineHours)
+                'advance_payment_due_at' => now()->addHours($deadlineHours),
             ]);
 
             Log::info('Booking confirmed', ['booking_id' => $booking->id]);
@@ -78,17 +79,15 @@ class BookingService
     /**
      * Start rental (move from confirmed to active)
      *
-     * @param Booking $booking
-     * @return Booking
      * @throws Exception
      */
     public function startRental(Booking $booking): Booking
     {
-        if (!$booking->isConfirmed()) {
+        if (! $booking->isConfirmed()) {
             throw new Exception('Only confirmed bookings can be started');
         }
 
-        if (!$booking->checkinInspection) {
+        if (! $booking->checkinInspection) {
             throw new Exception('Check-in inspection required before starting rental');
         }
 
@@ -102,17 +101,15 @@ class BookingService
     /**
      * Complete rental (move from active to completed)
      *
-     * @param Booking $booking
-     * @return Booking
      * @throws Exception
      */
     public function completeRental(Booking $booking): Booking
     {
-        if (!$booking->isActive()) {
+        if (! $booking->isActive()) {
             throw new Exception('Only active rentals can be completed');
         }
 
-        if (!$booking->checkoutInspection) {
+        if (! $booking->checkoutInspection) {
             throw new Exception('Check-out inspection required before completing rental');
         }
 
@@ -127,14 +124,11 @@ class BookingService
     /**
      * Cancel a booking
      *
-     * @param Booking $booking
-     * @param string|null $reason
-     * @return Booking
      * @throws Exception
      */
     public function cancelBooking(Booking $booking, ?string $reason = null): Booking
     {
-        if (!in_array($booking->status, Booking::CANCELLABLE_STATUSES, true)) {
+        if (! in_array($booking->status, Booking::CANCELLABLE_STATUSES, true)) {
             throw new Exception('This booking cannot be cancelled');
         }
 
@@ -143,9 +137,7 @@ class BookingService
             $refundAmount = 0;
 
             if ($invoice) {
-                $refundService = app(RefundService::class);
-
-                $paidAmount = $refundService->calculatePaidAmount($invoice);
+                $paidAmount = $this->refundService->calculatePaidAmount($invoice);
 
                 if ($paidAmount > 0) {
                     $refundAmount = min(
@@ -154,7 +146,7 @@ class BookingService
                     );
 
                     if ($refundAmount > 0) {
-                        $refundService->processRefund(
+                        $this->refundService->processRefund(
                             $invoice,
                             $refundAmount,
                             $reason ?? 'Booking cancelled'
@@ -165,7 +157,7 @@ class BookingService
 
             $booking->update([
                 'status' => Booking::STATUS_CANCELLED,
-                'cancellation_reason' => $reason
+                'cancellation_reason' => $reason,
             ]);
 
             if ($booking->car) {
@@ -179,7 +171,7 @@ class BookingService
             $freshBooking = $cancelledBooking->fresh();
 
             if ($freshBooking->isSecurityDepositSafeToRelease()) {
-                app(SecurityDepositService::class)->release($freshBooking);
+                $this->securityDepositService->release($freshBooking);
             }
         } catch (Exception $e) {
             Log::error('Failed to auto-release security deposit after booking cancellation', [
@@ -212,7 +204,7 @@ class BookingService
                     } catch (Exception $e) {
                         Log::error('Failed to cancel overdue booking', [
                             'booking_id' => $booking->id,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
                     }
                 }

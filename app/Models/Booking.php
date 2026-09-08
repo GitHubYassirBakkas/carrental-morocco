@@ -2,22 +2,28 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\Concerns\ProtectsHistoricalRecords;
+use App\Services\Pricing\BookingPricingService;
+use App\Services\SecurityDepositService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Concerns\ProtectsHistoricalRecords;
-use App\Models\Location;
 
 class Booking extends Model
 {
-    use HasFactory, SoftDeletes, ProtectsHistoricalRecords;
+    use HasFactory, ProtectsHistoricalRecords, SoftDeletes;
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_CONFIRMED = 'confirmed';
+
     public const STATUS_ACTIVE = 'active';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_CANCELED_ALIAS = 'canceled';
 
     public const STATUSES = [
@@ -37,14 +43,21 @@ class Booking extends Model
     public const CANCELLABLE_STATUSES = self::ACTIVE_OR_RESERVED_STATUSES;
 
     public const ADVANCE_PAYMENT_STATUS_PENDING = 'pending';
+
     public const ADVANCE_PAYMENT_STATUS_PAID = 'paid';
 
     public const SECURITY_DEPOSIT_STATUS_PENDING = 'pending';
+
     public const SECURITY_DEPOSIT_STATUS_HELD = 'held';
+
     public const SECURITY_DEPOSIT_STATUS_CAPTURED = 'captured';
+
     public const SECURITY_DEPOSIT_STATUS_REFUND_PENDING = 'refund_pending';
+
     public const SECURITY_DEPOSIT_STATUS_PARTIALLY_REFUNDED = 'partially_refunded';
+
     public const SECURITY_DEPOSIT_STATUS_REFUNDED = 'refunded';
+
     public const SECURITY_DEPOSIT_STATUS_RELEASED = 'released';
 
     public const SECURITY_DEPOSIT_FINAL_STATUSES = [
@@ -112,8 +125,8 @@ class Booking extends Model
         'security_deposit_refund_error_message',
         'security_deposit_processed_by',
         'advance_payment_status',
-        'advance_payment_paid_at',      // ← Add this
-        'advance_payment_due_at',       // ← Add this
+        'advance_payment_paid_at',
+        'advance_payment_due_at',
         'pickup_instructions',
         'return_instructions',
         'coupon_id',
@@ -139,8 +152,8 @@ class Booking extends Model
         'security_deposit_released_at' => 'datetime',
         'security_deposit_captured_at' => 'datetime',
         'security_deposit_refunded_at' => 'datetime',
-        'advance_payment_paid_at' => 'datetime',    // ← Add this
-        'advance_payment_due_at' => 'datetime',     // ← Add this
+        'advance_payment_paid_at' => 'datetime',
+        'advance_payment_due_at' => 'datetime',
         'discount_amount' => 'decimal:2',
     ];
 
@@ -191,6 +204,7 @@ class Booking extends Model
     {
         return $this->belongsTo(Insurance::class);
     }
+
     public function review()
     {
         return $this->hasOne(Review::class);
@@ -210,7 +224,7 @@ class Booking extends Model
 
     public function getTotalDaysAttribute(): int
     {
-        if (!$this->start_date || !$this->end_date) {
+        if (! $this->start_date || ! $this->end_date) {
             return 1;
         }
 
@@ -222,11 +236,30 @@ class Booking extends Model
         return $this->status === $status;
     }
 
-    public function isPending()   { return $this->hasStatus(self::STATUS_PENDING); }
-    public function isConfirmed() { return $this->hasStatus(self::STATUS_CONFIRMED); }
-    public function isActive()    { return $this->hasStatus(self::STATUS_ACTIVE); }
-    public function isCompleted() { return $this->hasStatus(self::STATUS_COMPLETED); }
-    public function isCancelled() { return $this->hasStatus(self::STATUS_CANCELLED); }
+    public function isPending()
+    {
+        return $this->hasStatus(self::STATUS_PENDING);
+    }
+
+    public function isConfirmed()
+    {
+        return $this->hasStatus(self::STATUS_CONFIRMED);
+    }
+
+    public function isActive()
+    {
+        return $this->hasStatus(self::STATUS_ACTIVE);
+    }
+
+    public function isCompleted()
+    {
+        return $this->hasStatus(self::STATUS_COMPLETED);
+    }
+
+    public function isCancelled()
+    {
+        return $this->hasStatus(self::STATUS_CANCELLED);
+    }
 
     public function hasAdvancePaymentStatus(string $status): bool
     {
@@ -249,8 +282,12 @@ class Booking extends Model
     {
         $now = now();
 
-        if ($this->isCancelled()) return self::STATUS_CANCELLED;
-        if ($this->isCompleted()) return self::STATUS_COMPLETED;
+        if ($this->isCancelled()) {
+            return self::STATUS_CANCELLED;
+        }
+        if ($this->isCompleted()) {
+            return self::STATUS_COMPLETED;
+        }
 
         if ($this->start_date && $now->lt($this->start_date)) {
             return 'upcoming';
@@ -271,7 +308,9 @@ class Booking extends Model
 
     public function getIsLateAttribute()
     {
-        if (!$this->end_date) return false;
+        if (! $this->end_date) {
+            return false;
+        }
 
         $return = $this->return_actual ?? now();
 
@@ -280,7 +319,9 @@ class Booking extends Model
 
     public function getLateMinutesAttribute()
     {
-        if (!$this->is_late || !$this->end_date) return 0;
+        if (! $this->is_late || ! $this->end_date) {
+            return 0;
+        }
 
         $return = $this->return_actual ?? now();
 
@@ -289,7 +330,9 @@ class Booking extends Model
 
     public function getLateFeeAttribute()
     {
-        if (!$this->is_late) return 0;
+        if (! $this->is_late) {
+            return 0;
+        }
 
         $graceMinutes = (int) config('rental.late_grace_minutes', 60);
 
@@ -307,35 +350,43 @@ class Booking extends Model
 
     public function getProgressPercentAttribute()
     {
-        if (!$this->start_date || !$this->end_date) return 0;
+        if (! $this->start_date || ! $this->end_date) {
+            return 0;
+        }
 
         $total = $this->start_date->diffInSeconds($this->end_date);
-        if ($total <= 0) return 100;
+        if ($total <= 0) {
+            return 100;
+        }
 
         $passed = $this->start_date->diffInSeconds(now(), false);
 
-        if ($passed <= 0) return 0;
-        if ($passed >= $total) return 100;
+        if ($passed <= 0) {
+            return 0;
+        }
+        if ($passed >= $total) {
+            return 100;
+        }
 
         return round(($passed / $total) * 100);
     }
 
     public function getTimeLabelAttribute()
     {
-        if (!$this->start_date || !$this->end_date) {
+        if (! $this->start_date || ! $this->end_date) {
             return '-';
         }
 
         if ($this->timeline_status === 'upcoming') {
-            return 'Starts in ' . now()->diffForHumans($this->start_date, true);
+            return 'Starts in '.now()->diffForHumans($this->start_date, true);
         }
 
         if ($this->timeline_status === 'ongoing') {
-            return 'Ends in ' . now()->diffForHumans($this->end_date, true);
+            return 'Ends in '.now()->diffForHumans($this->end_date, true);
         }
 
         if ($this->timeline_status === 'late') {
-            return 'Late by ' . now()->diffForHumans($this->end_date, true);
+            return 'Late by '.now()->diffForHumans($this->end_date, true);
         }
 
         if ($this->timeline_status === 'completed') {
@@ -346,217 +397,206 @@ class Booking extends Model
     }
 
     public function inspections()
-{
-    return $this->hasMany(BookingInspection::class);
-}
-
-public function checkinInspection()
-{
-    return $this->hasOne(BookingInspection::class)
-        ->where('type', 'checkin');
-}
-
-public function checkoutInspection()
-{
-    return $this->hasOne(BookingInspection::class)
-        ->where('type', 'checkout');
-}
-public function damages()
-{
-    return $this->hasMany(BookingDamage::class);
-}
-
-public function checkinDamages()
-{
-    return $this->damages()->where('stage','checkin');
-}
-
-public function checkoutDamages()
-{
-    return $this->damages()->where('stage','checkout');
-}
-
-public function getTotalCheckoutDamageAttribute()
-{
-    return $this->checkoutDamages()
-                ->where('is_chargeable', true)
-                ->sum('estimated_cost');
-}
-
-public function getMileageDifferenceAttribute()
-{
-    if (!$this->checkinInspection || !$this->checkoutInspection) {
-        return 0;
+    {
+        return $this->hasMany(BookingInspection::class);
     }
 
-    return $this->checkoutInspection->mileage - $this->checkinInspection->mileage;
-}
-
-public function getFuelDifferenceAttribute()
-{
-    return max(
-        0,
-        ($this->fuel_at_pickup_percent ?? 0)
-        - ($this->fuel_at_return_percent ?? 0)
-    );
-}
-
-public function getFinalTotalAttribute()
-{
-    return $this->total_amount
-        + ($this->fuel_charge ?? 0)
-        + ($this->late_fee ?? 0)
-        + $this->damages()->sum('estimated_cost');
-}
-
-
-public function calculateFuelCharge()
-{
-    if (
-        $this->fuel_at_pickup_percent === null ||
-        $this->fuel_at_return_percent === null
-    ) {
-        return 0;
+    public function checkinInspection()
+    {
+        return $this->hasOne(BookingInspection::class)
+            ->where('type', 'checkin');
     }
 
-    $missingPercent =
-        $this->fuel_at_pickup_percent - $this->fuel_at_return_percent;
-
-    if ($missingPercent <= 0) {
-        return 0;
+    public function checkoutInspection()
+    {
+        return $this->hasOne(BookingInspection::class)
+            ->where('type', 'checkout');
     }
 
-    $tankCapacity = $this->car->fuel_tank_capacity; // ex: 50L
-    $pricePerLiter = $this->car->fuel_price_per_liter; // ex: 13 MAD
+    public function damages()
+    {
+        return $this->hasMany(BookingDamage::class);
+    }
 
-    $missingLiters = $tankCapacity * ($missingPercent / 100);
+    public function checkinDamages()
+    {
+        return $this->damages()->where('stage', 'checkin');
+    }
 
-    return round($missingLiters * $pricePerLiter, 2);
-}
+    public function checkoutDamages()
+    {
+        return $this->damages()->where('stage', 'checkout');
+    }
 
+    public function getTotalCheckoutDamageAttribute()
+    {
+        return $this->checkoutDamages()
+            ->where('is_chargeable', true)
+            ->sum('estimated_cost');
+    }
 
+    public function getMileageDifferenceAttribute()
+    {
+        if (! $this->checkinInspection || ! $this->checkoutInspection) {
+            return 0;
+        }
 
+        return $this->checkoutInspection->mileage - $this->checkinInspection->mileage;
+    }
 
+    public function getFuelDifferenceAttribute()
+    {
+        return max(
+            0,
+            ($this->fuel_at_pickup_percent ?? 0)
+            - ($this->fuel_at_return_percent ?? 0)
+        );
+    }
 
-public function calculateLate()
-{
-    if ($this->isCompleted()) {
+    public function getFinalTotalAttribute()
+    {
+        return $this->total_amount
+            + ($this->fuel_charge ?? 0)
+            + ($this->late_fee ?? 0)
+            + $this->damages()->sum('estimated_cost');
+    }
+
+    public function calculateFuelCharge()
+    {
+        if (
+            $this->fuel_at_pickup_percent === null ||
+            $this->fuel_at_return_percent === null
+        ) {
+            return 0;
+        }
+
+        $missingPercent = $this->fuel_at_pickup_percent - $this->fuel_at_return_percent;
+
+        if ($missingPercent <= 0) {
+            return 0;
+        }
+
+        $tankCapacity = $this->car->fuel_tank_capacity;
+        $pricePerLiter = $this->car->fuel_price_per_liter;
+
+        $missingLiters = $tankCapacity * ($missingPercent / 100);
+
+        return round($missingLiters * $pricePerLiter, 2);
+    }
+
+    public function calculateLate()
+    {
+        if ($this->isCompleted()) {
+            return [
+                'minutes' => $this->late_minutes,
+                'fee' => $this->late_fee,
+            ];
+        }
+
+        if (now()->lte($this->end_date)) {
+            return [
+                'minutes' => 0,
+                'fee' => 0,
+            ];
+        }
+
+        $minutes = now()->diffInMinutes($this->end_date);
+
         return [
-            'minutes' => $this->late_minutes,
-            'fee' => $this->late_fee
+            'minutes' => $minutes,
+            'fee' => $minutes * 5,
         ];
     }
 
-    if (now()->lte($this->end_date)) {
+    public function calculateFuel()
+    {
         return [
-            'minutes' => 0,
-            'fee' => 0
+            'used' => $this->fuel_used,
+            'charge' => $this->fuel_charge,
         ];
     }
 
-    $minutes = now()->diffInMinutes($this->end_date);
-
-    return [
-        'minutes' => $minutes,
-        'fee' => $minutes * 5
-    ];
-}
-
-public function calculateFuel()
-{
-    return [
-        'used' => $this->fuel_used,
-        'charge' => $this->fuel_charge
-    ];
-}
-
-public function invoice()
-{
-    return $this->hasOne(Invoice::class);
-}
-
-public function getPricingBreakdownAttribute(): array
-{
-    return app(\App\Services\Pricing\BookingPricingService::class)
-        ->breakdownForBooking($this);
-}
-
-public function getInvoiceLineItemsAttribute(): array
-{
-    return app(\App\Services\Pricing\BookingPricingService::class)
-        ->lineItems($this->pricing_breakdown);
-}
-
-
-public function canComplete()
-{
-    // Define the logic for when a booking can be completed
-    // For example, check if the booking is in 'active' status
-    return $this->isActive();
-    
-    // Or you might want to check multiple conditions:
-    // return $this->status === self::STATUS_ACTIVE && $this->payment_status === self::ADVANCE_PAYMENT_STATUS_PAID;
-}
-
-public function isAdvancePaymentOverdue(): bool
-{
-    // ila ma kaynach advance_payment_due_at → false
-    if (!$this->advance_payment_due_at) return false;
-
-    // ila tpaid deja → false
-    if ($this->isAdvancePaymentPaid()) return false;
-
-    // ila deadline fat w ma tpaidch → true
-    return now()->greaterThan($this->advance_payment_due_at);
-}
-
-public function isSecurityDepositSafeToRelease(): bool
-{
-    return $this->isSecurityDepositActionable()
-        && !$this->isCompleted();
-}
-
-public function getSecurityDepositEffectiveState(): string
-{
-    return app(\App\Services\SecurityDepositService::class)
-        ->getSecurityDepositEffectiveState($this);
-}
-
-public function isSecurityDepositActionable(): bool
-{
-    return app(\App\Services\SecurityDepositService::class)
-        ->isSecurityDepositActionable($this);
-}
-
-public function isSecurityDepositRefundable(): bool
-{
-    return app(\App\Services\SecurityDepositService::class)
-        ->isSecurityDepositRefundable($this);
-}
-
-public function couponUsage()
-{
-    return $this->hasOne(CouponUsage::class);
-}
-
-
-/**
- * Scope for bookings waiting on advance payment.
- */
-public function scopePendingAdvancePayment($query)
-{
-    return $query->where('advance_payment_status', '!=', self::ADVANCE_PAYMENT_STATUS_PAID)
-                 ->where('status', self::STATUS_PENDING);
-}
-
-public function scopeActiveOrReserved(Builder $query): Builder
-{
-    return $query->whereIn('status', self::ACTIVE_OR_RESERVED_STATUSES);
-}
-
-public function scopeOverlapping(Builder $query, $startDate, $endDate): Builder
-{
-    return $query->where('start_date', '<', $endDate)
-                 ->where('end_date', '>', $startDate);
-}
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class);
     }
+
+    public function getPricingBreakdownAttribute(): array
+    {
+        return app(BookingPricingService::class)
+            ->breakdownForBooking($this);
+    }
+
+    public function getInvoiceLineItemsAttribute(): array
+    {
+        return app(BookingPricingService::class)
+            ->lineItems($this->pricing_breakdown);
+    }
+
+    public function canComplete()
+    {
+        return $this->isActive();
+    }
+
+    public function isAdvancePaymentOverdue(): bool
+    {
+        if (! $this->advance_payment_due_at) {
+            return false;
+        }
+
+        if ($this->isAdvancePaymentPaid()) {
+            return false;
+        }
+
+        return now()->greaterThan($this->advance_payment_due_at);
+    }
+
+    public function isSecurityDepositSafeToRelease(): bool
+    {
+        return $this->isSecurityDepositActionable()
+            && ! $this->isCompleted();
+    }
+
+    public function getSecurityDepositEffectiveState(): string
+    {
+        return app(SecurityDepositService::class)
+            ->getSecurityDepositEffectiveState($this);
+    }
+
+    public function isSecurityDepositActionable(): bool
+    {
+        return app(SecurityDepositService::class)
+            ->isSecurityDepositActionable($this);
+    }
+
+    public function isSecurityDepositRefundable(): bool
+    {
+        return app(SecurityDepositService::class)
+            ->isSecurityDepositRefundable($this);
+    }
+
+    public function couponUsage()
+    {
+        return $this->hasOne(CouponUsage::class);
+    }
+
+    /**
+     * Scope for bookings waiting on advance payment.
+     */
+    public function scopePendingAdvancePayment($query)
+    {
+        return $query->where('advance_payment_status', '!=', self::ADVANCE_PAYMENT_STATUS_PAID)
+            ->where('status', self::STATUS_PENDING);
+    }
+
+    public function scopeActiveOrReserved(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::ACTIVE_OR_RESERVED_STATUSES);
+    }
+
+    public function scopeOverlapping(Builder $query, $startDate, $endDate): Builder
+    {
+        return $query->where('start_date', '<', $endDate)
+            ->where('end_date', '>', $startDate);
+    }
+}

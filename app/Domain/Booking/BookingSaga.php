@@ -13,6 +13,7 @@ use App\Models\Booking;
 use App\Models\BookingSaga as BookingSagaModel;
 use App\Models\SagaExecutionLog;
 use App\Services\InvoiceService;
+use App\Services\SecurityDepositService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,9 +21,11 @@ use Throwable;
 
 class BookingSaga
 {
-    public function __construct(private readonly BookingStateMachine $stateMachine)
-    {
-    }
+    public function __construct(
+        private readonly BookingStateMachine $stateMachine,
+        private readonly InvoiceService $invoiceService,
+        private readonly SecurityDepositService $securityDepositService
+    ) {}
 
     public function onPaymentSucceeded(PaymentSucceededEvent $event): void
     {
@@ -46,7 +49,7 @@ class BookingSaga
     public function onBookingConfirmed(BookingConfirmedEvent $event): void
     {
         $this->run($event->bookingId(), $event->traceId(), 'booking_confirmed', $event->payload, function (Booking $booking, BookingSagaModel $saga) use ($event) {
-            $invoice = app(InvoiceService::class)->firstOrCreateForPaymentProcessing($booking);
+            $invoice = $this->invoiceService->firstOrCreateForPaymentProcessing($booking);
 
             $this->markStep($saga, 'invoice_created', 'running', array_merge($event->payload, [
                 'invoice_id' => $invoice->id,
@@ -129,7 +132,7 @@ class BookingSaga
 
     private function run(?int $bookingId, string $traceId, string $step, array $payload, callable $callback): void
     {
-        if (!$bookingId) {
+        if (! $bookingId) {
             return;
         }
 
@@ -197,11 +200,11 @@ class BookingSaga
             $actions[] = 'booking_confirmation_rolled_back_to_cancelled';
         }
 
-        if (!empty($event->payload['payment_intent_id'])) {
+        if (! empty($event->payload['payment_intent_id'])) {
             $actions[] = 'refund_payment_intent_requested_logically';
         }
 
-        if (app(\App\Services\SecurityDepositService::class)->shouldRequestLogicalRelease($booking)) {
+        if ($this->securityDepositService->shouldRequestLogicalRelease($booking)) {
             $actions[] = 'release_deposit_requested_logically';
         }
 

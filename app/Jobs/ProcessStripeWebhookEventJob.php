@@ -43,10 +43,16 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
         return [5, 30, 120];
     }
 
-    public function handle(PaymentProcessor $processor, PaymentEventAuditService $auditService, PaymentWebhookMetrics $metrics): void
-    {
-        $workerName = gethostname() . ':stripe-webhook:' . getmypid();
-        $heartbeats = app(WorkerHeartbeatService::class);
+    public function handle(
+        PaymentProcessor $processor,
+        PaymentEventAuditService $auditService,
+        PaymentWebhookMetrics $metrics,
+        ?WorkerHeartbeatService $heartbeats = null,
+        ?FailedWebhookEventService $failedWebhookEvents = null
+    ): void {
+        $workerName = gethostname().':stripe-webhook:'.getmypid();
+        $heartbeats ??= app(WorkerHeartbeatService::class);
+        $failedWebhookEvents ??= app(FailedWebhookEventService::class);
 
         $heartbeats->beat(
             $workerName,
@@ -58,7 +64,7 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
         try {
             $storedEvent = $this->claimStoredEvent();
 
-            if (!$storedEvent) {
+            if (! $storedEvent) {
                 return;
             }
 
@@ -83,7 +89,7 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
 
             $audit = $auditService->beginProcessing($event, $bookingId, $paymentIntentId, $storedEvent->payload);
 
-            if (!$audit) {
+            if (! $audit) {
                 $storedEvent->forceFill([
                     'status' => StripeWebhookEvent::STATUS_PROCESSED,
                     'processed_at' => now(),
@@ -241,7 +247,7 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
                 ]);
 
                 if (config('queue.webhook_connection', config('queue.default')) === 'sync') {
-                    app(FailedWebhookEventService::class)->record(
+                    $failedWebhookEvents->record(
                         $event,
                         $bookingId,
                         $paymentIntentId,
@@ -312,7 +318,7 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
     {
         $storedEvent = StripeWebhookEvent::find($this->stripeWebhookEventId);
 
-        if (!$storedEvent) {
+        if (! $storedEvent) {
             return;
         }
 
@@ -414,19 +420,19 @@ class ProcessStripeWebhookEventJob implements ShouldQueue
             'payment_intent.payment_failed',
         ];
 
-        if (!in_array($eventType, $supported, true)) {
+        if (! in_array($eventType, $supported, true)) {
             return 'unsupported_stripe_event';
         }
 
-        if (!$bookingId) {
+        if (! $bookingId) {
             return 'missing_booking_id';
         }
 
-        if (!Booking::whereKey($bookingId)->exists()) {
+        if (! Booking::whereKey($bookingId)->exists()) {
             return 'booking_not_found';
         }
 
-        if ($eventType === 'payment_intent.succeeded' && !in_array($metadataType, ['rental', 'security_deposit'], true)) {
+        if ($eventType === 'payment_intent.succeeded' && ! in_array($metadataType, ['rental', 'security_deposit'], true)) {
             return 'non_business_payment_intent';
         }
 

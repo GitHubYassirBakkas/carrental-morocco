@@ -98,7 +98,7 @@ class Location extends Model
         }
 
         // استخدم مفتاح API الخاص بك هنا
-        $apiKey = env('GOOGLE_MAPS_API_KEY', 'YOUR_API_KEY');
+        $apiKey = config('services.google_maps.api_key');
         
         return "https://www.google.com/maps/embed/v1/place?key={$apiKey}&q={$this->latitude},{$this->longitude}&zoom=15";
     }

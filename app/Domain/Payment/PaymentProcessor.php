@@ -26,8 +26,9 @@ class PaymentProcessor
         private readonly PaymentWebhookLockService $locks,
         private readonly PaymentWebhookMetrics $metrics,
         private readonly BookingStateMachine $bookingStateMachine,
-    ) {
-    }
+        private readonly SecurityDepositService $securityDepositService,
+        private readonly PaymentService $paymentService,
+    ) {}
 
     public function processWebhook(
         object $event,
@@ -146,7 +147,7 @@ class PaymentProcessor
             'payment_intent.succeeded',
             'payment_intent.payment_failed',
         ], true) && $metadataType === 'security_deposit') {
-            if (!$bookingId || !$object) {
+            if (! $bookingId || ! $object) {
                 Log::error('invalid security deposit metadata', [
                     'event_type' => $eventType,
                     'event_id' => $event->id ?? null,
@@ -158,7 +159,7 @@ class PaymentProcessor
                 return 'ignored';
             }
 
-            $syncResult = app(SecurityDepositService::class)->syncFromStripeIntent(
+            $syncResult = $this->securityDepositService->syncFromStripeIntent(
                 $object,
                 $eventType,
                 $event->id ?? null
@@ -240,7 +241,7 @@ class PaymentProcessor
             $traceId = (string) Str::uuid();
             $booking = Booking::whereKey($bookingId)->lockForUpdate()->first();
 
-            if (!$booking) {
+            if (! $booking) {
                 Log::warning('Stripe webhook booking not found.', [
                     'event_id' => $eventId,
                     'payment_intent_id' => $paymentIntentId,
@@ -279,13 +280,13 @@ class PaymentProcessor
                     ->first();
             }
 
-            if (!$invoice) {
+            if (! $invoice) {
                 $invoice = $booking->invoice()
                     ->lockForUpdate()
                     ->first();
             }
 
-            if (!$invoice) {
+            if (! $invoice) {
                 $invoice = Invoice::create([
                     'booking_id' => (string) $booking->id,
                     'user_id' => $booking->user_id,
@@ -304,7 +305,7 @@ class PaymentProcessor
             $paymentCreated = false;
             $paymentAmount = (($paymentIntent->amount_received ?? $paymentIntent->amount ?? ((float) $booking->total_amount * 100)) / 100);
 
-            if (!$payment) {
+            if (! $payment) {
                 $payment = $invoice->payments()->create([
                     'user_id' => $booking->user_id,
                     'amount' => $paymentAmount,
@@ -325,7 +326,7 @@ class PaymentProcessor
                     'actual_invoice_id' => $payment->invoice_id,
                     'booking_id' => $booking->id,
                 ]);
-            } elseif ($payment->status !== Payment::STATUS_COMPLETED || !$payment->paid_at) {
+            } elseif ($payment->status !== Payment::STATUS_COMPLETED || ! $payment->paid_at) {
                 $payment->update([
                     'status' => Payment::STATUS_COMPLETED,
                     'paid_at' => $payment->paid_at ?? now(),
@@ -335,7 +336,7 @@ class PaymentProcessor
                 ]);
             }
 
-            app(PaymentService::class)->updateInvoiceStatus($invoice);
+            $this->paymentService->updateInvoiceStatus($invoice);
 
             $this->confirmBookingAfterRentalPayment($booking, $eventId, $paymentIntentId, $traceId);
 

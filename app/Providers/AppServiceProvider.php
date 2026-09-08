@@ -25,7 +25,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if ($this->app->runningInConsole() && app()->environment('local') && (bool) config('app.safe_mode', true)) {
+        if (
+            $this->app->runningInConsole()
+            && ! $this->app->runningUnitTests()
+            && $this->app->environment('production')
+            && (bool) config('app.safe_mode', true)
+        ) {
             Event::listen(CommandStarting::class, function (CommandStarting $event): void {
                 $blockedCommands = [
                     'migrate:fresh',

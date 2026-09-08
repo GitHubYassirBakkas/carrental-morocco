@@ -11,14 +11,20 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
-use Stripe\Refund;
 use Stripe\PaymentIntent;
+use Stripe\Refund;
 use Throwable;
 
 class SecurityDepositService
 {
     public const ACTIONABLE_STATES = Booking::SECURITY_DEPOSIT_ACTIONABLE_STATUSES;
+
     public const FINAL_STATES = Booking::SECURITY_DEPOSIT_FINAL_STATUSES;
+
+    public function __construct(
+        private readonly PaymentIdempotencyService $idempotency,
+        private readonly PaymentStateTransitionValidator $transitionValidator
+    ) {}
 
     public function getSecurityDepositEffectiveState(Booking $booking): string
     {
@@ -51,7 +57,7 @@ class SecurityDepositService
             return Booking::SECURITY_DEPOSIT_STATUS_CAPTURED;
         }
 
-        if (!$booking->security_deposit_intent_id) {
+        if (! $booking->security_deposit_intent_id) {
             return Booking::SECURITY_DEPOSIT_STATUS_PENDING;
         }
 
@@ -75,7 +81,7 @@ class SecurityDepositService
 
     public function isSecurityDepositRefundable(Booking $booking): bool
     {
-        if (!$booking->security_deposit_intent_id || $this->getSecurityDepositEffectiveState($booking) !== Booking::SECURITY_DEPOSIT_STATUS_CAPTURED) {
+        if (! $booking->security_deposit_intent_id || $this->getSecurityDepositEffectiveState($booking) !== Booking::SECURITY_DEPOSIT_STATUS_CAPTURED) {
             return false;
         }
 
@@ -103,7 +109,7 @@ class SecurityDepositService
     public function requiresSecurityDepositAuthorization(Booking $booking): bool
     {
         return $this->getExpectedSecurityDepositAmount($booking) > 0
-            && !$this->isSecurityDepositFinal($booking);
+            && ! $this->isSecurityDepositFinal($booking);
     }
 
     public function shouldRequestLogicalRelease(Booking $booking): bool
@@ -123,7 +129,7 @@ class SecurityDepositService
             $updates['security_deposit_status'] = $effectiveState;
         }
 
-        if ($effectiveState === Booking::SECURITY_DEPOSIT_STATUS_PENDING && !$booking->security_deposit_intent_id && (float) $booking->security_deposit_capturable_amount !== 0.0) {
+        if ($effectiveState === Booking::SECURITY_DEPOSIT_STATUS_PENDING && ! $booking->security_deposit_intent_id && (float) $booking->security_deposit_capturable_amount !== 0.0) {
             $updates['security_deposit_capturable_amount'] = 0;
         }
 
@@ -151,7 +157,7 @@ class SecurityDepositService
                     $updates['security_deposit_status'] = $effectiveState;
                 }
 
-                if ($effectiveState === Booking::SECURITY_DEPOSIT_STATUS_PENDING && !$lockedBooking->security_deposit_intent_id && (float) $lockedBooking->security_deposit_capturable_amount !== 0.0) {
+                if ($effectiveState === Booking::SECURITY_DEPOSIT_STATUS_PENDING && ! $lockedBooking->security_deposit_intent_id && (float) $lockedBooking->security_deposit_capturable_amount !== 0.0) {
                     $updates['security_deposit_capturable_amount'] = 0;
                 }
 
@@ -173,7 +179,7 @@ class SecurityDepositService
                 }
 
                 if (isset($updates['security_deposit_status']) && $updates['security_deposit_status'] !== $previousStatus) {
-                    app(PaymentStateTransitionValidator::class)->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
+                    $this->transitionValidator->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
                         'booking_id' => $lockedBooking->id,
                         'intent_id' => $lockedBooking->security_deposit_intent_id,
                         'action' => 'normalize_security_deposit_state',
@@ -230,7 +236,7 @@ class SecurityDepositService
                 throw new Exception('Cannot capture security deposit after booking completion.');
             }
 
-            if (!$booking->security_deposit_intent_id) {
+            if (! $booking->security_deposit_intent_id) {
                 throw new Exception('No security deposit PaymentIntent found.');
             }
 
@@ -311,7 +317,7 @@ class SecurityDepositService
                     'action' => 'sync_existing_capture',
                 ]);
 
-                $this->syncFromStripeIntent($intent, 'payment_intent.succeeded', 'admin_security_deposit_capture_' . $intent->id);
+                $this->syncFromStripeIntent($intent, 'payment_intent.succeeded', 'admin_security_deposit_capture_'.$intent->id);
                 if ($amount !== null) {
                     $freshBooking = $booking->fresh();
                     $this->recordSecurityDepositCapturedAudit($freshBooking, $penaltyReason);
@@ -335,10 +341,9 @@ class SecurityDepositService
                 return $intent;
             }
 
-            $idempotency = app(PaymentIdempotencyService::class);
-            $begin = $idempotency->begin(
-                'security_deposit_capture:' . $intent->id,
-                'admin_security_deposit_capture_' . $intent->id,
+            $begin = $this->idempotency->begin(
+                'security_deposit_capture:'.$intent->id,
+                'admin_security_deposit_capture_'.$intent->id,
                 $intent->id
             );
             $idempotencyRecord = $begin['record'] ?? null;
@@ -350,7 +355,7 @@ class SecurityDepositService
                     'action' => 'ignore_duplicate_capture',
                 ]);
 
-                $this->syncFromStripeIntent($intent, 'payment_intent.succeeded', 'admin_security_deposit_capture_' . $intent->id);
+                $this->syncFromStripeIntent($intent, 'payment_intent.succeeded', 'admin_security_deposit_capture_'.$intent->id);
                 $this->markAdminAudit($audit, 'ignored');
 
                 return (object) [
@@ -384,14 +389,14 @@ class SecurityDepositService
             ]);
 
             $capturedIntent = $intent->capture();
-            $this->syncFromStripeIntent($capturedIntent, 'payment_intent.succeeded', 'admin_security_deposit_capture_' . $capturedIntent->id);
+            $this->syncFromStripeIntent($capturedIntent, 'payment_intent.succeeded', 'admin_security_deposit_capture_'.$capturedIntent->id);
 
             $freshBooking = $booking->fresh();
             $this->recordSecurityDepositCapturedAudit($freshBooking, $penaltyReason);
             $this->applyPenaltyAndRefundRemainder($freshBooking, $capturedIntent, $penaltyAmount, $penaltyReason);
 
             if ($idempotencyRecord instanceof PaymentIdempotencyKey) {
-                $idempotency->markCompleted($idempotencyRecord);
+                $this->idempotency->markCompleted($idempotencyRecord);
             }
 
             $this->markAdminAudit($audit, 'processed');
@@ -399,7 +404,7 @@ class SecurityDepositService
             return $capturedIntent;
         } catch (Throwable $e) {
             if ($idempotencyRecord instanceof PaymentIdempotencyKey) {
-                app(PaymentIdempotencyService::class)->markFailed($idempotencyRecord);
+                $this->idempotency->markFailed($idempotencyRecord);
             }
 
             $this->markAdminAudit($audit, 'failed', $e->getMessage());
@@ -422,7 +427,7 @@ class SecurityDepositService
                 throw new Exception('Cannot release security deposit after booking completion.');
             }
 
-            if (!$booking->security_deposit_intent_id) {
+            if (! $booking->security_deposit_intent_id) {
                 throw new Exception('No security deposit PaymentIntent found.');
             }
 
@@ -456,7 +461,7 @@ class SecurityDepositService
                     'action' => 'sync_existing_refund',
                 ]);
 
-                $this->syncFromStripeIntent($intent, 'payment_intent.canceled', 'admin_security_deposit_release_' . $intent->id);
+                $this->syncFromStripeIntent($intent, 'payment_intent.canceled', 'admin_security_deposit_release_'.$intent->id);
                 $this->recordSecurityDepositRefundedAudit($booking->fresh());
                 $this->markAdminAudit($audit, 'processed');
 
@@ -464,12 +469,12 @@ class SecurityDepositService
             }
 
             if ($intent->status === 'succeeded') {
-                if (!$booking->hasSecurityDepositStatus(Booking::SECURITY_DEPOSIT_STATUS_CAPTURED)) {
-                    $this->syncFromStripeIntent($intent, 'payment_intent.succeeded', 'admin_security_deposit_refund_sync_' . $intent->id);
+                if (! $booking->hasSecurityDepositStatus(Booking::SECURITY_DEPOSIT_STATUS_CAPTURED)) {
+                    $this->syncFromStripeIntent($intent, 'payment_intent.succeeded', 'admin_security_deposit_refund_sync_'.$intent->id);
                     $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
                 }
 
-                if (!$booking->hasSecurityDepositStatus(Booking::SECURITY_DEPOSIT_STATUS_CAPTURED)) {
+                if (! $booking->hasSecurityDepositStatus(Booking::SECURITY_DEPOSIT_STATUS_CAPTURED)) {
                     Log::info('Security deposit refund skipped: booking deposit is not captured.', [
                         'booking_id' => $booking->id,
                         'intent_id' => $intent->id,
@@ -513,7 +518,7 @@ class SecurityDepositService
                 ];
             }
 
-            if (!in_array($intent->status, ['requires_capture', 'requires_payment_method'], true)) {
+            if (! in_array($intent->status, ['requires_capture', 'requires_payment_method'], true)) {
                 Log::info('Security deposit release skipped: Stripe intent cannot be canceled or refunded.', [
                     'booking_id' => $booking->id,
                     'intent_id' => $intent->id,
@@ -534,7 +539,7 @@ class SecurityDepositService
             ]);
 
             $canceledIntent = $intent->cancel();
-            $this->syncFromStripeIntent($canceledIntent, 'payment_intent.canceled', 'admin_security_deposit_release_' . $canceledIntent->id);
+            $this->syncFromStripeIntent($canceledIntent, 'payment_intent.canceled', 'admin_security_deposit_release_'.$canceledIntent->id);
             $this->recordSecurityDepositRefundedAudit($booking->fresh());
             $this->markAdminAudit($audit, 'processed');
 
@@ -549,18 +554,18 @@ class SecurityDepositService
     {
         $booking = $this->lockedBooking($this->normalizeSecurityDepositState($booking));
 
-        if (!$booking->hasSecurityDepositStatus(Booking::SECURITY_DEPOSIT_STATUS_REFUND_PENDING)) {
+        if (! $booking->hasSecurityDepositStatus(Booking::SECURITY_DEPOSIT_STATUS_REFUND_PENDING)) {
             throw new Exception('Security deposit refund is not pending.');
         }
 
-        if (!empty($booking->security_deposit_refund_id)) {
+        if (! empty($booking->security_deposit_refund_id)) {
             return (object) [
                 'id' => $booking->security_deposit_intent_id,
                 'status' => $booking->security_deposit_status,
             ];
         }
 
-        if (!$booking->security_deposit_intent_id) {
+        if (! $booking->security_deposit_intent_id) {
             throw new Exception('No security deposit PaymentIntent found.');
         }
 
@@ -624,7 +629,7 @@ class SecurityDepositService
         $intentId = $paymentIntent->id ?? null;
         $stripeStatus = $paymentIntent->status ?? null;
 
-        if (!$bookingId || !$intentId) {
+        if (! $bookingId || ! $intentId) {
             Log::warning('Security deposit webhook ignored: missing booking or intent id.', [
                 'event_type' => $eventType,
                 'event_id' => $eventId,
@@ -639,7 +644,7 @@ class SecurityDepositService
             $traceId = (string) Str::uuid();
             $booking = Booking::whereKey($bookingId)->lockForUpdate()->first();
 
-            if (!$booking) {
+            if (! $booking) {
                 Log::warning('Security deposit webhook ignored: booking not found.', [
                     'event_type' => $eventType,
                     'event_id' => $eventId,
@@ -668,8 +673,6 @@ class SecurityDepositService
 
             $updates = ['security_deposit_intent_id' => $booking->security_deposit_intent_id ?: $intentId];
             $action = 'ignore';
-            $validator = app(PaymentStateTransitionValidator::class);
-
             if ($booking->security_deposit_intent_id && $booking->security_deposit_intent_id !== $intentId) {
                 Log::warning('Security deposit webhook ignored: stale or mismatched intent id.', [
                     'event_type' => $eventType,
@@ -761,7 +764,7 @@ class SecurityDepositService
                     'security_deposit_charged_amount' => $chargedAmount,
                     'security_deposit_released_at' => null,
                 ]);
-                $action = $previousStatus === $newStatus ? 'sync_' . $newStatus . '_idempotent' : 'mark_' . $newStatus;
+                $action = $previousStatus === $newStatus ? 'sync_'.$newStatus.'_idempotent' : 'mark_'.$newStatus;
             } elseif ($eventType === 'payment_intent.succeeded' && $stripeStatus === 'succeeded') {
                 $amountCapturable = $this->centsToAmount($paymentIntent->amount_capturable ?? 0);
                 $amountReceived = $this->centsToAmount($paymentIntent->amount_received ?? 0);
@@ -787,7 +790,7 @@ class SecurityDepositService
                         'security_deposit_charged_amount' => $capturedAmount,
                         'security_deposit_capturable_amount' => 0,
                     ]);
-                    $action = $previousStatus === $newStatus ? 'sync_' . $newStatus . '_idempotent' : 'mark_' . $newStatus;
+                    $action = $previousStatus === $newStatus ? 'sync_'.$newStatus.'_idempotent' : 'mark_'.$newStatus;
                 }
             } elseif ($eventType === 'payment_intent.canceled') {
                 if ($previousStatus === Booking::SECURITY_DEPOSIT_STATUS_CAPTURED) {
@@ -820,7 +823,7 @@ class SecurityDepositService
             if (
                 isset($updates['security_deposit_status']) &&
                 $updates['security_deposit_status'] !== $previousStatus &&
-                !$validator->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
+                ! $this->transitionValidator->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
                     'event_type' => $eventType,
                     'event_id' => $eventId,
                     'booking_id' => $booking->id,
@@ -889,7 +892,7 @@ class SecurityDepositService
             $remainingRefundable = max(0, $chargedAmount - $alreadyRefunded);
             $refundAmount = min($refundAmount, $remainingRefundable);
 
-            if (!empty($lockedBooking->security_deposit_refund_id)) {
+            if (! empty($lockedBooking->security_deposit_refund_id)) {
                 Log::info('Security deposit refund skipped: refund id already recorded.', [
                     'booking_id' => $lockedBooking->id,
                     'intent_id' => $intent->id,
@@ -904,13 +907,12 @@ class SecurityDepositService
                 return;
             }
 
-            if (!$this->stripePaymentHasCapturedFunds($intent, $chargedAmount)) {
+            if (! $this->stripePaymentHasCapturedFunds($intent, $chargedAmount)) {
                 throw new Exception('Stripe payment is missing captured funds for refund.');
             }
 
-            $idempotency = app(PaymentIdempotencyService::class);
-            $refundKey = 'security_deposit_refund:' . $intent->id . ':' . (int) round($refundAmount * 100);
-            $begin = $idempotency->begin($refundKey, 'admin_security_deposit_refund_' . $intent->id, $intent->id);
+            $refundKey = 'security_deposit_refund:'.$intent->id.':'.(int) round($refundAmount * 100);
+            $begin = $this->idempotency->begin($refundKey, 'admin_security_deposit_refund_'.$intent->id, $intent->id);
             $idempotencyRecord = $begin['record'] ?? null;
 
             if (in_array($begin['status'] ?? null, [PaymentIdempotencyService::RESULT_COMPLETED, PaymentIdempotencyService::RESULT_PROCESSING_TIMEOUT], true)) {
@@ -928,14 +930,14 @@ class SecurityDepositService
                 ]);
             } catch (Throwable $e) {
                 if ($idempotencyRecord instanceof PaymentIdempotencyKey) {
-                    $idempotency->markFailed($idempotencyRecord);
+                    $this->idempotency->markFailed($idempotencyRecord);
                 }
 
                 throw $e;
             }
 
             if ($idempotencyRecord instanceof PaymentIdempotencyKey) {
-                $idempotency->markCompleted($idempotencyRecord);
+                $this->idempotency->markCompleted($idempotencyRecord);
             }
 
             $newRefundedAmount = $alreadyRefunded + $refundAmount;
@@ -957,12 +959,12 @@ class SecurityDepositService
             OutboxEvent::create([
                 'event_type' => 'security_deposit_synchronized',
                 'trace_id' => $traceId,
-                'source_event_id' => 'admin_security_deposit_refund_' . $intent->id . '_' . (string) Str::uuid(),
+                'source_event_id' => 'admin_security_deposit_refund_'.$intent->id.'_'.(string) Str::uuid(),
                 'payload' => [
-                    'event_id' => 'admin_security_deposit_refund_' . $intent->id,
+                    'event_id' => 'admin_security_deposit_refund_'.$intent->id,
                     'trace_id' => $traceId,
                     'correlation_id' => $traceId,
-                    'source_event_id' => 'admin_security_deposit_refund_' . $intent->id,
+                    'source_event_id' => 'admin_security_deposit_refund_'.$intent->id,
                     'event_type' => 'admin.security_deposit.refunded',
                     'booking_id' => $lockedBooking->id,
                     'payment_intent_id' => $intent->id,
@@ -990,6 +992,7 @@ class SecurityDepositService
 
         if ($refundAmount <= 0) {
             $this->finalizeCapturedSecurityDepositAfterPenalty($booking, $intent->id, $chargedAmount, $alreadyRefunded, $penaltyAmount, $penaltyReason);
+
             return;
         }
 
@@ -1000,7 +1003,7 @@ class SecurityDepositService
         } catch (Throwable $e) {
             $this->markSecurityDepositRefundPending($booking, $intent->id, $chargedAmount, $alreadyRefunded, $penaltyAmount, $penaltyReason, $e);
 
-            throw new Exception('Security deposit captured, but refund failed. Refund is pending retry: ' . $e->getMessage(), 0, $e);
+            throw new Exception('Security deposit captured, but refund failed. Refund is pending retry: '.$e->getMessage(), 0, $e);
         }
     }
 
@@ -1034,7 +1037,7 @@ class SecurityDepositService
             }
 
             if (isset($updates['security_deposit_status']) && $updates['security_deposit_status'] !== $previousStatus) {
-                app(PaymentStateTransitionValidator::class)->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
+                $this->transitionValidator->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
                     'booking_id' => $lockedBooking->id,
                     'intent_id' => $intentId,
                     'action' => 'finalize_security_deposit_penalty',
@@ -1077,7 +1080,7 @@ class SecurityDepositService
             ], $alreadyRefunded), $penaltyAmount), $penaltyReason), $e->getMessage()));
 
             if (isset($updates['security_deposit_status']) && $updates['security_deposit_status'] !== $previousStatus) {
-                app(PaymentStateTransitionValidator::class)->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
+                $this->transitionValidator->validateSecurityDepositTransition($previousStatus, $updates['security_deposit_status'], [
                     'booking_id' => $lockedBooking->id,
                     'intent_id' => $intentId,
                     'action' => 'mark_security_deposit_refund_pending',
@@ -1102,7 +1105,7 @@ class SecurityDepositService
     {
         return PaymentEventAudit::updateOrCreate(
             [
-                'event_id' => 'admin_' . $eventType . '_' . $booking->security_deposit_intent_id,
+                'event_id' => 'admin_'.$eventType.'_'.$booking->security_deposit_intent_id,
             ],
             [
                 'booking_id' => $booking->id,
@@ -1122,7 +1125,7 @@ class SecurityDepositService
 
     private function markAdminAudit(?PaymentEventAudit $audit, string $outcome, ?string $errorMessage = null): void
     {
-        if (!$audit) {
+        if (! $audit) {
             return;
         }
 
@@ -1255,7 +1258,7 @@ class SecurityDepositService
 
     private function recordSecurityDepositRefundedAudit(?Booking $booking): void
     {
-        if (!$booking) {
+        if (! $booking) {
             return;
         }
 
@@ -1299,7 +1302,7 @@ class SecurityDepositService
         return PaymentIdempotencyKey::query()
             ->where('payment_intent_id', $intentId)
             ->where('status', PaymentIdempotencyKey::STATUS_COMPLETED)
-            ->where('idempotency_key', 'like', 'security_deposit_refund:' . $intentId . ':%')
+            ->where('idempotency_key', 'like', 'security_deposit_refund:'.$intentId.':%')
             ->get()
             ->sum(function (PaymentIdempotencyKey $record): float {
                 $parts = explode(':', $record->idempotency_key);

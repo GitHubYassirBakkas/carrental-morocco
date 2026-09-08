@@ -38,20 +38,26 @@ class OutboxDispatcherJob implements ShouldQueue
         return [5, 30, 120, 300, 600];
     }
 
-    public function handle(EventBus $eventBus): void
-    {
-        $workerName = gethostname() . ':outbox:' . getmypid();
-        app(WorkerHeartbeatService::class)->beat($workerName, config('queue.webhook_queue', 'stripe-webhooks'), static::class);
+    public function handle(
+        EventBus $eventBus,
+        ?WorkerHeartbeatService $heartbeats = null,
+        ?FailedWebhookEventService $failedWebhookEvents = null
+    ): void {
+        $workerName = gethostname().':outbox:'.getmypid();
+        $heartbeats ??= app(WorkerHeartbeatService::class);
+        $failedWebhookEvents ??= app(FailedWebhookEventService::class);
+
+        $heartbeats->beat($workerName, config('queue.webhook_queue', 'stripe-webhooks'), static::class);
 
         $events = $this->outboxEventId
             ? OutboxEvent::whereKey($this->outboxEventId)->where('dispatched', false)->get()
             : OutboxEvent::where('dispatched', false)->orderBy('id')->limit(50)->get();
 
         foreach ($events as $event) {
-            DB::transaction(function () use ($event, $eventBus) {
+            DB::transaction(function () use ($event, $eventBus, $heartbeats, $failedWebhookEvents) {
                 $locked = OutboxEvent::whereKey($event->id)->lockForUpdate()->first();
 
-                if (!$locked || $locked->dispatched) {
+                if (! $locked || $locked->dispatched) {
                     return;
                 }
 
@@ -60,7 +66,7 @@ class OutboxDispatcherJob implements ShouldQueue
                         'error_message' => 'Poison outbox message: max dispatch attempts exceeded.',
                     ])->save();
 
-                    app(FailedWebhookEventService::class)->record(
+                    $failedWebhookEvents->record(
                         null,
                         isset($locked->payload['booking_id']) ? (int) $locked->payload['booking_id'] : null,
                         $locked->payload['payment_intent_id'] ?? null,
@@ -92,8 +98,8 @@ class OutboxDispatcherJob implements ShouldQueue
                         'source_event_id' => $locked->source_event_id,
                     ]);
 
-                    app(WorkerHeartbeatService::class)->advanceCursor(
-                        gethostname() . ':outbox:' . getmypid(),
+                    $heartbeats->advanceCursor(
+                        gethostname().':outbox:'.getmypid(),
                         (int) EventStream::max('id')
                     );
                 } catch (Throwable $e) {

@@ -185,7 +185,7 @@
                     </div>
 
                     <div class="pt-3 border-t border-gray-700">
-                        <a href="{{ route('admin.cars.show', $review->car) }}" 
+                        <a href="{{ route('cars.show', $review->car) }}"
                            class="text-blue-400 hover:text-blue-300 text-sm font-semibold flex items-center gap-1">
                             View Car Details
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

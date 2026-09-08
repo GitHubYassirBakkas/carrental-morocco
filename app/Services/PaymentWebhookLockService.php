@@ -14,6 +14,8 @@ class PaymentWebhookLockService
 {
     private string $lastStatus = 'not_attempted';
 
+    public function __construct(private readonly DistributedLockManager $distributedLocks) {}
+
     public function lastStatus(): string
     {
         return $this->lastStatus;
@@ -62,7 +64,7 @@ class PaymentWebhookLockService
 
         $ownerToken = $this->acquire($bookingId, $waitMilliseconds, $ttlSeconds);
 
-        if (!$ownerToken) {
+        if (! $ownerToken) {
             $this->lastStatus = 'database_timeout';
 
             return null;
@@ -77,7 +79,7 @@ class PaymentWebhookLockService
                     ->lockForUpdate()
                     ->first();
 
-                if (!$lock || $lock->owner_token !== $ownerToken) {
+                if (! $lock || $lock->owner_token !== $ownerToken) {
                     throw new RuntimeException('Webhook booking lock ownership was lost.');
                 }
 
@@ -128,7 +130,7 @@ class PaymentWebhookLockService
 
                 return true;
             } catch (QueryException $e) {
-                if (!$this->isUniqueConstraintViolation($e)) {
+                if (! $this->isUniqueConstraintViolation($e)) {
                     throw $e;
                 }
             }
@@ -138,7 +140,7 @@ class PaymentWebhookLockService
                 ->lockForUpdate()
                 ->first();
 
-            if (!$lock) {
+            if (! $lock) {
                 return false;
             }
 
@@ -160,8 +162,7 @@ class PaymentWebhookLockService
 
     private function withDistributedBookingLock(int $bookingId, Closure $callback, int $waitMilliseconds, int $ttlSeconds): array
     {
-        $manager = app(DistributedLockManager::class);
-        $result = $manager->withLock($this->cacheLockName($bookingId), function () use ($bookingId, $callback) {
+        $result = $this->distributedLocks->withLock($this->cacheLockName($bookingId), function () use ($bookingId, $callback) {
             Log::info('Stripe webhook distributed booking lock acquired.', [
                 'booking_id' => $bookingId,
                 'lock_status' => 'distributed_acquired',
@@ -170,7 +171,7 @@ class PaymentWebhookLockService
             return $callback();
         }, $waitMilliseconds, $ttlSeconds);
 
-        $this->lastStatus = $manager->lastStatus();
+        $this->lastStatus = $this->distributedLocks->lastStatus();
 
         return $result === null
             ? ['status' => 'timeout', 'result' => null]
@@ -179,7 +180,7 @@ class PaymentWebhookLockService
 
     private function cacheLockName(int $bookingId): string
     {
-        return 'stripe-webhook:booking:' . $bookingId;
+        return 'stripe-webhook:booking:'.$bookingId;
     }
 
     private function clearExpiredDatabaseLock(int $bookingId): void

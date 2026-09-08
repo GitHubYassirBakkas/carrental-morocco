@@ -16,7 +16,8 @@ class PaymentService
     public function __construct(
         AdvancePaymentService $advancePaymentService,
         private readonly InvoiceService $invoiceService,
-        private readonly BookingPricingService $pricingService
+        private readonly BookingPricingService $pricingService,
+        private readonly PaymentStateTransitionValidator $transitionValidator
     ) {
         $this->advancePaymentService = $advancePaymentService;
     }
@@ -174,7 +175,7 @@ class PaymentService
         ];
 
         if ($booking->isPending()) {
-            if (app(PaymentStateTransitionValidator::class)->validateBookingTransition($booking->status, Booking::STATUS_CONFIRMED, [
+            if ($this->transitionValidator->validateBookingTransition($booking->status, Booking::STATUS_CONFIRMED, [
                 'booking_id' => $booking->id,
                 'action' => 'rental_payment_confirm_booking',
             ])) {
@@ -213,6 +214,6 @@ class PaymentService
 
     private function generateTransactionId(string $prefix): string
     {
-        return $prefix . '-' . strtoupper(uniqid());
+        return $prefix.'-'.strtoupper(uniqid());
     }
 }

@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
-
 
 class Car extends Model
 {
@@ -65,13 +64,6 @@ class Car extends Model
     {
         return $this->belongsTo(Location::class);
     }
-    /*
-public function search(Request $request)
-{
-    return redirect()->route('cars.index');
-}
-    */
-
     public function bookings()
     {
         return $this->hasMany(Booking::class);
