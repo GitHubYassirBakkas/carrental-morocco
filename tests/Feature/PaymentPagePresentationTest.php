@@ -111,6 +111,61 @@ test('customer payment route remains bound to the existing controller action', f
         ->and($route->getActionName())->toBe(PaymentController::class.'@store');
 });
 
+test('payment page rental amount uses invoice balance that already includes tax', function () {
+    $user = User::factory()->create();
+    $location = Location::factory()->create();
+    $car = Car::factory()->create([
+        'location_id' => $location->id,
+        'security_deposit_amount' => 3000,
+    ]);
+    $booking = Booking::factory()->create([
+        'user_id' => $user->id,
+        'car_id' => $car->id,
+        'pickup_location_id' => $location->id,
+        'dropoff_location_id' => $location->id,
+        'rental_price_per_day' => 500,
+        'total_amount' => 960,
+        'discount_amount' => 200,
+        'security_deposit_amount' => 3000,
+        'security_deposit_status' => Booking::SECURITY_DEPOSIT_STATUS_PENDING,
+    ]);
+    Invoice::factory()->create([
+        'booking_id' => $booking->id,
+        'user_id' => $user->id,
+        'subtotal' => 1000,
+        'discount_amount' => 200,
+        'tax_amount' => 160,
+        'total_amount' => 960,
+        'status' => Invoice::STATUS_PENDING,
+    ]);
+
+    $payloads = [];
+    $stripe = Mockery::mock(StripePaymentIntentGateway::class);
+    $stripe->shouldReceive('create')
+        ->twice()
+        ->andReturnUsing(function (array $payload) use (&$payloads) {
+            $payloads[] = $payload;
+            $type = $payload['metadata']['type'] ?? 'rental';
+
+            return (object) [
+                'id' => $type === 'security_deposit' ? 'pi_tax_deposit' : 'pi_tax_rental',
+                'client_secret' => $type === 'security_deposit' ? 'pi_tax_deposit_secret' : 'pi_tax_rental_secret',
+                'status' => 'requires_payment_method',
+            ];
+        });
+    app()->instance(StripePaymentIntentGateway::class, $stripe);
+
+    $this->actingAs($user)
+        ->get(route('payments.show', $booking))
+        ->assertOk();
+
+    $rentalPayload = collect($payloads)->first(fn (array $payload): bool => ($payload['metadata']['type'] ?? null) === 'rental');
+    $depositPayload = collect($payloads)->first(fn (array $payload): bool => ($payload['metadata']['type'] ?? null) === 'security_deposit');
+
+    expect($rentalPayload['amount'])->toBe(96000)
+        ->and($depositPayload['amount'])->toBe(300000);
+});
+
 function paymentPagePresentationBooking(): array
 {
     $user = User::factory()->create();

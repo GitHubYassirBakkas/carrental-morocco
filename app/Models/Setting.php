@@ -35,11 +35,18 @@ class Setting extends Model
     {
         return match ($this->type) {
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
-            'number', 'integer' => (int) $value,
-            'float' => (float) $value,
+            'integer' => (int) $value,
+            'number', 'float' => static::castNumericValue($value),
             'array', 'json' => json_decode($value, true) ?: [],
             default => $value,
         };
+    }
+
+    private static function castNumericValue(mixed $value): int|float
+    {
+        $numeric = (float) $value;
+
+        return floor($numeric) === $numeric ? (int) $numeric : $numeric;
     }
 
     /**
@@ -65,6 +72,7 @@ class Setting extends Model
     {
         $setting = static::where('key', $key)->first();
         $type = $type ?? $setting?->getRawOriginal('type') ?? 'text';
+        $group = $setting?->group;
 
         if (is_array($value) || is_object($value)) {
             $type = $type === 'array' ? 'array' : 'json';
@@ -77,9 +85,9 @@ class Setting extends Model
             }
         } elseif ($type === 'boolean') {
             $value = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
-        } elseif (in_array($type, ['number', 'integer'], true)) {
+        } elseif ($type === 'integer') {
             $value = (string) (int) $value;
-        } elseif ($type === 'float') {
+        } elseif (in_array($type, ['number', 'float'], true)) {
             $value = (string) (float) $value;
         }
 
@@ -95,6 +103,9 @@ class Setting extends Model
         Cache::forget("setting_{$key}");
         Cache::forget('autoload_settings');
         Cache::forget('public_settings');
+        if ($group) {
+            Cache::forget("settings_group_{$group}");
+        }
     }
 
     /**

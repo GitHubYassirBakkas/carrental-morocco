@@ -5,6 +5,7 @@ use App\Models\Car;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Payment;
 use App\Models\PaymentEventAudit;
 use App\Models\Setting;
 use App\Models\User;
@@ -125,6 +126,24 @@ test('scheduler registers and overdue cancellation command cancels pending booki
         'status' => 'pending',
         'advance_payment_status' => 'pending',
         'advance_payment_due_at' => now()->subHour(),
+    ]);
+    $invoice = Invoice::factory()->create([
+        'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
+        'subtotal' => 1000,
+        'tax_amount' => 0,
+        'total_amount' => 1000,
+        'status' => Invoice::STATUS_PENDING,
+    ]);
+    Payment::factory()->create([
+        'invoice_id' => $invoice->id,
+        'user_id' => $booking->user_id,
+        'amount' => 1000,
+        'method' => 'cash',
+        'type' => Payment::TYPE_PAYMENT,
+        'status' => Payment::STATUS_PENDING,
+        'transaction_id' => null,
+        'paid_at' => null,
     ]);
 
     $exitCode = \Illuminate\Support\Facades\Artisan::call('schedule:list');

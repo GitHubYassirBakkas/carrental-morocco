@@ -1,100 +1,147 @@
 # CarRental Morocco
 
-CarRental Morocco is a full-stack Laravel car-rental platform built around a Moroccan rental workflow: public vehicle discovery, customer booking, driver verification, payment/deposit handling, rental lifecycle management, inspections, invoices, refunds, and an agency admin dashboard.
+Full-stack Laravel car-rental platform focused on Morocco.
 
-## Screenshots / Demo
+## Overview
 
-Live demo: Coming soon
+CarRental Morocco is a Laravel 12 application for vehicle discovery, customer bookings, driver verification, payments, security deposits, invoices, refunds, support, and admin operations. The project is prepared as a portfolio/demo repository with multilingual public and customer-facing pages for English, French, and Arabic.
 
-Screenshots can be added here after the project is deployed or captured from a polished local run.
+## Live Demo
+
+Live Demo: Coming soon
+
+## Screenshots
+
+Final public screenshots are stored under `docs/screenshots/` and use clean demo data only.
+
+| Screenshot | Relative path |
+| --- | --- |
+| Home page | `docs/screenshots/home.jpeg` |
+| Cars page | `docs/screenshots/cars.jpeg` |
+| Car details | `docs/screenshots/car-details.jpeg` |
+| Insurance selection | `docs/screenshots/insurance.jpeg` |
+| Booking preview | `docs/screenshots/booking-preview.jpeg` |
+| Booking payment | `docs/screenshots/booking-payment.jpeg` |
+| Booking success | `docs/screenshots/booking-success.jpeg` |
+| Customer dashboard | `docs/screenshots/customer-dashboard.jpeg` |
+| Admin dashboard | `docs/screenshots/admin-dashboard.jpeg` |
+
+See `docs/screenshots/README.md` for the screenshot checklist and capture guidance.
 
 ## Key Features
 
-- Customer registration, login, email verification, profile management, password updates, account deletion safeguards, and wishlist support.
-- Multilingual public and customer UI for English, French, and Arabic, including RTL layout support for Arabic.
-- Dynamic vehicle catalog with database-backed cars, locations, available brands, featured cars, testimonials, and public statistics.
-- Vehicle search and filtering by search term, location, brand, type, transmission, price range, and availability dates.
-- Booking flow with insurance selection, preview, final availability recheck, booking-date validation, max-advance validation, database locking, and invoice creation.
-- Driver verification workflow with private document uploads, admin review, approval/rejection notifications, and booking/rental protection for unverified drivers.
-- Coupon support with final validation, usage records, user/category limits, allowed car type enforcement, and loyalty reward coupons.
-- Stripe architecture with separate rental PaymentIntent and manual-capture security deposit PaymentIntent handling.
-- Cash payment requests, admin cash payment recording, invoices, PDF invoice downloads, refund receipts, and Stripe/cash refund communication.
-- Rental lifecycle support for pending, confirmed, active, completed, and cancelled bookings, including inspections, damage records, mileage/fuel tracking, and evidence photos.
-- Private storage and authorized serving for driver documents and booking inspection/damage evidence.
-- Customer notifications, support tickets, review submission, admin review moderation, and email logs.
-- Responsive public/customer UI, with manual responsive smoke-test guidance in `docs/RESPONSIVE_SMOKE_TEST.md`.
+### Customer
 
-## Admin Dashboard
+- Authentication, email verification, profile management, and password updates.
+- English, French, and Arabic localization, including RTL support for Arabic.
+- Vehicle browsing with filtering by search term, location, brand, type, transmission, price range, and availability dates.
+- Booking flow with insurance selection, booking preview, availability recheck, validation, and invoice creation.
+- Driver verification with private document uploads and admin approval/rejection.
+- Coupons with final validation, usage tracking, limits, allowed car type checks, and loyalty reward coupons.
+- Stripe rental payments and a separate security deposit authorization flow.
+- Cash payment path through admin-recorded payments.
+- Customer invoices, PDF downloads, payment history, notifications, support tickets, reviews, and wishlist.
 
-The admin area includes dashboard metrics, booking management, rental start/completion/cancellation actions, inspections, damage evidence, security deposit actions, invoices, refunds, cars, insurance plans, locations, users, driver verification, coupons, reviews, support tickets, settings, and email logs.
+### Admin
 
-Admin sidebar attention badges are driven by pending bookings, unread customer messages on actionable tickets, pending driver verifications, pending/partial invoices, and unapproved reviews. No real admin credentials are published in this README.
+- Admin dashboard with operational metrics and attention badges.
+- Cars, bookings, invoices, refunds, insurance plans, locations, users, settings, coupons, reviews, support tickets, driver verification, and email logs.
+- Booking lifecycle actions for confirmation, cancellation, rental start, completion, inspections, damage records, fuel/mileage tracking, and evidence photos.
+- Security deposit release, capture, and retry actions.
+- Refund receipts and resendable refund communications.
+
+### Security And Architecture
+
+- Stripe webhook signature verification.
+- Webhook, payment, and admin-action idempotency protections.
+- Private document and evidence storage with authorized access.
+- Server-side validation and authorization checks.
+- Rate limiting for sensitive booking, payment, support, insurance, contact, and admin actions.
+- Security headers middleware with configurable CSP/HSTS behavior.
+- Queue, scheduler, and outbox/event architecture for webhook and domain-event processing.
+- Feature and unit tests covering booking, payment, refund, security, localization, public presentation, and admin workflows.
 
 ## Tech Stack
 
-- PHP `^8.2`
+- PHP `8.2+`
 - Laravel `12.67.0`
 - Blade templates
 - Tailwind CSS `3.4.18`
 - Alpine.js `3.15.2`
 - Axios `1.19.0`
-- Vite `7.3.6` with `laravel-vite-plugin` `2.0.1`
-- SQLite for local development by default; MySQL/MariaDB supported through Laravel database configuration
+- Vite `7.3.6`
+- Laravel Vite Plugin `2.0.1`
 - Stripe PHP `19.4.1`
 - Resend PHP `1.12.0`
-- Dompdf / Laravel Dompdf for PDF invoices and receipts
-- Pest `3.8.7`, PHPUnit through Laravel testing, and Laravel Pint `1.25.1`
-- Composer and npm
+- Dompdf / Laravel Dompdf `3.1.x`
+- Pest `3.8.7`
+- Laravel Pint `1.25.1`
+- SQLite for local development by default; MySQL/MariaDB supported through Laravel configuration
 
-## Architecture / Important Services
+## Architecture
 
-The application keeps business workflows in Laravel services and supporting domain classes rather than only in controllers. Important pieces include `BookingService`, `BookingPricingService`, `PaymentService`, `SecurityDepositService`, `RefundService`, `RefundPolicyService`, `InvoiceService`, `NotificationService`, `PublicSiteDataService`, `AdminAttentionService`, Stripe webhook processing jobs, payment idempotency records, outbox/event infrastructure, and booking state transition validation.
+The application keeps major workflows in services and domain classes, including `BookingService`, `BookingPricingService`, `PaymentService`, `SecurityDepositService`, `RefundService`, `RefundPolicyService`, `InvoiceService`, `PublicSiteDataService`, and `AdminAttentionService`.
+
+Stripe webhooks are stored and processed through queued jobs, payment/event audit records, idempotency records, booking state transitions, and an outbox/event pipeline.
+
+## Booking Flow
+
+Browse -> Verify Driver -> Preview -> Insurance/Coupon -> Booking -> Payment -> Confirmation -> Rental Start -> Inspection -> Completion -> Deposit Release/Capture
+
+## Payments
+
+CarRental Morocco supports Stripe rental payments and a separate manual-capture security deposit authorization. The application also includes a cash path where admins can record eligible cash payments.
+
+Stripe webhook processing includes signature verification, idempotency records, payment intent metadata checks, payment event audits, and queued processing. Demo and local development should use Stripe test mode only. Do not commit or expose Stripe secrets.
 
 ## Security
 
-Confirmed controls include Laravel CSRF protection, authentication and email verification middleware, dedicated admin middleware, request throttling for sensitive customer/admin actions, banned-user middleware, security headers middleware, configurable CSP and production-only HSTS behavior, trusted proxy configuration, Stripe webhook signature verification, webhook/event idempotency, PaymentIntent ID/status/currency/amount/metadata verification, private local storage for sensitive documents/evidence, upload validation, and authorization checks around customer invoices, tickets, reviews, documents, and admin-only actions.
+Documented protections include CSRF protection, authentication and email verification middleware, admin middleware, banned-user checks, request throttling, security headers, trusted proxy configuration, private storage for driver documents and booking evidence, upload validation, authorization checks, Stripe webhook verification, idempotency, and payment intent validation.
 
-Security is an ongoing process; this repository should still be reviewed for the target hosting environment before production use.
+Security still depends on the target hosting environment, correct production secrets, HTTPS, queue workers, backups, and operational monitoring.
+
+## Localization
+
+The repository includes English, French, and Arabic language files under `lang/`, a locale switch route, locale middleware, translated views, and RTL layout support for Arabic.
+
+## Testing
+
+Recommended verification commands:
+
+```bash
+php artisan test --compact
+vendor/bin/pint --test
+composer validate --strict
+npm run build
+```
+
+On Windows PowerShell, use `npm.cmd run build` if script execution policy blocks `npm.ps1`.
 
 ## Installation
 
 ```bash
-git clone <repository-url>
-cd carrental-morocco
 composer install
 npm install
 cp .env.example .env
 php artisan key:generate
 ```
 
-On Windows PowerShell, use this instead of `cp` if preferred:
+On Windows PowerShell, copy the environment file with:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Configure the database in `.env`. The example file defaults to SQLite for local development; create the SQLite file if using that setup, or configure MySQL/MariaDB with the `DB_*` variables.
+Configure the database connection in `.env`. The example configuration supports local SQLite, or you can configure MySQL/MariaDB through Laravel's `DB_*` variables.
 
 ```bash
 php artisan migrate
 php artisan db:seed
-```
-
-Seeding loads local/demo data such as settings, locations, cars, insurance plans, notifications, and sample users. Replace seeded credentials and data for any shared environment.
-
-## Running Locally
-
-Run the Laravel app:
-
-```bash
+npm run dev
 php artisan serve
 ```
 
-Run Vite for frontend development:
-
-```bash
-npm run dev
-```
+Use `php artisan db:seed` for local/demo data only when appropriate for the environment.
 
 Run a queue worker when testing queued jobs:
 
@@ -108,56 +155,32 @@ Run the scheduler locally when testing scheduled tasks:
 php artisan schedule:work
 ```
 
-Use Stripe CLI only for local webhook testing:
+## Stripe Local Development
+
+Use the Stripe CLI only for local webhook testing:
 
 ```bash
 stripe listen --forward-to localhost:8000/stripe/webhook
 ```
 
-Production Stripe webhooks must be configured in the Stripe Dashboard against the production HTTPS endpoint.
-
-## Environment Configuration
-
-Use `.env.example` as the local template. Important groups include `APP_*`, `DB_*`, `CACHE_STORE`, `QUEUE_CONNECTION`, `WEBHOOK_QUEUE_CONNECTION`, `WEBHOOK_QUEUE`, `MAIL_*`, `RESEND_KEY`, `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET`, `SESSION_SECURE_COOKIE`, `TRUSTED_PROXIES`, `SECURITY_CSP_ENABLED`, `SECURITY_CSP_REPORT_ONLY`, `SECURITY_HSTS_ENABLED`, `FILESYSTEM_DISK`, `FILESYSTEM_LOCAL_SERVE`, Redis variables, AWS/S3 variables, `GOOGLE_MAPS_API_KEY`, and rental tuning variables under `RENTAL_*`.
-
-Never commit real secrets or production `.env` files.
+Production webhooks should be configured in the Stripe Dashboard against the production HTTPS endpoint.
 
 ## Production Notes
 
-See `DEPLOYMENT.md` for the deployment checklist. Production requires normal persistent infrastructure: HTTPS, a production database, configured mail provider, real Stripe webhook endpoint, managed queue workers through Supervisor/systemd/platform workers, cron calling `php artisan schedule:run`, persistent storage, backups, `APP_DEBUG=false`, secure session cookies, and environment secrets supplied by the host or secret manager.
+See `DEPLOYMENT.md` for production setup notes, environment configuration, security requirements, queue/scheduler guidance, and deployment checks.
 
-Do not run local terminal tools such as Stripe CLI or `php artisan schedule:work` as the production operating model.
+## Legal
 
-## Testing
+The application includes public pages for:
 
-Recommended pre-push verification:
-
-```bash
-php artisan test --compact
-vendor/bin/pint --test
-composer validate --strict
-composer audit
-npm audit --omit=dev
-npm run build
-git diff --check
-php artisan route:list
-php artisan schedule:list
-```
-
-On Windows PowerShell, `npm.cmd` can be used if script execution policy blocks `npm.ps1`.
-
-## Localization
-
-The repository includes English, French, and Arabic language files under `lang/`, locale switching through `/language/{locale}`, locale middleware, translated public/customer views, and RTL CSS rules for Arabic layouts.
-
-## Legal / Public Presentation
-
-The application includes public routes and Blade views for Privacy Policy, Terms & Conditions, and Legal Notice. The repository does not invent company registration numbers, tax numbers, physical legal-entity details, social links, or compliance certifications.
+- Privacy Policy
+- Terms & Conditions
+- Legal Notice
 
 ## Project Status
 
-This project is prepared for GitHub and portfolio demonstration once final verification passes and screenshots or a hosted demo are added. It should not be described as production-ready until production infrastructure, secrets, monitoring, backups, and deployment-specific security checks are completed.
+Portfolio-ready / demo-ready presentation package. A public live demo URL is still pending.
 
 ## License
 
-No standalone project-specific license file has been published yet. The underlying Laravel framework and third-party packages retain their own licenses.
+No project-specific license has been published yet. The Laravel framework and third-party packages retain their own licenses.

@@ -7,6 +7,7 @@ use App\Models\CouponUsage;
 use App\Models\CustomerProfile;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 
@@ -268,6 +269,56 @@ test('valid fixed coupon is recalculated at store and persisted atomically', fun
         ->and($booking->invoice->total_amount)->toEqual('850.00')
         ->and(CouponUsage::where('coupon_id', $coupon->id)->where('booking_id', $booking->id)->count())->toBe(1)
         ->and($coupon->fresh()->used_count)->toBe(1);
+});
+
+test('coupon preview stores canonical tax breakdown after discount', function () {
+    Setting::set('tax_percentage', 20, 'number');
+
+    $user = User::factory()->create();
+    couponFinalVerifiedDriver($user);
+    $location = couponFinalLocation();
+    $car = couponFinalCar($location);
+    $coupon = couponFinalCoupon([
+        'discount_type' => 'fixed',
+        'discount_value' => 200,
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(['booking_preview' => couponFinalPreviewSession($car, $location)])
+        ->post(route('coupons.apply'), ['coupon_code' => $coupon->code])
+        ->assertRedirect()
+        ->assertSessionHas('coupon_discount', 200.0)
+        ->assertSessionHas('final_total', 960.0)
+        ->assertSessionHas('final_pricing_breakdown.tax_amount', 160.0)
+        ->assertSessionHas('final_pricing_breakdown.total_amount', 960.0);
+});
+
+test('coupon plus non zero tax discounts before tax when booking is stored', function () {
+    Setting::set('tax_percentage', 20, 'number');
+
+    $user = User::factory()->create();
+    couponFinalVerifiedDriver($user);
+    $location = couponFinalLocation();
+    $car = couponFinalCar($location);
+    $coupon = couponFinalCoupon([
+        'discount_type' => 'fixed',
+        'discount_value' => 200,
+    ]);
+
+    $response = $this->actingAs($user)
+        ->withSession(couponFinalAppliedSession($car, $location, $coupon))
+        ->post(route('bookings.store'));
+
+    $booking = Booking::with('invoice')->firstOrFail();
+
+    $response->assertRedirect(route('payments.show', $booking));
+
+    expect((float) $booking->discount_amount)->toBe(200.0)
+        ->and((float) $booking->total_amount)->toBe(960.0)
+        ->and((float) $booking->invoice->subtotal)->toBe(1000.0)
+        ->and((float) $booking->invoice->discount_amount)->toBe(200.0)
+        ->and((float) $booking->invoice->tax_amount)->toBe(160.0)
+        ->and((float) $booking->invoice->total_amount)->toBe(960.0);
 });
 
 test('loyalty coupon recipient can book but another user cannot persist stale discount', function () {

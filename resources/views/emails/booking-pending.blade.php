@@ -51,10 +51,18 @@
     </style>
 </head>
 <body>
+@php
+    $siteName = setting('site_name', 'Car Rental Morocco');
+    $sitePhone = setting('site_phone', '+212 6 00 00 00 00');
+    $siteEmail = setting('site_email', config('mail.from.address'));
+    $siteAddress = setting('site_address', 'Meknes, Morocco');
+    $deadlineHours = (int) setting('advance_payment_deadline_hours', config('rental.advance_payment_deadline_hours', 24));
+    $pricingBreakdown = $booking->pricing_breakdown;
+@endphp
 <div class="wrap">
 
     <div class="header">
-        <h1>🚗 CarRental Morocco</h1>
+        <h1>{{ $siteName }}</h1>
         <p>Your trusted car rental partner</p>
     </div>
 
@@ -63,7 +71,7 @@
 
         <p style="color:#333;font-size:15px;">Hello <strong>{{ $booking->user->name }}</strong>,</p>
         <p style="color:#666;font-size:13px;margin-top:8px;">
-            Your booking has been received! To confirm your reservation, please visit our agency and complete the payment within <strong>24 hours</strong>.
+            Your booking has been received! To confirm your reservation, please visit our agency and complete the payment within <strong>{{ $deadlineHours }} hours</strong>.
         </p>
 
         {{-- Car Info --}}
@@ -119,6 +127,12 @@
                 <span>{{ number_format($booking->car->security_deposit_amount, 0) }} MAD</span>
             </div>
             @endif
+            @if(($pricingBreakdown['tax_amount'] ?? 0) > 0)
+            <div class="amount-row">
+                <span>Tax</span>
+                <span>{{ number_format($pricingBreakdown['tax_amount'], 0) }} MAD</span>
+            </div>
+            @endif
             <div class="amount-total">
                 <span>Total to Pay at Agency</span>
                 <span>{{ number_format($booking->total_amount + ($booking->car->security_deposit_amount ?? 0), 0) }} MAD</span>
@@ -138,10 +152,10 @@
             </ul>
         </div>
 
-        {{-- 24h Deadline --}}
+        {{-- Payment deadline --}}
         <div class="deadline-box">
             <p>⚠️ Your booking will be automatically cancelled if not paid within:</p>
-            <strong>24 hours from now</strong>
+            <strong>{{ $deadlineHours }} hours from now</strong>
         </div>
 
         <p style="font-size:13px;color:#666;margin-top:15px;">
@@ -150,8 +164,8 @@
     </div>
 
     <div class="footer">
-        <p>© {{ date('Y') }} CarRental Morocco. All rights reserved.</p>
-        <p style="margin-top:5px;">Meknes, Morocco | contact@carrental.ma | +212 6 00 00 00 00</p>
+        <p>© {{ date('Y') }} {{ $siteName }}. All rights reserved.</p>
+        <p style="margin-top:5px;">{{ $siteAddress }} | {{ $siteEmail }} | {{ $sitePhone }}</p>
     </div>
 
 </div>

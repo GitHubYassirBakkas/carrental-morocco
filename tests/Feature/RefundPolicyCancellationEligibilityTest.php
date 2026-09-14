@@ -15,8 +15,18 @@ beforeEach(function () {
         'value' => 48,
         'type' => 'number',
         'group' => 'refund',
-        'label' => 'Cancellation Window Hours',
-        'description' => 'Hours after payment confirmation for free cancellation',
+        'label' => 'Full Refund Before Pickup (Hours)',
+        'description' => 'Scheduled pickup must be at least this many hours away for a full rental payment refund',
+        'autoload' => true,
+        'is_public' => false,
+    ]);
+
+    Setting::updateOrCreate(['key' => 'refund_partial_refund_cutoff_hours'], [
+        'value' => 24,
+        'type' => 'number',
+        'group' => 'refund',
+        'label' => 'Partial Refund Until Pickup (Hours)',
+        'description' => 'Scheduled pickup must be at least this many hours away for the configured partial refund',
         'autoload' => true,
         'is_public' => false,
     ]);
@@ -26,7 +36,7 @@ beforeEach(function () {
         'type' => 'boolean',
         'group' => 'refund',
         'label' => 'Free Cancellation Enabled',
-        'description' => 'Enable free cancellation during grace period',
+        'description' => 'Legacy toggle retained for backward compatibility',
         'autoload' => true,
         'is_public' => false,
     ]);
@@ -128,40 +138,40 @@ test('customer cancellation eligibility is based on cancellable customer statuse
     }
 });
 
-test('confirmed booking near pickup gets full refund when payment confirmation was recent', function () {
+test('confirmed booking near pickup gets partial refund in the default pickup-based band', function () {
     $service = new RefundPolicyService;
-    $booking = refundPolicyBooking(Booking::STATUS_CONFIRMED, Carbon::now()->addHours(24));
+    $booking = refundPolicyBooking(Booking::STATUS_CONFIRMED, Carbon::now()->addHours(24)->addMinute());
     refundPolicyFeatureAttachPayment($booking, 1000, now()->subHour());
 
     $policy = $service->evaluateCancellation($booking->fresh('invoice.payments'), 'customer');
 
     expect($policy['can_cancel'])->toBeTrue()
-        ->and($policy['refund_amount'])->toBe(1000.0)
-        ->and($policy['refund_type'])->toBe('full')
-        ->and($policy['within_full_refund_window'])->toBeTrue();
+        ->and($policy['refund_amount'])->toBe(500.0)
+        ->and($policy['refund_type'])->toBe('partial')
+        ->and($policy['within_full_refund_window'])->toBeFalse();
 });
 
-test('cancellation within 48 hours of payment confirmation returns full paid rental amount', function () {
+test('cancellation at least 48 hours before pickup returns full paid rental amount', function () {
     Carbon::setTestNow(Carbon::parse('2026-08-18 10:00:00'));
 
     $service = new RefundPolicyService;
-    $booking = refundPolicyBooking(Booking::STATUS_CONFIRMED, Carbon::parse('2026-08-19 10:00:00'));
-    refundPolicyFeatureAttachPayment($booking, 1250, Carbon::now()->subHours(47));
+    $booking = refundPolicyBooking(Booking::STATUS_CONFIRMED, Carbon::parse('2026-08-20 10:00:00'));
+    refundPolicyFeatureAttachPayment($booking, 1250, Carbon::now());
 
     expect($service->calculateRefundAmount($booking, 1250))->toBe(1250.0);
 
     Carbon::setTestNow();
 });
 
-test('cancellation after 48 hour confirmation grace period preserves existing partial refund formula', function () {
+test('cancellation between partial cutoff and full refund window uses configured partial refund percentage', function () {
     Carbon::setTestNow(Carbon::parse('2026-08-18 10:01:00'));
 
     $service = new RefundPolicyService;
-    $booking = refundPolicyBooking(Booking::STATUS_CONFIRMED, Carbon::parse('2026-08-28 10:00:00'));
+    $booking = refundPolicyBooking(Booking::STATUS_CONFIRMED, Carbon::parse('2026-08-20 10:00:00'));
     $booking->update(['advance_payment_amount' => 375]);
-    refundPolicyFeatureAttachPayment($booking, 1250, Carbon::now()->subHours(49));
+    refundPolicyFeatureAttachPayment($booking, 1250, Carbon::now());
 
-    expect($service->calculateRefundAmount($booking->fresh(), 1250))->toBe(875.0);
+    expect($service->calculateRefundAmount($booking->fresh(), 1250))->toBe(625.0);
 
     Carbon::setTestNow();
 });

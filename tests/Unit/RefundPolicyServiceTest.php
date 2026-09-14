@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Booking;
-use App\Models\BookingStateTransition;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Setting;
@@ -21,8 +20,18 @@ beforeEach(function () {
         'value' => 48,
         'type' => 'number',
         'group' => 'refund',
-        'label' => 'Cancellation Window Hours',
-        'description' => 'Hours after payment confirmation for free cancellation',
+        'label' => 'Full Refund Before Pickup (Hours)',
+        'description' => 'Scheduled pickup must be at least this many hours away for a full rental payment refund',
+        'autoload' => true,
+        'is_public' => false,
+    ]);
+
+    Setting::updateOrCreate(['key' => 'refund_partial_refund_cutoff_hours'], [
+        'value' => 24,
+        'type' => 'number',
+        'group' => 'refund',
+        'label' => 'Partial Refund Until Pickup (Hours)',
+        'description' => 'Scheduled pickup must be at least this many hours away for the configured partial refund',
         'autoload' => true,
         'is_public' => false,
     ]);
@@ -32,7 +41,7 @@ beforeEach(function () {
         'type' => 'boolean',
         'group' => 'refund',
         'label' => 'Free Cancellation Enabled',
-        'description' => 'Enable free cancellation during grace period',
+        'description' => 'Legacy toggle retained for backward compatibility',
         'autoload' => true,
         'is_public' => false,
     ]);
@@ -147,7 +156,7 @@ test('customer can cancel confirmed booking based on cancellable status', functi
     expect($service->canCustomerCancel($booking))->toBeTrue();
 });
 
-test('customer can cancel confirmed booking after grace period while refund remains partial', function () {
+test('customer can cancel confirmed booking while pickup band uses configured partial percentage', function () {
     $service = new RefundPolicyService;
 
     $booking = Booking::factory()->create([
@@ -156,10 +165,10 @@ test('customer can cancel confirmed booking after grace period while refund rema
         'advance_payment_amount' => 300,
         'total_amount' => 1000,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(49));
+    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now());
 
     expect($service->canCustomerCancel($booking))->toBeTrue()
-        ->and($service->calculateRefundAmount($booking, 1000))->toBe(700.0);
+        ->and($service->calculateRefundAmount($booking, 1000))->toBe(500.0);
 });
 
 test('customer cannot cancel active booking', function () {
@@ -264,52 +273,117 @@ test('booking is not refund eligible when no invoice', function () {
     expect($service->isRefundEligible($booking))->toBeFalse();
 });
 
-test('card payment cancelled 1 hour after confirmation gets full refund even when pickup is tomorrow', function () {
+test('default pickup-based cancellation bands are applied at exact boundaries', function (string $offset, float $expectedRefund, string $expectedType) {
     $service = new RefundPolicyService;
 
     $booking = Booking::factory()->create([
         'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
+        'start_date' => Carbon::now()->add($offset),
         'advance_payment_amount' => 300,
         'total_amount' => 1000,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHour());
+    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now());
 
-    $refundAmount = $service->calculateRefundAmount($booking, 1000);
+    $policy = $service->evaluateCancellation($booking->fresh('invoice.payments'), 'customer');
 
-    expect($refundAmount)->toBe(1000.0);
+    expect($policy['refund_amount'])->toBe($expectedRefund)
+        ->and($policy['refund_type'])->toBe($expectedType);
+})->with([
+    '48h01m before pickup' => ['48 hours 1 minute', 1000.0, 'full'],
+    '48h00m before pickup' => ['48 hours', 1000.0, 'full'],
+    '47h59m before pickup' => ['47 hours 59 minutes', 500.0, 'partial'],
+    '24h01m before pickup' => ['24 hours 1 minute', 500.0, 'partial'],
+    '24h00m before pickup' => ['24 hours', 500.0, 'partial'],
+    '23h59m before pickup' => ['23 hours 59 minutes', 0.0, 'none'],
+]);
+
+test('configured pickup-based cancellation bands use admin settings', function (string $offset, float $expectedRefund, string $expectedType) {
+    Setting::set('refund_cancellation_window_hours', 72, 'number');
+    Setting::set('refund_partial_refund_cutoff_hours', 12, 'number');
+    Setting::set('refund_partial_percentage', 30, 'number');
+
+    $service = new RefundPolicyService;
+
+    $booking = Booking::factory()->create([
+        'status' => 'confirmed',
+        'start_date' => Carbon::now()->add($offset),
+        'advance_payment_amount' => 300,
+        'total_amount' => 1000,
+    ]);
+    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now());
+
+    $policy = $service->evaluateCancellation($booking->fresh('invoice.payments'), 'customer');
+
+    expect($policy['refund_amount'])->toBe($expectedRefund)
+        ->and($policy['refund_type'])->toBe($expectedType);
+})->with([
+    '80h before pickup' => ['80 hours', 1000.0, 'full'],
+    '50h before pickup' => ['50 hours', 300.0, 'partial'],
+    '12h before pickup' => ['12 hours', 300.0, 'partial'],
+    '11h59m before pickup' => ['11 hours 59 minutes', 0.0, 'none'],
+]);
+
+test('refund policy uses booking start date instead of payment or booking timestamps for the band', function () {
+    $service = new RefundPolicyService;
+
+    $booking = Booking::factory()->create([
+        'status' => 'confirmed',
+        'start_date' => Carbon::now()->addHours(23)->addMinutes(59),
+        'advance_payment_amount' => 300,
+        'advance_payment_paid_at' => Carbon::now()->subHour(),
+        'total_amount' => 1000,
+        'created_at' => Carbon::now()->subMinutes(10),
+    ]);
+    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now());
+
+    $policy = $service->evaluateCancellation($booking->fresh('invoice.payments'), 'customer');
+
+    expect($policy['refund_amount'])->toBe(0.0)
+        ->and($policy['refund_type'])->toBe('none')
+        ->and($policy['hours_before_pickup'])->toBeGreaterThan(23.9)
+        ->and($policy['hours_before_pickup'])->toBeLessThan(24);
 });
 
-test('partial refund after payment confirmation grace period preserves paid minus advance formula', function () {
+test('later payment timestamps do not change the pickup-based partial band', function () {
     $service = new RefundPolicyService;
 
     $booking = Booking::factory()->create([
         'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDays(10),
+        'start_date' => Carbon::now()->addHours(47)->addMinutes(59),
         'advance_payment_amount' => 300,
         'total_amount' => 1000,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(49));
+    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now());
 
     $refundAmount = $service->calculateRefundAmount($booking, 1000);
 
-    expect($refundAmount)->toBe(700.0); // 1000 - 300
+    expect($refundAmount)->toBe(500.0);
 });
 
-test('confirmed booking after pickup still uses confirmation grace period for partial decision', function () {
+test('legacy refund toggles do not override the pickup-based three-band policy', function () {
+    Setting::set('refund_free_cancellation_enabled', false, 'boolean');
+    Setting::set('refund_no_refund_enabled', false, 'boolean');
+
     $service = new RefundPolicyService;
 
-    $booking = Booking::factory()->create([
+    $fullRefundBooking = Booking::factory()->create([
         'status' => 'confirmed',
-        'start_date' => Carbon::now()->subHours(1),
+        'start_date' => Carbon::now()->addHours(60),
         'advance_payment_amount' => 300,
         'total_amount' => 1000,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(49));
+    refundPolicyUnitAttachCompletedPayment($fullRefundBooking, 1000, 'card', Carbon::now()->subDays(5));
 
-    $refundAmount = $service->calculateRefundAmount($booking, 1000);
+    $noRefundBooking = Booking::factory()->create([
+        'status' => 'confirmed',
+        'start_date' => Carbon::now()->addHours(23)->addMinutes(59),
+        'advance_payment_amount' => 300,
+        'total_amount' => 1000,
+    ]);
+    refundPolicyUnitAttachCompletedPayment($noRefundBooking, 1000, 'card', Carbon::now());
 
-    expect($refundAmount)->toBe(700.0);
+    expect($service->calculateRefundAmount($fullRefundBooking, 1000))->toBe(1000.0)
+        ->and($service->calculateRefundAmount($noRefundBooking, 1000))->toBe(0.0);
 });
 
 test('early termination refund for active booking', function () {
@@ -387,6 +461,41 @@ test('refund method uses fallback when no payment record', function () {
     $refundMethod = $service->determineRefundMethod($booking);
 
     expect($refundMethod)->toBe('cash'); // Fallback
+});
+
+test('fallback refund method does not override original cash or card payments', function (string $originalMethod) {
+    Setting::set('refund_default_method', 'bank_transfer', 'text');
+
+    $service = new RefundPolicyService;
+
+    $booking = Booking::factory()->create();
+    $invoice = Invoice::factory()->create([
+        'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
+    ]);
+    Payment::factory()->create([
+        'invoice_id' => $invoice->id,
+        'user_id' => $booking->user_id,
+        'type' => 'payment',
+        'method' => $originalMethod,
+        'status' => 'completed',
+    ]);
+
+    expect($service->determineRefundMethod($booking))->toBe($originalMethod);
+})->with(['card', 'cash']);
+
+test('configured fallback refund method is used only when original channel is unknown', function () {
+    Setting::set('refund_default_method', 'bank_transfer', 'text');
+
+    $service = new RefundPolicyService;
+
+    $booking = Booking::factory()->create();
+    Invoice::factory()->create([
+        'booking_id' => $booking->id,
+        'user_id' => $booking->user_id,
+    ]);
+
+    expect($service->determineRefundMethod($booking))->toBe('bank_transfer');
 });
 
 test('refund type is full when refund amount >= original amount', function () {
@@ -483,111 +592,31 @@ test('evaluate cancellation returns complete policy decision', function () {
     expect($policy['refund_amount'])->toBe(1000.0);
     expect($policy['refund_method'])->toBe('card');
     expect($policy['within_full_refund_window'])->toBeTrue();
-    expect($policy['policy_reason'])->toContain('payment confirmation grace period');
+    expect($policy['policy_reason'])->toContain('before pickup');
 });
 
-test('boundary case: exactly 48h after payment confirmation gets full refund', function () {
+test('full refund never exceeds actual completed rental payment', function () {
     $service = new RefundPolicyService;
 
     $booking = Booking::factory()->create([
         'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-    ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(48));
-
-    $refundAmount = $service->calculateRefundAmount($booking, 1000);
-
-    expect($refundAmount)->toBe(1000.0); // Full refund at boundary
-});
-
-test('boundary case: 47h 59min after payment confirmation gets full refund', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-    ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(47)->subMinutes(59));
-
-    $refundAmount = $service->calculateRefundAmount($booking, 1000);
-
-    expect($refundAmount)->toBe(1000.0);
-});
-
-test('boundary case: 48h and 1s after payment confirmation gets partial refund', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-    ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(48)->subSecond());
-
-    $refundAmount = $service->calculateRefundAmount($booking, 1000);
-
-    expect($refundAmount)->toBe(700.0);
-});
-
-test('pickup day before pickup time gets full refund when payment confirmation was recent', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addHours(2),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-    ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHour());
-
-    $refundAmount = $service->calculateRefundAmount($booking, 1000);
-
-    expect($refundAmount)->toBe(1000.0);
-});
-
-test('cash booking grace period starts when admin records completed cash payment', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-        'created_at' => Carbon::now()->subDays(5),
-    ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'cash', Carbon::now()->subHour());
-
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(1000.0);
-});
-
-test('full refund during grace period never exceeds actual completed rental payment', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
+        'start_date' => Carbon::now()->addHours(60),
         'advance_payment_amount' => 330,
         'total_amount' => 1100,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 330, 'card', Carbon::now()->subHour());
+    refundPolicyUnitAttachCompletedPayment($booking, 330, 'card', Carbon::now());
 
     expect($service->calculateRefundAmount($booking, 330))->toBe(330.0);
 });
 
-test('pending and failed payments do not start the confirmation grace period', function () {
+test('pending failed refund and security deposit rows do not change the pickup-based refund band', function () {
     $service = new RefundPolicyService;
 
     $booking = Booking::factory()->create([
         'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
+        'start_date' => Carbon::now()->addHours(47)->addMinutes(59),
         'advance_payment_amount' => 300,
         'total_amount' => 1000,
-        'created_at' => Carbon::now()->subHours(49),
     ]);
     $invoice = Invoice::factory()->create([
         'booking_id' => $booking->id,
@@ -608,50 +637,12 @@ test('pending and failed payments do not start the confirmation grace period', f
         'status' => Payment::STATUS_FAILED,
         'paid_at' => Carbon::now()->subHour(),
     ]);
-
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(700.0);
-});
-
-test('refund rows do not count as rental payment confirmation timestamps', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-        'created_at' => Carbon::now()->subHours(49),
-    ]);
-    $invoice = Invoice::factory()->create([
-        'booking_id' => $booking->id,
-        'user_id' => $booking->user_id,
-        'total_amount' => 1000,
-    ]);
     Payment::factory()->create([
         'invoice_id' => $invoice->id,
         'user_id' => $booking->user_id,
         'type' => Payment::TYPE_REFUND,
         'status' => Payment::STATUS_COMPLETED,
         'paid_at' => Carbon::now()->subHour(),
-    ]);
-
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(700.0);
-});
-
-test('security deposit records do not affect rental refund grace period', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'total_amount' => 1000,
-        'created_at' => Carbon::now()->subHours(49),
-    ]);
-    $invoice = Invoice::factory()->create([
-        'booking_id' => $booking->id,
-        'user_id' => $booking->user_id,
-        'total_amount' => 1000,
     ]);
     Payment::factory()->create([
         'invoice_id' => $invoice->id,
@@ -661,73 +652,50 @@ test('security deposit records do not affect rental refund grace period', functi
         'paid_at' => Carbon::now()->subHour(),
     ]);
 
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(700.0);
+    expect($service->calculateRefundAmount($booking, 1000))->toBe(500.0);
 });
 
-test('legacy fallback uses advance payment paid timestamp when completed payment paid_at is missing', function () {
+test('security deposit remains excluded from actual refundable rental paid amount', function () {
     $service = new RefundPolicyService;
 
     $booking = Booking::factory()->create([
         'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
+        'start_date' => Carbon::now()->addHours(60),
         'advance_payment_amount' => 300,
-        'advance_payment_paid_at' => Carbon::now()->subHour(),
         'total_amount' => 1000,
-        'created_at' => Carbon::now()->subDays(5),
+        'security_deposit_amount' => 500,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', null, [
-        'paid_at' => null,
-        'created_at' => Carbon::now()->subDays(5),
-    ]);
-
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(1000.0);
-});
-
-test('legacy fallback uses completed payment created timestamp when paid_at and booking paid timestamp are missing', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'advance_payment_paid_at' => null,
-        'total_amount' => 1000,
-        'created_at' => Carbon::now()->subDays(5),
-    ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', null, [
-        'paid_at' => null,
-        'created_at' => Carbon::now()->subHour(),
-    ]);
-
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(1000.0);
-});
-
-test('legacy fallback uses accepted pending to confirmed transition before booking creation time', function () {
-    $service = new RefundPolicyService;
-
-    $booking = Booking::factory()->create([
-        'status' => 'confirmed',
-        'start_date' => Carbon::now()->addDay(),
-        'advance_payment_amount' => 300,
-        'advance_payment_paid_at' => null,
-        'total_amount' => 1000,
-        'created_at' => Carbon::now()->subDays(5),
-    ]);
-    BookingStateTransition::create([
+    $invoice = Invoice::factory()->create([
         'booking_id' => $booking->id,
-        'from_status' => Booking::STATUS_PENDING,
-        'to_status' => Booking::STATUS_CONFIRMED,
-        'source' => 'test',
-        'accepted' => true,
-        'created_at' => Carbon::now()->subHour(),
+        'user_id' => $booking->user_id,
+        'total_amount' => 1000,
+    ]);
+    Payment::factory()->create([
+        'invoice_id' => $invoice->id,
+        'user_id' => $booking->user_id,
+        'type' => Payment::TYPE_PAYMENT,
+        'amount' => 1000,
+        'method' => 'card',
+        'status' => Payment::STATUS_COMPLETED,
+    ]);
+    Payment::factory()->create([
+        'invoice_id' => $invoice->id,
+        'user_id' => $booking->user_id,
+        'type' => 'security_deposit_charge',
+        'amount' => 500,
+        'method' => 'card',
+        'status' => Payment::STATUS_COMPLETED,
     ]);
 
-    expect($service->calculateRefundAmount($booking, 1000))->toBe(1000.0);
+    $policy = $service->evaluateCancellation($booking->fresh('invoice.payments'), 'customer');
+
+    expect($booking->fresh()->invoice->paid_amount)->toBe(1000.0)
+        ->and($policy['refund_amount'])->toBe(1000.0);
 });
 
-test('refund_partial_percentage setting does NOT affect refund calculation', function () {
+test('refund_partial_percentage setting affects partial refund calculation', function () {
     // Set partial percentage to 100%
-    Setting::where('key', 'refund_partial_percentage')->update(['value' => 100]);
+    Setting::set('refund_partial_percentage', 100, 'number');
 
     $service = new RefundPolicyService;
 
@@ -737,10 +705,9 @@ test('refund_partial_percentage setting does NOT affect refund calculation', fun
         'advance_payment_amount' => 300,
         'total_amount' => 1000,
     ]);
-    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now()->subHours(49));
+    refundPolicyUnitAttachCompletedPayment($booking, 1000, 'card', Carbon::now());
 
     $refundAmount = $service->calculateRefundAmount($booking, 1000);
 
-    // Should still use paid - advance (700), not percentage (1000)
-    expect($refundAmount)->toBe(700.0);
+    expect($refundAmount)->toBe(1000.0);
 });

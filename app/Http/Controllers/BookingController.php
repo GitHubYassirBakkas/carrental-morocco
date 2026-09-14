@@ -15,6 +15,7 @@ use App\Services\NotificationService;
 use App\Services\Pricing\BookingPricingService;
 use App\Services\RefundPolicyService;
 use App\Services\RefundService;
+use App\Services\RentalBusinessRules;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -30,7 +31,8 @@ class BookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly RefundService $refundService,
         private readonly RefundPolicyService $refundPolicyService,
-        private readonly BookingTimelineService $bookingTimelineService
+        private readonly BookingTimelineService $bookingTimelineService,
+        private readonly RentalBusinessRules $rentalRules
     ) {}
 
     /**
@@ -53,9 +55,9 @@ class BookingController extends Controller
         $days = max(1, $start->diffInDays($end));
 
         // Enforce booking settings
-        $minDays = (int) setting('booking_min_days', config('rental.min_days', 1));
-        $maxDays = (int) setting('booking_max_days', config('rental.max_days', 30));
-        $maxAdvanceDays = (int) setting('max_advance_booking_days', config('rental.max_advance_booking_days', 90));
+        $minDays = $this->rentalRules->bookingMinDays();
+        $maxDays = $this->rentalRules->bookingMaxDays();
+        $maxAdvanceDays = $this->rentalRules->maxAdvanceBookingDays();
 
         if ($days < $minDays) {
             return back()->withErrors([
@@ -69,9 +71,15 @@ class BookingController extends Controller
             ])->withInput();
         }
 
-        if ($this->exceedsMaxAdvanceDate($start, $maxAdvanceDays)) {
+        if ($this->rentalRules->exceedsMaxAdvanceDate($start)) {
             return back()->withErrors([
                 'dates' => __('messages.max_advance_booking_days_error', ['days' => $maxAdvanceDays]),
+            ])->withInput();
+        }
+
+        if (! $this->rentalRules->driverMeetsMinimumAge($request->user(), $car)) {
+            return back()->withErrors([
+                'driver_age' => 'Driver must be at least '.$this->rentalRules->effectiveMinimumDriverAge($car).' years old for this vehicle.',
             ])->withInput();
         }
 
@@ -148,6 +156,16 @@ class BookingController extends Controller
         }
 
         $car = Car::findOrFail($preview['car_id']);
+
+        if (! $this->rentalRules->driverMeetsMinimumAge(request()->user(), $car)) {
+            session()->forget('booking_preview');
+
+            return redirect()
+                ->route('cars.details', $car)
+                ->withErrors([
+                    'driver_age' => 'Driver must be at least '.$this->rentalRules->effectiveMinimumDriverAge($car).' years old for this vehicle.',
+                ]);
+        }
         $insurance = $preview['insurance_id']
             ? Insurance::find($preview['insurance_id'])
             : null;
@@ -202,9 +220,9 @@ class BookingController extends Controller
         $end = Carbon::parse($preview['end_date']);
         $days = max(1, $start->diffInDays($end));
 
-        $minDays = (int) setting('booking_min_days', config('rental.min_days', 1));
-        $maxDays = (int) setting('booking_max_days', config('rental.max_days', 30));
-        $maxAdvanceDays = (int) setting('max_advance_booking_days', config('rental.max_advance_booking_days', 90));
+        $minDays = $this->rentalRules->bookingMinDays();
+        $maxDays = $this->rentalRules->bookingMaxDays();
+        $maxAdvanceDays = $this->rentalRules->maxAdvanceBookingDays();
 
         if ($days < $minDays) {
             return redirect()
@@ -218,10 +236,18 @@ class BookingController extends Controller
                 ->withErrors(['dates' => __('messages.maximum_rental_duration_days', ['days' => $maxDays])]);
         }
 
-        if ($this->exceedsMaxAdvanceDate($start, $maxAdvanceDays)) {
+        if ($this->rentalRules->exceedsMaxAdvanceDate($start)) {
             return redirect()
                 ->route('cars.details', $car)
                 ->withErrors(['dates' => __('messages.max_advance_booking_days_error', ['days' => $maxAdvanceDays])]);
+        }
+
+        if (! $this->rentalRules->driverMeetsMinimumAge($request->user(), $car)) {
+            return redirect()
+                ->route('cars.details', $car)
+                ->withErrors([
+                    'driver_age' => 'Driver must be at least '.$this->rentalRules->effectiveMinimumDriverAge($car).' years old for this vehicle.',
+                ]);
         }
 
         $appliedCoupon = session('applied_coupon');
@@ -297,10 +323,6 @@ class BookingController extends Controller
                     'payment_method' => null,
                     'advance_payment_amount' => $this->pricingService->calculateAdvancePayment((float) $finalTotal, true),
                     'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PENDING,
-                    'advance_payment_due_at' => now()->addHours(setting(
-                        'advance_payment_deadline_hours',
-                        config('rental.advance_payment_deadline_hours', 24)
-                    )),
                     'security_deposit_amount' => $car->security_deposit_amount ?? 0,
                     'security_deposit_status' => Booking::SECURITY_DEPOSIT_STATUS_PENDING,
                     'discount_amount' => $couponDiscount,
@@ -312,7 +334,8 @@ class BookingController extends Controller
                     $userId,
                     $finalPricingBreakdown['subtotal_amount'], // Before discount
                     $couponDiscount, // Discount amount
-                    $finalTotal // After discount
+                    $finalTotal, // After discount and tax
+                    $finalPricingBreakdown['tax_amount']
                 );
 
                 // ✅ APPLY COUPON IF USED
@@ -438,12 +461,16 @@ class BookingController extends Controller
 
         $upcoming = $user->bookings()
             ->where('start_date', '>', now())
+            ->activeOrReserved()
             ->with(['car', 'review', 'pickupLocation', 'dropoffLocation', 'invoice.payments'])
             ->orderBy('start_date')
             ->get();
 
         $past = $user->bookings()
-            ->where('end_date', '<', now())
+            ->where(function ($query) {
+                $query->where('end_date', '<', now())
+                    ->orWhere('status', Booking::STATUS_CANCELLED);
+            })
             ->with(['car', 'review', 'pickupLocation', 'dropoffLocation', 'invoice.payments'])
             ->orderByDesc('end_date')
             ->get();
@@ -537,12 +564,5 @@ class BookingController extends Controller
                 'cancellation' => __('messages.booking_cancel_failed_try_support'),
             ]);
         }
-    }
-
-    private function exceedsMaxAdvanceDate(Carbon $start, int $maxAdvanceDays): bool
-    {
-        $maxAllowedDate = now()->copy()->startOfDay()->addDays($maxAdvanceDays);
-
-        return $start->copy()->startOfDay()->gt($maxAllowedDate);
     }
 }

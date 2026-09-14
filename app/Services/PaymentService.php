@@ -17,7 +17,8 @@ class PaymentService
         AdvancePaymentService $advancePaymentService,
         private readonly InvoiceService $invoiceService,
         private readonly BookingPricingService $pricingService,
-        private readonly PaymentStateTransitionValidator $transitionValidator
+        private readonly PaymentStateTransitionValidator $transitionValidator,
+        private readonly RentalBusinessRules $rentalRules
     ) {
         $this->advancePaymentService = $advancePaymentService;
     }
@@ -318,10 +319,15 @@ class PaymentService
     public function markBookingPendingPayment(Booking $booking): void
     {
         if ($booking->isPending()) {
-            $booking->update([
+            $updates = [
                 'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PENDING,
-                'advance_payment_due_at' => now()->addHours(24),
-            ]);
+            ];
+
+            if (! $booking->advance_payment_due_at) {
+                $updates['advance_payment_due_at'] = $this->rentalRules->advancePaymentDueAt();
+            }
+
+            $booking->update($updates);
         }
     }
 

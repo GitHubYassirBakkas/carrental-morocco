@@ -6,7 +6,20 @@
 @php
     $lateGraceHours = setting('late_grace_minutes', config('rental.late_grace_minutes')) / 60;
     $lateFeePerHour = setting('late_fee_per_hour', config('rental.late_fee_per_hour'));
+    $locationHasCoordinates = $car->location?->has_coordinates ?? false;
+    $taxPercentage = (float) setting('tax_percentage', config('rental.tax_percentage', 0));
+    $siteName = setting('site_name', 'Car Rental Morocco');
+    $fullRefundHours = $globalCancellationPolicy['full_refund_hours'];
+    $partialRefundHours = $globalCancellationPolicy['partial_refund_hours'];
+    $partialRefundPercentage = $globalCancellationPolicy['partial_refund_percentage'];
+    $partialRefundPercentageLabel = rtrim(rtrim(number_format($partialRefundPercentage, 2), '0'), '.');
 @endphp
+
+@if($locationHasCoordinates)
+    @push('styles')
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    @endpush
+@endif
 
 <div class="cd-page" x-data="carDetails()">
 
@@ -108,20 +121,11 @@
             ->exists();
     @endphp
 
-    <form method="POST"
-          action="{{ $isFavorited ? route('wishlist.destroy', $car) : route('wishlist.store', $car) }}">
-        @csrf
-
-        @if($isFavorited)
-            @method('DELETE')
-        @endif
-
-        <button type="submit"
-                class="ml-4 text-3xl hover:scale-110 transition"
-                title="{{ $isFavorited ? __('messages.wishlist_remove') : __('messages.wishlist_add') }}">
-            {{ $isFavorited ? '❤️' : '🤍' }}
-        </button>
-    </form>
+    @include('partials.wishlist-toggle', [
+        'car' => $car,
+        'isFavorited' => $isFavorited,
+        'class' => 'wishlist-toggle-form--inline',
+    ])
 @endauth
                 </div>
 
@@ -157,11 +161,20 @@
                     </div>
                     <div class="cd-spec">
                         <div class="cd-spec-icon cd-spec-icon--rose">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                            <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 2a2 2 0 00-2 2v1H5a3 3 0 00-3 3v9a2 2 0 002 2h12a2 2 0 002-2V8a3 3 0 00-3-3h-1V4a2 2 0 00-2-2H8zm0 2h4v1H8V4z"/></svg>
                         </div>
-                        <span class="cd-spec-label">{{ __('messages.mileage') }}</span>
+                        <span class="cd-spec-label">{{ __('messages.luggage_bags') }}</span>
                         <span class="cd-spec-val">{{ $car->luggage }}</span>
                     </div>
+                    @if($car->mileage !== null)
+                    <div class="cd-spec">
+                        <div class="cd-spec-icon cd-spec-icon--blue">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a9 9 0 00-9 9m18 0a9 9 0 00-9-9m0 0v3m-7.8 9a9 9 0 0015.6 0M12 12l4-4m-9 8h10"/></svg>
+                        </div>
+                        <span class="cd-spec-label">{{ __('messages.mileage') }}</span>
+                        <span class="cd-spec-val">{{ number_format($car->mileage) }} km</span>
+                    </div>
+                    @endif
                 </div>
             </div>
 
@@ -220,11 +233,22 @@
                         @endif
                     </div>
                 </div>
-                <div class="cd-map-placeholder">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    <p>{{ $car->location->name }}</p>
-                    <span>{{ $car->location->city ?? '' }}</span>
-                </div>
+                @if($locationHasCoordinates)
+                    <div
+                        id="cd-agency-map"
+                        class="cd-map"
+                        data-lat="{{ $car->location->latitude }}"
+                        data-lng="{{ $car->location->longitude }}"
+                        data-name="{{ $car->location->name }}"
+                        data-address="{{ $car->location->full_address }}"
+                    ></div>
+                @else
+                    <div class="cd-map-placeholder">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <p>{{ __('messages.map_location_not_available') }}</p>
+                        <span>{{ $car->location->name }}</span>
+                    </div>
+                @endif
             </div>
             @endif
 
@@ -242,7 +266,7 @@
                         </div>
                         <div>
                             <span class="cd-policy-label">{{ __('messages.minimum_age') }}</span>
-                            <strong>{{ $car->minimum_age ?? 21 }} {{ __('messages.years') }}</strong>
+                            <strong>{{ $effectiveMinimumDriverAge }} {{ __('messages.years') }}</strong>
                         </div>
                     </div>
 
@@ -278,17 +302,28 @@
                     </div>
                     @endif
 
-                    @if($car->cancellation_policy)
-                    <div class="cd-policy">
+                    <div class="cd-policy cd-policy--full">
                         <div class="cd-policy-icon cd-policy-icon--rose">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                         </div>
                         <div>
                             <span class="cd-policy-label">{{ __('messages.cancellation_policy') }}</span>
-                            <strong>{{ $car->cancellation_policy }}</strong>
+                            <dl class="cd-cancellation-policy">
+                                <div>
+                                    <dt>Full refund:</dt>
+                                    <dd>{{ $fullRefundHours }}+ hours before pickup</dd>
+                                </div>
+                                <div>
+                                    <dt>Partial refund:</dt>
+                                    <dd>{{ $partialRefundHours }}-{{ $fullRefundHours }} hours before pickup - {{ $partialRefundPercentageLabel }}%</dd>
+                                </div>
+                                <div>
+                                    <dt>No refund:</dt>
+                                    <dd>Less than {{ $partialRefundHours }} hours before pickup</dd>
+                                </div>
+                            </dl>
                         </div>
                     </div>
-                    @endif
 
                     @if($car->security_deposit_amount)
                     <div class="cd-policy">
@@ -453,7 +488,7 @@
                                 <div class="cd-review-response">
                                     <div class="cd-response-header">
                                         <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clip-rule="evenodd"/></svg>
-                                        CarRental Morocco
+                                        {{ $siteName }}
                                     </div>
                                     <p>{{ $review->response }}</p>
                                 </div>
@@ -655,7 +690,7 @@
 
                 <p class="cd-secure-note">
                     <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
-                    {{ __('messages.secure_payment') }} • {{ __('messages.free_cancellation') }}
+                    {{ __('messages.secure_payment') }}
                 </p>
 
             </div>
@@ -798,7 +833,7 @@
 .cd-price-header span { font-size: 0.72rem; color: var(--muted); }
 
 /* Specs */
-.cd-specs { display: grid; grid-template-columns: repeat(5,1fr); gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.25rem; }
+.cd-specs { display: grid; grid-template-columns: repeat(auto-fit,minmax(92px,1fr)); gap: 1rem; border-top: 1px solid var(--border); padding-top: 1.25rem; }
 @media (max-width: 700px) { .cd-specs { grid-template-columns: repeat(3,1fr); } }
 .cd-spec { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
 .cd-spec-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
@@ -831,6 +866,11 @@
 .cd-loc-card p  { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
 .cd-loc-phone { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--hint); }
 .cd-loc-phone svg { width: 13px; height: 13px; }
+.cd-map { height: 260px; width: 100%; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #111; }
+.cd-map .leaflet-popup-content-wrapper, .cd-map .leaflet-popup-tip { background: #111520; color: var(--text); border: 1px solid var(--border); }
+.cd-map .leaflet-popup-content { font-family: 'DM Sans', system-ui, sans-serif; font-size: 0.8rem; line-height: 1.5; }
+.cd-map .leaflet-control-attribution { background: rgba(17,21,32,0.82); color: var(--muted); }
+.cd-map .leaflet-control-attribution a { color: var(--gold); }
 .cd-map-placeholder { height: 220px; background: #111; border: 1px solid var(--border); border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .cd-map-placeholder svg { width: 40px; height: 40px; color: var(--hint); }
 .cd-map-placeholder p { font-size: 0.9rem; font-weight: 600; color: var(--muted); }
@@ -851,6 +891,10 @@
 .cd-policy-icon--purple { background: rgba(192,132,252,0.1); } .cd-policy-icon--purple svg { color: #c084fc; }
 .cd-policy-label { font-size: 0.72rem; color: var(--hint); text-transform: uppercase; letter-spacing: 0.06em; }
 .cd-policy strong { font-size: 0.875rem; color: var(--text); font-weight: 600; }
+.cd-cancellation-policy { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 0; }
+.cd-cancellation-policy div { display: grid; grid-template-columns: 110px 1fr; gap: 8px; align-items: baseline; }
+.cd-cancellation-policy dt { font-size: 0.8rem; color: var(--text); font-weight: 700; }
+.cd-cancellation-policy dd { margin: 0; font-size: 0.8rem; color: var(--muted); line-height: 1.4; }
 .cd-docs-list { list-style: none; display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
 .cd-docs-list li { display: flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--muted); }
 .cd-docs-list li span { width: 6px; height: 6px; border-radius: 50%; background: #60a5fa; flex-shrink: 0; }
@@ -1071,6 +1115,47 @@
 </style>
 
 @push('scripts')
+@if($locationHasCoordinates)
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const mapEl = document.getElementById('cd-agency-map');
+
+    if (!mapEl || typeof L === 'undefined') {
+        return;
+    }
+
+    const latitude = Number.parseFloat(mapEl.dataset.lat);
+    const longitude = Number.parseFloat(mapEl.dataset.lng);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return;
+    }
+
+    const map = L.map(mapEl, {
+        scrollWheelZoom: false,
+    }).setView([latitude, longitude], 15);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    const popupContent = document.createElement('div');
+    const popupName = document.createElement('strong');
+    const popupAddress = document.createElement('span');
+
+    popupName.textContent = mapEl.dataset.name || '';
+    popupAddress.textContent = mapEl.dataset.address || '';
+    popupContent.append(popupName, document.createElement('br'), popupAddress);
+
+    L.marker([latitude, longitude])
+        .addTo(map)
+        .bindPopup(popupContent)
+        .openPopup();
+});
+</script>
+@endif
 <script>
 document.addEventListener('alpine:init', () => {
     Alpine.data('carDetails', () => ({
@@ -1083,10 +1168,13 @@ document.addEventListener('alpine:init', () => {
         returnTime: '10:00',
         pricePerDay: {{ $car->price_per_day }},
         insurancePrice: {{ $insurancePrice ?? 0 }},
+        taxPercentage: {{ $taxPercentage }},
         rentalDays: 1,
         total: 0,
-        minDays: 2,
-        maxDays: 30,
+        minDays: {{ $bookingMinDays }},
+        maxDays: {{ $bookingMaxDays }},
+        maxAdvanceDays: {{ $maxAdvanceBookingDays }},
+        maxAdvancePickupDate: '{{ $maxAdvancePickupDate }}',
         availabilityMessage: '',
         availabilityError: false,
         msgAvailable:       '{{ __("messages.car_available") }}',
@@ -1098,14 +1186,14 @@ document.addEventListener('alpine:init', () => {
         init() {
             if (this.images.length) this.currentImage = this.images[0];
             flatpickr("#dateRange", {
-                mode: "range", minDate: "today", dateFormat: "Y-m-d",
+                mode: "range", minDate: "today", maxDate: "{{ $datepickerMaxDate }}", dateFormat: "Y-m-d",
                 disable: @json($bookedRanges ?? []),
                 onChange: (dates) => {
                     if (dates.length === 2) {
                         this.pickupDate = this.fmt(dates[0]);
                         this.returnDate = this.fmt(dates[1]);
                         this.calculateDays();
-                        this.checkAvailability();
+                        if (!this.availabilityError) this.checkAvailability();
                     }
                 }
             });
@@ -1119,19 +1207,28 @@ document.addEventListener('alpine:init', () => {
             return new Date(year, month - 1, day, 12);
         },
 
+        taxedTotal(subtotal) {
+            return subtotal + (subtotal * this.taxPercentage / 100);
+        },
+
         setImage(i)  { this.activeIndex = i; this.currentImage = this.images[i]; },
         nextImage()  { this.activeIndex = (this.activeIndex + 1) % this.images.length; this.currentImage = this.images[this.activeIndex]; },
         prevImage()  { this.activeIndex = (this.activeIndex - 1 + this.images.length) % this.images.length; this.currentImage = this.images[this.activeIndex]; },
 
         calculateDays() {
-            if (!this.pickupDate || !this.returnDate) { this.total = this.pricePerDay + this.insurancePrice; return; }
+            if (!this.pickupDate || !this.returnDate) { this.total = this.taxedTotal(this.pricePerDay + this.insurancePrice); return; }
+            if (this.localDate(this.pickupDate) > this.localDate(this.maxAdvancePickupDate)) {
+                this.availabilityMessage = `Pickup must be within ${this.maxAdvanceDays} days`;
+                this.availabilityError = true;
+                return;
+            }
             const days = Math.ceil((this.localDate(this.returnDate) - this.localDate(this.pickupDate)) / 86400000);
             this.rentalDays = Math.max(1, days);
             if (this.rentalDays < this.minDays) { this.availabilityMessage = `${this.msgMinDays} ${this.minDays}`; this.availabilityError = true; return; }
             if (this.rentalDays > this.maxDays) { this.availabilityMessage = `${this.msgMaxDays} ${this.maxDays}`; this.availabilityError = true; return; }
             this.availabilityError = false;
             this.availabilityMessage = '';
-            this.total = this.pricePerDay * this.rentalDays + this.insurancePrice;
+            this.total = this.taxedTotal(this.pricePerDay * this.rentalDays + this.insurancePrice);
         },
 
         async checkAvailability() {

@@ -3,14 +3,14 @@
 namespace App\Services;
 
 use App\Models\Booking;
-use App\Models\BookingStateTransition;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Setting;
-use Carbon\Carbon;
 
 class RefundPolicyService
 {
+    public const FALLBACK_REFUND_METHODS = ['cash', 'bank_transfer'];
+
     /**
      * Determine if a customer can cancel a booking.
      */
@@ -84,13 +84,17 @@ class RefundPolicyService
             return $this->calculateEarlyTerminationRefund($booking, $paidAmount);
         }
 
-        // Rule 1: Full refund during the payment confirmation grace period.
-        if ($this->isWithinFullRefundGracePeriod($booking)) {
+        $hoursBeforePickup = $this->calculateHoursBeforePickup($booking);
+
+        if ($hoursBeforePickup >= $this->fullRefundBeforePickupHours()) {
             return $this->calculateFullRefund($booking, $paidAmount);
         }
 
-        // Rule 2: Partial refund after the payment confirmation grace period.
-        return $this->calculatePartialRefund($booking, $paidAmount);
+        if ($hoursBeforePickup >= $this->partialRefundUntilPickupHours()) {
+            return $this->calculatePartialRefund($booking, $paidAmount);
+        }
+
+        return $this->calculateNoRefund();
     }
 
     /**
@@ -98,7 +102,7 @@ class RefundPolicyService
      *
      * Priority: Original payment method > Fallback method > null
      *
-     * @return string|null 'cash'|'card'|null
+     * @return string|null 'cash'|'card'|'bank_transfer'|null
      */
     public function determineRefundMethod(Booking $booking): ?string
     {
@@ -116,8 +120,12 @@ class RefundPolicyService
             return $payment->method;
         }
 
-        // Priority 2: Fallback method
-        return Setting::get('refund_default_method', 'cash');
+        // Priority 2: Manual fallback method when the original channel is unknown.
+        $fallback = (string) Setting::get('refund_default_method', 'cash');
+
+        return in_array($fallback, self::FALLBACK_REFUND_METHODS, true)
+            ? $fallback
+            : 'cash';
     }
 
     /**
@@ -138,8 +146,8 @@ class RefundPolicyService
 
         $refundType = $booking->invoice ? $this->determineRefundType($booking->invoice, $refundAmount) : 'none';
         $refundMethod = $this->determineRefundMethod($booking);
-        $refundWindowStart = $this->resolveRefundWindowStart($booking);
-        $refundWindowEnd = $this->calculateRefundWindowEnd($refundWindowStart);
+        $hoursBeforePickup = $this->calculateHoursBeforePickup($booking);
+        $fullRefundDeadline = $booking->start_date?->copy()->subHours($this->fullRefundBeforePickupHours());
 
         return [
             'can_cancel' => $canCancel,
@@ -148,12 +156,13 @@ class RefundPolicyService
             'refund_amount' => $refundAmount,
             'refund_method' => $refundMethod,
             'policy_reason' => $this->generatePolicyReason($booking, $canCancel, $refundType, $refundAmount),
-            'hours_before_pickup' => $this->calculateHoursBeforePickup($booking),
-            'cancellation_deadline' => $refundWindowEnd,
-            'refund_window_started_at' => $refundWindowStart,
-            'refund_window_ends_at' => $refundWindowEnd,
-            'hours_since_confirmation' => $this->calculateHoursSinceConfirmation($refundWindowStart),
-            'within_full_refund_window' => $this->isWithinFullRefundGracePeriod($booking, $refundWindowStart),
+            'hours_before_pickup' => $hoursBeforePickup,
+            'cancellation_deadline' => $fullRefundDeadline,
+            'refund_window_started_at' => null,
+            'refund_window_ends_at' => $fullRefundDeadline,
+            'hours_since_confirmation' => null,
+            'within_full_refund_window' => ! $booking->isActive()
+                && $hoursBeforePickup >= $this->fullRefundBeforePickupHours(),
         ];
     }
 
@@ -169,78 +178,6 @@ class RefundPolicyService
     }
 
     /**
-     * Resolve when the 48-hour full-refund grace period starts.
-     */
-    private function resolveRefundWindowStart(Booking $booking): Carbon
-    {
-        $completedPaymentPaidAt = $this->completedRentalPaymentsQuery($booking)
-            ?->whereNotNull('paid_at')
-            ->orderBy('paid_at')
-            ->orderBy('created_at')
-            ->value('paid_at');
-
-        if ($completedPaymentPaidAt) {
-            return Carbon::parse($completedPaymentPaidAt);
-        }
-
-        if ($booking->advance_payment_paid_at) {
-            return $booking->advance_payment_paid_at->copy();
-        }
-
-        $completedPaymentCreatedAt = $this->completedRentalPaymentsQuery($booking)
-            ?->whereNotNull('created_at')
-            ->oldest('created_at')
-            ->value('created_at');
-
-        if ($completedPaymentCreatedAt) {
-            return Carbon::parse($completedPaymentCreatedAt);
-        }
-
-        $confirmedTransitionCreatedAt = BookingStateTransition::query()
-            ->where('booking_id', $booking->id)
-            ->where('from_status', Booking::STATUS_PENDING)
-            ->where('to_status', Booking::STATUS_CONFIRMED)
-            ->where('accepted', true)
-            ->oldest('created_at')
-            ->value('created_at');
-
-        if ($confirmedTransitionCreatedAt) {
-            return Carbon::parse($confirmedTransitionCreatedAt);
-        }
-
-        return $booking->created_at?->copy() ?? now();
-    }
-
-    private function completedRentalPaymentsQuery(Booking $booking)
-    {
-        if (! $booking->invoice) {
-            return null;
-        }
-
-        return $booking->invoice->payments()
-            ->where('type', Payment::TYPE_PAYMENT)
-            ->where('status', Payment::STATUS_COMPLETED);
-    }
-
-    private function calculateRefundWindowEnd(Carbon $refundWindowStart): Carbon
-    {
-        return $refundWindowStart->copy()
-            ->addHours((int) Setting::get('refund_cancellation_window_hours', 48));
-    }
-
-    private function isWithinFullRefundGracePeriod(Booking $booking, ?Carbon $refundWindowStart = null): bool
-    {
-        $refundWindowStart ??= $this->resolveRefundWindowStart($booking);
-
-        return now()->lessThanOrEqualTo($this->calculateRefundWindowEnd($refundWindowStart));
-    }
-
-    private function calculateHoursSinceConfirmation(Carbon $refundWindowStart): int|float
-    {
-        return $refundWindowStart->copy()->utc()->diffInHours(now()->utc(), false);
-    }
-
-    /**
      * Calculate paid amount for an invoice.
      */
     private function calculatePaidAmount(Invoice $invoice): float
@@ -251,7 +188,7 @@ class RefundPolicyService
     /**
      * Calculate full refund amount.
      *
-     * Rule 1: Full refund during the payment confirmation grace period.
+     * Rule 1: Full refund before the configured pickup cutoff.
      */
     private function calculateFullRefund(Booking $booking, float $paidAmount): float
     {
@@ -261,32 +198,20 @@ class RefundPolicyService
     /**
      * Calculate partial refund amount.
      *
-     * Rule 2 & 3: Partial refund using existing advance payment model.
-     * Formula: paidAmount - advancePayment
+     * Rule 2: Partial refund using configured percentage.
      */
     private function calculatePartialRefund(Booking $booking, float $paidAmount): float
     {
-        $advancePayment = min((float) $booking->advance_payment_amount, $paidAmount);
+        $percentage = min(100, max(0, (float) Setting::get('refund_partial_percentage', 50)));
 
-        return max(0, $paidAmount - $advancePayment);
+        return round(max(0, $paidAmount) * ($percentage / 100), 2);
     }
 
     /**
-     * Calculate refund amount for after pickup / no-show.
-     *
-     * Rule 4: No refund after pickup time.
+     * Rule 3: No refund inside the configured pickup cutoff.
      */
-    private function calculateAfterPickupRefund(Booking $booking, float $paidAmount): float
+    private function calculateNoRefund(): float
     {
-        $noRefundEnabled = Setting::get('refund_no_refund_enabled', true);
-
-        if ($noRefundEnabled) {
-            return 0.0;
-        }
-
-        // If no-refund is disabled, keep existing behavior (no refund)
-        // Document: Setting disabled does not change behavior in Phase 3.6
-        // Future enhancement could enable partial refunds after pickup
         return 0.0;
     }
 
@@ -324,12 +249,28 @@ class RefundPolicyService
             return 'Early termination: refund based on actual rental usage.';
         }
 
-        $cancellationWindow = (int) Setting::get('refund_cancellation_window_hours', 48);
+        $fullRefundHours = $this->fullRefundBeforePickupHours();
+        $partialRefundHours = $this->partialRefundUntilPickupHours();
+        $hoursBeforePickup = $this->calculateHoursBeforePickup($booking);
 
-        if ($this->isWithinFullRefundGracePeriod($booking)) {
-            return "Full refund: cancelled within the {$cancellationWindow}-hour payment confirmation grace period.";
+        if ($hoursBeforePickup >= $fullRefundHours) {
+            return "Full refund: cancelled at least {$fullRefundHours} hours before pickup.";
         }
 
-        return "Partial refund: cancellation made after the {$cancellationWindow}-hour payment confirmation grace period; advance payment retained.";
+        if ($hoursBeforePickup >= $partialRefundHours) {
+            return "Partial refund: cancelled between {$partialRefundHours} and {$fullRefundHours} hours before pickup.";
+        }
+
+        return "No refund: cancellation made less than {$partialRefundHours} hours before pickup.";
+    }
+
+    private function fullRefundBeforePickupHours(): int
+    {
+        return max(1, (int) Setting::get('refund_cancellation_window_hours', 48));
+    }
+
+    private function partialRefundUntilPickupHours(): int
+    {
+        return max(0, (int) Setting::get('refund_partial_refund_cutoff_hours', 24));
     }
 }

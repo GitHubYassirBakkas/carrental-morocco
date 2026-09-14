@@ -58,8 +58,9 @@ class EmailLogController extends Controller
     public function show(EmailLog $emailLog)
     {
         $emailLog->load('user');
+        $emailPreviewSrcdoc = $this->emailPreviewSrcdoc((string) $emailLog->content);
 
-        return view('admin.email-logs.show', compact('emailLog'));
+        return view('admin.email-logs.show', compact('emailLog', 'emailPreviewSrcdoc'));
     }
 
     /**
@@ -111,5 +112,19 @@ class EmailLogController extends Controller
 
         return redirect()->route('admin.email-logs.index')
             ->with('success', 'Email log deleted successfully!');
+    }
+
+    private function emailPreviewSrcdoc(string $content): string
+    {
+        if ($this->looksLikeHtml($content)) {
+            return $content;
+        }
+
+        return '<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#111;padding:24px;white-space:pre-wrap}</style></head><body>'.e($content).'</body></html>';
+    }
+
+    private function looksLikeHtml(string $content): bool
+    {
+        return preg_match('/<\s*(?:!doctype|html|head|body|style|table|div|p|span|h[1-6]|a|img|br|strong|em)\b/i', $content) === 1;
     }
 }

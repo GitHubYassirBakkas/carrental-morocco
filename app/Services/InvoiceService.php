@@ -32,25 +32,17 @@ class InvoiceService
 
     public function firstOrCreateForPaymentPage(Booking $booking): Invoice
     {
-        return $this->firstOrCreateForBooking($booking, fn (): array => [
-            'user_id' => $booking->user_id,
-            'subtotal' => $booking->total_amount,
-            'tax_amount' => 0,
-            'total_amount' => $booking->total_amount,
-            'status' => Invoice::STATUS_PENDING,
-        ]);
+        return $this->firstOrCreateForBooking($booking, fn (): array => $this->fallbackInvoiceAttributes($booking));
     }
 
     public function firstOrCreateForPaymentProcessing(Booking $booking): Invoice
     {
-        return $this->firstOrCreateForBooking($booking, fn (): array => [
-            'user_id' => $booking->user_id,
-            'subtotal' => $booking->total_amount,
-            'tax_amount' => 0,
-            'total_amount' => $booking->total_amount,
-            'status' => Invoice::STATUS_PENDING,
-            'issued_at' => now(),
-        ]);
+        return $this->firstOrCreateForBooking(
+            $booking,
+            fn (): array => array_merge($this->fallbackInvoiceAttributes($booking), [
+                'issued_at' => now(),
+            ])
+        );
     }
 
     public function createForCustomerBooking(
@@ -58,12 +50,14 @@ class InvoiceService
         ?int $userId,
         float $subtotal,
         float $discountAmount,
-        float $totalAmount
+        float $totalAmount,
+        float $taxAmount = 0
     ): Invoice {
         return $this->firstOrCreateForBooking($booking, fn (): array => [
             'user_id' => $booking->user_id,
             'subtotal' => $subtotal,
             'discount_amount' => $discountAmount,
+            'tax_amount' => $taxAmount,
             'total_amount' => $totalAmount,
             'status' => Invoice::STATUS_PENDING,
         ]);
@@ -179,5 +173,19 @@ class InvoiceService
     protected function createInvoiceRecord(array $attributes): Invoice
     {
         return Invoice::create($attributes);
+    }
+
+    private function fallbackInvoiceAttributes(Booking $booking): array
+    {
+        $breakdown = $this->pricingService->breakdownForBooking($booking);
+
+        return [
+            'user_id' => $booking->user_id,
+            'subtotal' => $breakdown['subtotal_amount'],
+            'discount_amount' => $breakdown['discount_amount'],
+            'tax_amount' => $breakdown['tax_amount'],
+            'total_amount' => $breakdown['total_amount'],
+            'status' => Invoice::STATUS_PENDING,
+        ];
     }
 }

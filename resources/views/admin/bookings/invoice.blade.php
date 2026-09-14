@@ -1,13 +1,19 @@
+@php
+    $siteName = setting('site_name', 'Car Rental Morocco');
+    $sitePhone = setting('site_phone', '+212 6 12 34 56 78');
+    $siteEmail = setting('site_email', config('mail.from.address'));
+    $siteAddress = setting('site_address', 'Meknes, Morocco');
+@endphp
 <table width="100%" cellpadding="5" cellspacing="0">
     <tr>
         <td width="50%">
             <img src="{{ public_path('images/logo.png') }}" width="140">
         </td>
         <td width="50%" align="right">
-            <strong>Car Rental Morocco</strong><br>
-            Meknes, Morocco<br>
-            Phone: +212 6 12 34 56 78<br>
-            Email: contact@carrental.ma
+            <strong>{{ $siteName }}</strong><br>
+            {{ $siteAddress }}<br>
+            Phone: {{ $sitePhone }}<br>
+            Email: {{ $siteEmail }}
         </td>
     </tr>
 </table>

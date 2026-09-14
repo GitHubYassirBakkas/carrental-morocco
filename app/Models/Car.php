@@ -21,6 +21,7 @@ class Car extends Model
         'seats',
         'doors',
         'luggage',
+        'mileage',
         'price_per_day',
         'image',
         'gallery',
@@ -48,6 +49,7 @@ class Car extends Model
         'seats' => 'integer',
         'doors' => 'integer',
         'luggage' => 'integer',
+        'mileage' => 'integer',
         'minimum_age' => 'integer',
     ];
 

@@ -1,13 +1,19 @@
+@php
+    $siteName = setting('site_name', 'Car Rental Morocco');
+    $sitePhone = setting('site_phone', '+212 6 12 34 56 78');
+    $siteEmail = setting('site_email', config('mail.from.address'));
+    $siteAddress = setting('site_address', 'Meknes, Morocco');
+@endphp
 <table width="100%" cellpadding="5" cellspacing="0">
     <tr>
         <td width="50%">
             <img src="{{ public_path('images/logo.png') }}" width="140">
         </td>
         <td width="50%" align="right">
-            <strong>Car Rental Morocco</strong><br>
-            Meknes, Morocco<br>
-            Phone: +212 6 12 34 56 78<br>
-            Email: contact@carrental.ma
+            <strong>{{ $siteName }}</strong><br>
+            {{ $siteAddress }}<br>
+            Phone: {{ $sitePhone }}<br>
+            Email: {{ $siteEmail }}
         </td>
     </tr>
 </table>
@@ -120,5 +126,5 @@
 
 <p style="font-size: 12px; color: #666; text-align: center;">
     This document serves as an official refund receipt. Please retain for your records.<br>
-    If you have any questions, contact us at contact@carrental.ma
+    If you have any questions, contact us at {{ $siteEmail }}
 </p>

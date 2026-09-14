@@ -74,20 +74,63 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             
                             @foreach($groupSettings as $setting)
+                                {{-- Legacy refund toggles are kept in storage for backward compatibility; the active policy is the pickup-based three-band rule. --}}
+                                @continue(in_array($setting->key, ['refund_free_cancellation_enabled', 'refund_no_refund_enabled'], true))
+                                @php
+                                    $isReadonlyCurrency = $setting->key === 'currency';
+                                    $isInactiveFuelLiterRule = $setting->key === 'fuel_price_per_liter';
+                                    $displayLabel = match ($setting->key) {
+                                        'refund_cancellation_window_hours' => 'Full Refund Before Pickup (Hours)',
+                                        'refund_partial_refund_cutoff_hours' => 'Partial Refund Until Pickup (Hours)',
+                                        'refund_partial_percentage' => 'Partial Refund Percentage',
+                                        'refund_default_method' => 'Fallback Refund Method',
+                                        'fuel_price_per_percent' => 'Fuel Fee Per Missing Tank % (MAD)',
+                                        'currency' => 'Currency',
+                                        default => $setting->label,
+                                    };
+                                    $displayDescription = match ($setting->key) {
+                                        'currency' => 'MAD - application currency',
+                                        'fuel_price_per_liter' => 'Inactive: the production fuel rule charges per missing tank percent.',
+                                        'refund_cancellation_window_hours' => 'Scheduled pickup must be at least this many hours away for a full rental payment refund.',
+                                        'refund_partial_refund_cutoff_hours' => 'Scheduled pickup must be at least this many hours away for the configured partial refund.',
+                                        default => $setting->description,
+                                    };
+                                @endphp
+                                {{-- fuel_price_per_liter is intentionally not editable until a real liter-based calculation path exists. --}}
                                 <div class="@if($setting->type === 'textarea') md:col-span-2 @endif">
                                     
                                     <!-- Setting Label -->
                                     <label class="block text-sm font-semibold text-gray-300 mb-2">
-                                        {{ $setting->label }}
-                                        @if($setting->description)
+                                        {{ $displayLabel }}
+                                        @if($displayDescription)
                                             <span class="block text-xs font-normal text-gray-500 mt-1">
-                                                {{ $setting->description }}
+                                                {{ $displayDescription }}
                                             </span>
                                         @endif
                                     </label>
 
                                     <!-- Setting Input -->
-                                    @if($setting->type === 'text')
+                                    @if($isReadonlyCurrency)
+                                        <input type="text"
+                                               value="MAD - application currency"
+                                               readonly
+                                               class="w-full px-4 py-3 bg-black/30 border border-gray-800 rounded-xl text-gray-400 cursor-not-allowed">
+
+                                    @elseif($isInactiveFuelLiterRule)
+                                        <input type="number"
+                                               value="{{ old($setting->key, $setting->value) }}"
+                                               step="0.01"
+                                               disabled
+                                               class="w-full px-4 py-3 bg-black/30 border border-gray-800 rounded-xl text-gray-500 cursor-not-allowed">
+
+                                    @elseif($setting->key === 'refund_default_method')
+                                        <select name="{{ $setting->key }}"
+                                                class="w-full px-4 py-3 bg-black/40 border border-gray-700 rounded-xl text-white focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                            <option value="cash" @selected(old($setting->key, $setting->value) === 'cash')>Cash</option>
+                                            <option value="bank_transfer" @selected(old($setting->key, $setting->value) === 'bank_transfer')>Bank Transfer</option>
+                                        </select>
+
+                                    @elseif($setting->type === 'text')
                                         <input type="text" 
                                                name="{{ $setting->key }}" 
                                                value="{{ old($setting->key, $setting->value) }}"
@@ -164,6 +207,12 @@
                 <div>
                     <h3 class="text-blue-300 font-semibold mb-2">Important Notes</h3>
                     <ul class="space-y-1 text-blue-200 text-sm">
+                        <li>Changes apply on the next request.</li>
+                        <li>Tax and advance payment percentages are used in booking calculations.</li>
+                        <li>Minimum driver age affects booking eligibility.</li>
+                        <li>Late fees are calculated automatically based on return time.</li>
+                    </ul>
+                    <ul class="hidden">
                         <li>• Settings are cached for performance - changes may take a few seconds to apply</li>
                         <li>• Tax and advance payment percentages are used in booking calculations</li>
                         <li>• Minimum driver age affects booking eligibility</li>
@@ -171,26 +220,6 @@
                         <li>• Changes to payment settings affect new bookings only</li>
                     </ul>
                 </div>
-            </div>
-        </div>
-
-        <!-- Cache Clear Option -->
-        <div class="mt-6 bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-start gap-4">
-                    <svg class="w-6 h-6 text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                    </svg>
-                    <div>
-                        <h3 class="text-yellow-300 font-semibold mb-1">Settings Not Updating?</h3>
-                        <p class="text-yellow-200 text-sm">If changes don't appear immediately, clear the application cache</p>
-                    </div>
-                </div>
-                <button type="button"
-                        onclick="alert('Run: php artisan cache:clear')"
-                        class="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold rounded-lg transition text-sm">
-                    Clear Cache
-                </button>
             </div>
         </div>
 

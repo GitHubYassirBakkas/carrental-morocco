@@ -7,11 +7,15 @@ use App\Models\Insurance;
 use App\Models\Location;
 use App\Services\Pricing\BookingPricingService;
 use App\Services\PublicSiteDataService;
+use App\Services\RentalBusinessRules;
 use Illuminate\Http\Request;
 
 class CarController extends Controller
 {
-    public function __construct(private readonly BookingPricingService $pricingService) {}
+    public function __construct(
+        private readonly BookingPricingService $pricingService,
+        private readonly RentalBusinessRules $rentalRules
+    ) {}
 
     public function show(Request $request, Car $car)
     {
@@ -148,12 +152,12 @@ class CarController extends Controller
 
         $rentalDays = 1;
         $carTotal = $this->pricingService->calculateRentalAmount((float) $car->price_per_day, $rentalDays);
-        $total = $this->pricingService->calculateTotal($carTotal, (float) $insurancePrice);
+        $total = $this->pricingService->breakdown($carTotal, (float) $insurancePrice)['total_amount'];
 
         if ($pickupDate && $returnDate) {
             $rentalDays = $this->pricingService->calculateRentalDays($pickupDate, $returnDate);
             $carTotal = $this->pricingService->calculateRentalAmount((float) $car->price_per_day, $rentalDays);
-            $total = $this->pricingService->calculateTotal($carTotal, (float) $insurancePrice);
+            $total = $this->pricingService->breakdown($carTotal, (float) $insurancePrice)['total_amount'];
         }
 
         $reviews = $car->reviews()
@@ -203,6 +207,21 @@ class CarController extends Controller
             'reviews',
             'reviewStats',
             'bookedRanges'
-        ));
+        ) + [
+            'bookingMinDays' => $this->rentalRules->bookingMinDays(),
+            'bookingMaxDays' => $this->rentalRules->bookingMaxDays(),
+            'maxAdvanceBookingDays' => $this->rentalRules->maxAdvanceBookingDays(),
+            'datepickerMaxDate' => now()->copy()
+                ->startOfDay()
+                ->addDays($this->rentalRules->maxAdvanceBookingDays() + $this->rentalRules->bookingMaxDays())
+                ->toDateString(),
+            'maxAdvancePickupDate' => $this->rentalRules->maxAdvancePickupDate()->toDateString(),
+            'effectiveMinimumDriverAge' => $this->rentalRules->effectiveMinimumDriverAge($car),
+            'globalCancellationPolicy' => [
+                'full_refund_hours' => (int) setting('refund_cancellation_window_hours', 48),
+                'partial_refund_hours' => (int) setting('refund_partial_refund_cutoff_hours', 24),
+                'partial_refund_percentage' => (float) setting('refund_partial_percentage', 50),
+            ],
+        ]);
     }
 }

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', __('messages.legal_notice').' | Car Rental Morocco')
+@section('title', __('messages.legal_notice').' | '.($contact['name'] ?? setting('site_name', 'Car Rental Morocco')))
 
 @section('content')
 <section class="legal-page">
@@ -11,7 +11,7 @@
 
         <div class="legal-content">
             <h2>{{ __('messages.legal_content.notice.site_service_title') }}</h2>
-            <p><strong>{{ __('messages.legal_content.notice.service_name_label') }}:</strong> Car Rental Morocco</p>
+            <p><strong>{{ __('messages.legal_content.notice.service_name_label') }}:</strong> {{ $contact['name'] ?? setting('site_name', 'Car Rental Morocco') }}</p>
             <p><strong>{{ __('messages.legal_content.notice.website_purpose_label') }}:</strong> {{ __('messages.legal_content.notice.website_purpose_body') }}</p>
 
             <h2>{{ __('messages.legal_content.notice.operator_title') }}</h2>

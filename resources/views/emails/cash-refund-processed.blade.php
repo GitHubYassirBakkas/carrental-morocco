@@ -62,9 +62,15 @@
     </style>
 </head>
 <body>
+@php
+    $siteName = setting('site_name', 'Car Rental Morocco');
+    $sitePhone = setting('site_phone', '+212 6 12 34 56 78');
+    $siteEmail = setting('site_email', config('mail.from.address'));
+    $siteAddress = setting('site_address', 'Meknes, Morocco');
+@endphp
     <div class="wrap">
         <div class="header">
-            <h1>Car Rental Morocco</h1>
+            <h1>{{ $siteName }}</h1>
             <p>Your Trusted Car Rental Partner</p>
         </div>
 
@@ -146,10 +152,10 @@
 
         <div class="footer">
             <p>
-                <strong>Car Rental Morocco</strong><br>
-                Meknes, Morocco<br>
-                Phone: +212 6 12 34 56 78<br>
-                Email: <a href="mailto:contact@carrental.ma">contact@carrental.ma</a>
+                <strong>{{ $siteName }}</strong><br>
+                {{ $siteAddress }}<br>
+                Phone: {{ $sitePhone }}<br>
+                Email: <a href="mailto:{{ $siteEmail }}">{{ $siteEmail }}</a>
             </p>
             <p style="margin-top: 15px;">
                 © {{ date('Y') }} Car Rental Morocco. All rights reserved.

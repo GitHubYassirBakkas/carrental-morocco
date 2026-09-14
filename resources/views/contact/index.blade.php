@@ -26,6 +26,13 @@
             {{-- LEFT: Contact Info --}}
             <div class="lg:col-span-1 space-y-5">
 
+                @if($contact['name'])
+                    <div class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-3xl border border-gray-800 p-6">
+                        <h4 class="text-white font-bold mb-1">{{ $contact['name'] }}</h4>
+                        <p class="text-gray-400 text-sm">{{ __('messages.contact_us') }}</p>
+                    </div>
+                @endif
+
                 @if($contact['phone'])
                     <div class="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] rounded-3xl border border-gray-800 p-6 flex items-start gap-5 hover:border-[#C89D66]/40 transition">
                         <div class="w-14 h-14 bg-[#C89D66]/10 rounded-2xl flex items-center justify-center flex-shrink-0">

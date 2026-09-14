@@ -30,6 +30,12 @@ class AdvancePaymentService
      */
     public function calculateMinimumAdvancePayment(Booking $booking): float
     {
+        $storedAdvancePayment = (float) ($booking->advance_payment_amount ?? 0);
+
+        if ($storedAdvancePayment > 0) {
+            return $storedAdvancePayment;
+        }
+
         return $this->pricingService->calculateAdvancePayment($booking);
     }
 

@@ -469,6 +469,15 @@ class Booking extends Model
 
     public function getPricingBreakdownAttribute(): array
     {
+        $invoice = $this->relationLoaded('invoice')
+            ? $this->invoice
+            : $this->invoice()->first();
+
+        if ($invoice) {
+            return app(BookingPricingService::class)
+                ->breakdownForInvoice($invoice);
+        }
+
         return app(BookingPricingService::class)
             ->breakdownForBooking($this);
     }

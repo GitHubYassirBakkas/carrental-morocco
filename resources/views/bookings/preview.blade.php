@@ -4,6 +4,9 @@
 @php
     $lateGraceHours = setting('late_grace_minutes', config('rental.late_grace_minutes')) / 60;
     $lateFeePerHour = setting('late_fee_per_hour', config('rental.late_fee_per_hour'));
+    $displayPricingBreakdown = session('final_pricing_breakdown', $preview['pricing_breakdown'] ?? []);
+    $displayTotal = session('final_total', $preview['grand_total'] ?? 0);
+    $previewTaxAmount = $displayPricingBreakdown['tax_amount'] ?? 0;
 @endphp
 @push('styles')
 <style>
@@ -206,7 +209,7 @@ color: #777;
                             <strong>{{ $car->seats }}</strong>
                         </div>
                         <div class="bp-spec-pill">
-                            <span>{{ __('messages.mileage') }}</span>
+                            <span>{{ __('messages.luggage_bags') }}</span>
                             <strong>{{ $car->luggage }}</strong>
                         </div>
                     </div>
@@ -460,7 +463,7 @@ color: #777;
                 {{-- Line items --}}
                 <div class="bp-lines">
                     <div class="bp-line">
-                        <span>{{ __('messages.price_per_day') }} × {{ $preview['days'] ?? 0 }} {{ __('messages.total_days') }}</span>
+                        <span>{{ __('messages.car_rental_total') }}</span>
                         <strong>{{ number_format($preview['car_total'] ?? 0, 0) }} MAD</strong>
                     </div>
                     <div class="bp-line">
@@ -471,6 +474,12 @@ color: #777;
                         <div class="bp-line bp-line--orange">
                             <span>{{ __('messages.dropoff_fee') }}</span>
                             <strong>{{ number_format($preview['dropoff_fee'] ?? 0, 0) }} MAD</strong>
+                        </div>
+                    @endif
+                    @if($previewTaxAmount > 0 && ! session('applied_coupon'))
+                        <div class="bp-line">
+                            <span>{{ __('messages.tax') }}</span>
+                            <strong>{{ number_format($previewTaxAmount, 0) }} MAD</strong>
                         </div>
                     @endif
                 </div>
@@ -535,6 +544,12 @@ color: #777;
                             <span>{{ __('messages.coupon_discount') }} ({{ session('applied_coupon.code') }})</span>
                             <strong>−{{ number_format(session('coupon_discount', 0), 0) }} MAD</strong>
                         </div>
+                        @if($previewTaxAmount > 0)
+                            <div class="bp-line">
+                                <span>{{ __('messages.tax') }}</span>
+                                <strong>{{ number_format($previewTaxAmount, 0) }} MAD</strong>
+                            </div>
+                        @endif
                     </div>
                 @endif
 
@@ -543,7 +558,7 @@ color: #777;
                     <div class="bp-grand-glow"></div>
                     <div class="bp-grand-inner">
                         <span>{{ __('messages.total_price') }}</span>
-                        <strong>{{ number_format($preview['grand_total'] ?? 0, 0) }} MAD</strong>
+                        <strong>{{ number_format($displayTotal, 0) }} MAD</strong>
                     </div>
                     @if(session('applied_coupon'))
                         <p class="bp-saved">🎉 {{ __('messages.you_saved') }} {{ number_format(session('coupon_discount', 0), 0) }} MAD</p>

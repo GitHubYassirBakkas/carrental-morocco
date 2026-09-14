@@ -50,6 +50,7 @@ class AdminCarController extends Controller
             'seats' => 'required|integer',
             'doors' => 'required|integer',
             'luggage' => 'required|integer',
+            'mileage' => 'nullable|integer|min:0|max:2000000',
             'price_per_day' => 'required|numeric',
             'image' => ['required', ...self::PUBLIC_CAR_IMAGE_RULES],
             'gallery' => ['nullable', 'array', 'max:'.self::MAX_GALLERY_IMAGES],
@@ -62,6 +63,7 @@ class AdminCarController extends Controller
             'insurances.*' => 'exists:insurances,id',
             'default_insurance' => 'nullable|exists:insurances,id',
             'security_deposit_amount' => 'nullable|numeric|min:0',
+            'fuel_policy' => 'nullable|string|max:100',
         ]);
 
         $data['is_available'] = $request->boolean('is_available');
@@ -123,6 +125,7 @@ class AdminCarController extends Controller
             'seats' => 'required|integer',
             'doors' => 'required|integer',
             'luggage' => 'required|integer',
+            'mileage' => 'nullable|integer|min:0|max:2000000',
             'price_per_day' => 'required|numeric',
             'image' => ['nullable', ...self::PUBLIC_CAR_IMAGE_RULES],
             'gallery' => ['nullable', 'array', 'max:'.self::MAX_GALLERY_IMAGES],
@@ -137,7 +140,6 @@ class AdminCarController extends Controller
             'security_deposit_amount' => 'nullable|numeric|min:0',
             'minimum_age' => 'nullable|integer|min:18|max:30',
             'fuel_policy' => 'nullable|string|max:100',
-            'cancellation_policy' => 'nullable|string|max:255',
             'required_documents' => 'nullable|array',
         ]);
 

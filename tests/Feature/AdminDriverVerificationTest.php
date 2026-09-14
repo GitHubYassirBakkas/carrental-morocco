@@ -98,8 +98,9 @@ test('admin can verify a complete pending driver profile', function () {
 
     Mail::assertSent(DriverVerificationApprovedMail::class, function (DriverVerificationApprovedMail $mail) {
         $html = $mail->render();
+        $expectedSiteName = setting('site_name', 'Car Rental Morocco');
 
-        return str_contains($html, 'You can now reserve vehicles with CarRental Morocco')
+        return str_contains($html, "You can now reserve vehicles with {$expectedSiteName}")
             && str_contains($html, 'Browse Cars')
             && ! str_contains($html, 'private/customer-documents');
     });

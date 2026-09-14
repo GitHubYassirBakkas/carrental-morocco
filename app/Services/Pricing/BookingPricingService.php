@@ -172,29 +172,20 @@ class BookingPricingService
         $taxPercentage ??= (float) setting('tax_percentage', config('rental.tax_percentage', 0));
 
         return $taxPercentage > 0
-            ? ($amount * $taxPercentage) / 100
+            ? round(($amount * $taxPercentage) / 100, 2)
             : 0.0;
     }
 
     public function calculateTaxBreakdown(float $subtotalBeforeTax, ?float $taxPercentage = null): array
     {
         $taxPercentage ??= (float) setting('tax_percentage', config('rental.tax_percentage', 0));
-
-        if ($taxPercentage > 0) {
-            $taxMultiplier = 1 + ($taxPercentage / 100);
-            $totalAmount = $subtotalBeforeTax * $taxMultiplier;
-            $subtotal = $totalAmount / $taxMultiplier;
-            $taxAmount = $totalAmount - $subtotal;
-        } else {
-            $totalAmount = $subtotalBeforeTax;
-            $subtotal = $subtotalBeforeTax;
-            $taxAmount = 0;
-        }
+        $subtotal = round($subtotalBeforeTax, 2);
+        $taxAmount = $this->calculateTax($subtotal, $taxPercentage);
 
         return [
-            'subtotal_amount' => round($subtotal, 2),
-            'tax_amount' => round($taxAmount, 2),
-            'total_amount' => round($totalAmount, 2),
+            'subtotal_amount' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'total_amount' => round($subtotal + $taxAmount, 2),
             'tax_percentage' => $taxPercentage,
         ];
     }
@@ -303,16 +294,32 @@ class BookingPricingService
 
     public function calculateInvoiceTotalsForBooking(Booking $booking): array
     {
-        $pricingBreakdown = $this->breakdownForBooking($booking);
-        $damageCharge = $this->calculateDamageCharge($booking);
-        $subtotalBeforeTax = $pricingBreakdown['total_amount'] + $damageCharge;
-        $taxBreakdown = $this->calculateTaxBreakdown($subtotalBeforeTax);
+        $booking->loadMissing('invoice');
 
-        return array_merge($taxBreakdown, [
+        $pricingBreakdown = $booking->invoice
+            ? $this->breakdownForInvoice($booking->invoice)
+            : $this->breakdownForBooking($booking);
+        $damageCharge = $this->calculateDamageCharge($booking);
+        $discountAmount = (float) ($pricingBreakdown['discount_amount'] ?? 0);
+        $historicalTaxAmount = (float) ($pricingBreakdown['tax_amount'] ?? 0);
+        $historicalTaxableBase = max(0, round($pricingBreakdown['subtotal_amount'] - $discountAmount, 2));
+        $historicalTaxPercentage = $historicalTaxableBase > 0
+            ? ($historicalTaxAmount / $historicalTaxableBase) * 100
+            : 0.0;
+        $damageTax = $this->calculateTax($damageCharge, $historicalTaxPercentage);
+        $subtotalAmount = round($pricingBreakdown['subtotal_amount'] + $damageCharge, 2);
+        $taxAmount = round($historicalTaxAmount + $damageTax, 2);
+
+        return [
+            'subtotal_amount' => $subtotalAmount,
+            'tax_amount' => $taxAmount,
+            'total_amount' => round($pricingBreakdown['total_amount'] + $damageCharge + $damageTax, 2),
+            'tax_percentage' => $historicalTaxPercentage,
             'base_booking_amount' => $pricingBreakdown['total_amount'],
             'damage_amount' => $damageCharge,
-            'subtotal_before_tax' => $subtotalBeforeTax,
-        ]);
+            'subtotal_before_tax' => round($subtotalAmount - $discountAmount, 2),
+            'discount_amount' => $discountAmount,
+        ];
     }
 
     public function calculatePaidAmount(float $payments, float $refunds): float
@@ -353,13 +360,24 @@ class BookingPricingService
         float $insuranceAmount,
         float $extrasAmount = 0,
         float $discountAmount = 0,
-        float $taxAmount = 0
+        ?float $taxAmount = null
     ): array {
         $rentalAmount = round($rentalAmount, 2);
         $insuranceAmount = round($insuranceAmount, 2);
         $extrasAmount = round($extrasAmount, 2);
         $discountAmount = round($discountAmount, 2);
+        $subtotalAmount = round($rentalAmount + $insuranceAmount + $extrasAmount, 2);
+        $taxableAmount = max(0, round($subtotalAmount - $discountAmount, 2));
+        $taxPercentage = (float) setting('tax_percentage', config('rental.tax_percentage', 0));
+        $taxAmount ??= $this->calculateTax($taxableAmount, $taxPercentage);
         $taxAmount = round($taxAmount, 2);
+        $totalAmount = $this->calculateTotal(
+            $rentalAmount,
+            $insuranceAmount,
+            $extrasAmount,
+            $discountAmount,
+            $taxAmount
+        );
 
         return [
             'rental_amount' => $rentalAmount,
@@ -372,24 +390,13 @@ class BookingPricingService
             'coupon_discount' => $discountAmount,
             'tax_amount' => $taxAmount,
             'tax' => $taxAmount,
-            'subtotal_amount' => round($rentalAmount + $insuranceAmount + $extrasAmount, 2),
-            'subtotal' => round($rentalAmount + $insuranceAmount + $extrasAmount, 2),
-            'total_amount' => $this->calculateTotal(
-                $rentalAmount,
-                $insuranceAmount,
-                $extrasAmount,
-                $discountAmount,
-                $taxAmount
-            ),
-            'grand_total' => $this->calculateTotal(
-                $rentalAmount,
-                $insuranceAmount,
-                $extrasAmount,
-                $discountAmount,
-                $taxAmount
-            ),
+            'tax_percentage' => $taxPercentage,
+            'subtotal_amount' => $subtotalAmount,
+            'subtotal' => $subtotalAmount,
+            'total_amount' => $totalAmount,
+            'grand_total' => $totalAmount,
             'advance_payment_amount' => $this->calculateAdvancePayment(
-                $this->calculateTotal($rentalAmount, $insuranceAmount, $extrasAmount, $discountAmount, $taxAmount),
+                $totalAmount,
                 true
             ),
             'security_deposit_amount' => 0.0,
@@ -423,14 +430,31 @@ class BookingPricingService
         $insuranceAmount = $this->calculateInsuranceAmount($booking->insurance_fixed_price);
         $discountAmount = round((float) ($booking->discount_amount ?? 0), 2);
         $storedTotal = round((float) $booking->total_amount, 2);
+        $componentSubtotal = round($rentalAmount + $insuranceAmount, 2);
 
-        // Backward compatibility: old bookings only have total_amount, so infer extras.
-        $extrasAmount = max(0, round($storedTotal + $discountAmount - $rentalAmount - $insuranceAmount, 2));
+        if ($this->canSafelyInferStoredBookingTax($booking)) {
+            $extrasAmount = 0.0;
+            $taxAmount = max(0, round($storedTotal + $discountAmount - $componentSubtotal, 2));
+        } else {
+            // Legacy fallback: preserve the stored total without inventing a tax split.
+            $extrasAmount = max(0, round($storedTotal + $discountAmount - $componentSubtotal, 2));
+            $taxAmount = 0.0;
+        }
 
-        $breakdown = $this->breakdown($rentalAmount, $insuranceAmount, $extrasAmount, $discountAmount);
+        $breakdown = $this->breakdown($rentalAmount, $insuranceAmount, $extrasAmount, $discountAmount, $taxAmount);
         $breakdown['total_amount'] = $storedTotal;
+        $breakdown['grand_total'] = $storedTotal;
 
         return $breakdown;
+    }
+
+    private function canSafelyInferStoredBookingTax(Booking $booking): bool
+    {
+        if (! $booking->pickup_location_id || ! $booking->dropoff_location_id) {
+            return false;
+        }
+
+        return (int) $booking->pickup_location_id === (int) $booking->dropoff_location_id;
     }
 
     public function breakdownForInvoice(Invoice $invoice): array
@@ -446,28 +470,34 @@ class BookingPricingService
                 (float) ($invoice->tax_amount ?? 0)
             );
             $breakdown['total_amount'] = round((float) $invoice->total_amount, 2);
+            $breakdown['grand_total'] = $breakdown['total_amount'];
 
             return $breakdown;
         }
 
-        $bookingBreakdown = $this->breakdownForBooking($invoice->booking);
-        $discountAmount = round((float) ($invoice->discount_amount ?? $bookingBreakdown['discount_amount']), 2);
+        $rentalAmount = $this->calculateRentalAmount(
+            (float) $invoice->booking->rental_price_per_day,
+            (int) $invoice->booking->total_days
+        );
+        $insuranceAmount = $this->calculateInsuranceAmount($invoice->booking->insurance_fixed_price);
+        $discountAmount = round((float) ($invoice->discount_amount ?? $invoice->booking->discount_amount ?? 0), 2);
         $taxAmount = round((float) ($invoice->tax_amount ?? 0), 2);
         $storedTotal = round((float) $invoice->total_amount, 2);
 
         $extrasAmount = max(0, round(
-            $storedTotal + $discountAmount - $taxAmount - $bookingBreakdown['rental_amount'] - $bookingBreakdown['insurance_amount'],
+            $storedTotal + $discountAmount - $taxAmount - $rentalAmount - $insuranceAmount,
             2
         ));
 
         $breakdown = $this->breakdown(
-            $bookingBreakdown['rental_amount'],
-            $bookingBreakdown['insurance_amount'],
+            $rentalAmount,
+            $insuranceAmount,
             $extrasAmount,
             $discountAmount,
             $taxAmount
         );
         $breakdown['total_amount'] = $storedTotal;
+        $breakdown['grand_total'] = $storedTotal;
 
         return $breakdown;
     }

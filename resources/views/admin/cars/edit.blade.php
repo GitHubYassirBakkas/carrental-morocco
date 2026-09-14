@@ -121,6 +121,10 @@
                             <label>Luggage Bags</label>
                             <input type="number" name="luggage" value="{{ old('luggage', $car->luggage) }}" min="0">
                         </div>
+                        <div class="cf-field">
+                            <label>Mileage (km)</label>
+                            <input type="number" name="mileage" value="{{ old('mileage', $car->mileage) }}" min="0" max="2000000">
+                        </div>
                     </div>
                 </div>
 
@@ -197,24 +201,6 @@
                 @foreach(['Full to Full', 'Full to Empty', 'Same to Same'] as $fp)
                     <option value="{{ $fp }}" {{ old('fuel_policy', $car->fuel_policy) == $fp ? 'selected' : '' }}>
                         {{ $fp }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        {{-- Cancellation Policy --}}
-        <div class="cf-field">
-            <label>Cancellation Policy</label>
-            <select name="cancellation_policy">
-                <option value="">Select policy</option>
-                @foreach([
-                    'Free cancellation 48h before',
-                    'Free cancellation 72h before',
-                    'No refund within 7 days',
-                    'Free cancellation up to 72 hours before pickup',
-                ] as $cp)
-                    <option value="{{ $cp }}" {{ old('cancellation_policy', $car->cancellation_policy) == $cp ? 'selected' : '' }}>
-                        {{ $cp }}
                     </option>
                 @endforeach
             </select>

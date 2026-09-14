@@ -463,8 +463,7 @@ class RefundService
             return null;
         }
 
-        // Detect payment method from the first payment record
-        $paymentMethod = $this->detectPaymentMethod($invoice);
+        $paymentMethod = $policy['refund_method'] ?? $this->detectPaymentMethod($invoice);
 
         if ($paymentMethod === 'cash') {
             return $this->processCashRefund(
@@ -501,8 +500,12 @@ class RefundService
             return $payment->method;
         }
 
-        // Priority 2: Fallback method from settings
-        return \App\Models\Setting::get('refund_default_method', 'cash');
+        // Priority 2: Manual fallback method from settings.
+        $fallback = (string) \App\Models\Setting::get('refund_default_method', 'cash');
+
+        return in_array($fallback, RefundPolicyService::FALLBACK_REFUND_METHODS, true)
+            ? $fallback
+            : 'cash';
     }
 
     /**

@@ -93,10 +93,15 @@
 
         {{-- Subtotal (before tax) --}}
         @php
-            $subtotalBeforeTax = $pricingBreakdown['total_amount']
-                + $booking->total_checkout_damage 
-                + ($booking->fuel_charge ?? 0)
-                + ($booking->late_fee ?? 0);
+            $subtotalBeforeTax = $booking->invoice
+                ? $booking->invoice->subtotal
+                : $pricingBreakdown['subtotal_amount'] - $pricingBreakdown['discount_amount'];
+            $taxAmount = $booking->invoice
+                ? $booking->invoice->tax_amount
+                : $pricingBreakdown['tax_amount'];
+            $grandTotal = $booking->invoice
+                ? $booking->invoice->total_amount
+                : $pricingBreakdown['total_amount'];
         @endphp
         
         @if($booking->total_checkout_damage > 0 || $booking->fuel_charge > 0 || $booking->late_fee > 0)
@@ -108,15 +113,10 @@
         </div>
         @endif
 
-        {{-- Tax (if enabled) --}}
-        @php
-            $taxPercent = setting('tax_percentage', 0);
-            $taxAmount = ($subtotalBeforeTax * $taxPercent) / 100;
-        @endphp
-        
-        @if($taxPercent > 0)
+        {{-- Tax --}}
+        @if($taxAmount > 0)
         <div class="flex justify-between pb-3 border-b border-gray-800">
-            <span class="text-gray-400 text-sm">Tax ({{ $taxPercent }}%)</span>
+            <span class="text-gray-400 text-sm">Tax</span>
             <span class="text-white font-medium">
                 {{ number_format($taxAmount, 2) }} MAD
             </span>
@@ -127,7 +127,7 @@
         <div class="flex justify-between pt-3">
             <span class="text-orange-400 font-bold text-lg">Grand Total</span>
             <span class="text-orange-400 font-bold text-2xl">
-                {{ number_format($subtotalBeforeTax + $taxAmount, 2) }} MAD
+                {{ number_format($grandTotal, 2) }} MAD
             </span>
         </div>
 

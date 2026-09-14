@@ -15,9 +15,14 @@
     </style>
 </head>
 <body>
+@php
+    $siteName = setting('site_name', 'Car Rental Morocco');
+    $siteEmail = setting('site_email', config('mail.from.address'));
+    $siteAddress = setting('site_address', 'Meknes, Morocco');
+@endphp
     <div class="container">
         <div class="header">
-            <h1>CarRental Morocco</h1>
+            <h1>{{ $siteName }}</h1>
             <p>Your trusted car rental partner</p>
         </div>
 
@@ -28,15 +33,15 @@
                 Good news - your driver profile has been reviewed and verified.
             </p>
             <p style="color:#666;font-size:14px;line-height:1.7;">
-                You can now reserve vehicles with CarRental Morocco.
+                You can now reserve vehicles with {{ $siteName }}.
             </p>
 
             <a href="{{ route('cars.index') }}" class="btn">Browse Cars</a>
         </div>
 
         <div class="footer">
-            <p>&copy; {{ date('Y') }} CarRental Morocco. All rights reserved.</p>
-            <p>Meknes, Morocco | contact@carrental.ma</p>
+            <p>&copy; {{ date('Y') }} {{ $siteName }}. All rights reserved.</p>
+            <p>{{ $siteAddress }} | {{ $siteEmail }}</p>
         </div>
     </div>
 </body>

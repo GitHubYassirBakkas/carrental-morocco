@@ -20,7 +20,8 @@ class BookingService
         private readonly InvoiceService $invoiceService,
         private readonly RefundService $refundService,
         private readonly SecurityDepositService $securityDepositService,
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly RentalBusinessRules $rentalRules
     ) {
         $this->advancePaymentService = $advancePaymentService;
     }
@@ -45,14 +46,9 @@ class BookingService
                 $this->invoiceService->createForConfirmedBooking($booking);
             }
 
-            // Set advance payment deadline.
-            $deadlineHours = setting(
-                'advance_payment_deadline_hours',
-                config('rental.advance_payment_deadline_hours', 24)
-            );
+            // Store the required advance amount for this booking.
             $booking->update([
                 'advance_payment_amount' => $this->advancePaymentService->calculateMinimumAdvancePayment($booking),
-                'advance_payment_due_at' => now()->addHours($deadlineHours),
             ]);
 
             Log::info('Booking confirmed', ['booking_id' => $booking->id]);
@@ -115,6 +111,13 @@ class BookingService
 
         if (! $booking->hasVerifiedDriverProfile()) {
             throw new \DomainException('Driver verification must be completed before starting the rental.');
+        }
+
+        $booking->loadMissing('car', 'user.customerProfile');
+        if ($booking->car && ! $this->rentalRules->driverMeetsMinimumAge($booking->user, $booking->car)) {
+            throw new \DomainException(
+                'Driver must be at least '.$this->rentalRules->effectiveMinimumDriverAge($booking->car).' years old for this vehicle.'
+            );
         }
 
         if (! $booking->checkinInspection) {
@@ -307,6 +310,10 @@ class BookingService
         Booking::where('status', Booking::STATUS_PENDING)
             ->where('advance_payment_status', '!=', Booking::ADVANCE_PAYMENT_STATUS_PAID)
             ->where('advance_payment_due_at', '<', now())
+            ->whereHas('invoice.payments', function ($query) {
+                $query->where('method', 'cash')
+                    ->where('type', \App\Models\Payment::TYPE_PAYMENT);
+            })
             ->chunkById(100, function ($bookings) use (&$cancelledCount) {
                 foreach ($bookings as $booking) {
                     try {

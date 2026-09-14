@@ -171,9 +171,21 @@
         </div>
  
         @if($cars->count() > 0)
+            @php
+                $wishlistCarIds = auth()->check()
+                    ? auth()->user()->wishlists()
+                        ->whereIn('car_id', $cars->pluck('id'))
+                        ->pluck('car_id')
+                        ->map(fn ($carId) => (int) $carId)
+                        ->all()
+                    : [];
+            @endphp
  
             <div class="cars-grid" id="carsGrid">
                 @foreach($cars as $i => $car)
+                    @php
+                        $isFavorited = in_array((int) $car->id, $wishlistCarIds, true);
+                    @endphp
                     <article class="car-card" style="animation-delay: {{ $i * 0.06 }}s">
  
                         {{-- Image --}}
@@ -185,6 +197,12 @@
                                 onerror="this.onerror=null;this.src='{{ asset('images/cars/Route.jpg') }}'">
  
                             <div class="car-badge">{{ ui_car_type($car->type) }}</div>
+
+                            @include('partials.wishlist-toggle', [
+                                'car' => $car,
+                                'isFavorited' => $isFavorited,
+                                'class' => 'wishlist-toggle-form--overlay',
+                            ])
  
                             {{-- Hover overlay --}}
                             <div class="car-img-overlay">
@@ -219,7 +237,7 @@
                                 </div>
                                 <div class="spec">
                                     <svg viewBox="0 0 20 20" fill="currentColor"><path d="M8 2a2 2 0 00-2 2v1H5a3 3 0 00-3 3v9a2 2 0 002 2h12a2 2 0 002-2V8a3 3 0 00-3-3h-1V4a2 2 0 00-2-2H8zm0 2h4v1H8V4z"/></svg>
-                                    <span>{{ $car->luggage }} {{ __('messages.doors') }}</span>
+                                    <span>{{ $car->luggage }} {{ __('messages.luggage_bags') }}</span>
                                 </div>
                             </div>
  
@@ -732,6 +750,7 @@
 .car-badge {
     position: absolute;
     top: 12px; left: 12px;
+    z-index: 3;
     background: var(--gold);
     color: #0a0a0a;
     font-size: 0.65rem;
@@ -741,9 +760,10 @@
     padding: 4px 10px;
     border-radius: 100px;
 }
- 
+
 .car-img-overlay {
     position: absolute; inset: 0;
+    z-index: 2;
     background: rgba(10,10,10,0.7);
     display: flex;
     align-items: center;

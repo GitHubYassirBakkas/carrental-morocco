@@ -45,6 +45,7 @@ return [
     'available_cars' => 'Available Cars',
     'car_details' => 'Car Details',
     'price_per_day' => 'Price per Day',
+    'car_rental_total' => 'Car Rental Total',
     'or_similar' => 'or similar',
     'view_details' => 'View Details',
     'currency' => 'MAD',
@@ -60,9 +61,11 @@ return [
     'fuel_type' => 'Fuel Type',
     'seats' => 'Seats',
     'doors' => 'Doors',
+    'luggage_bags' => 'Luggage Bags',
     'year' => 'Year',
     'color' => 'Color',
     'mileage' => 'Mileage',
+    'map_location_not_available' => 'Map location not available',
     'automatic' => 'Automatic',
     'manual' => 'Manual',
     'petrol' => 'Petrol',
@@ -269,7 +272,7 @@ return [
     'verify_to_book' => 'Please verify your email to continue',
     'different_dropoff_hint' => '💡 Different drop-off may incur additional fees',
     'select_dates' => 'Select pickup & return dates',
-    'free_cancellation' => 'Free cancellation 48h before',
+    'free_cancellation' => 'Free cancellation :hours h+ before pickup',
     'min_rental_days' => 'Minimum rental is',
     'max_rental_days' => 'Maximum rental is',
     'car_available' => 'Car is available for selected dates.',
@@ -312,7 +315,7 @@ return [
     'pay_amount' => 'Pay :amount MAD',
     'deposit_hold_secondary' => 'A separate :amount MAD refundable hold will be authorized on your card.',
     'card_brand_indicators' => 'Accepted card brands',
-    'free_cancellation' => 'Free cancellation 48h before',
+    'free_cancellation' => 'Free cancellation :hours h+ before pickup',
 
     // Footer
     'footer_call' => 'Call us',
@@ -975,57 +978,95 @@ return [
         'contact_email_connector' => 'or by email at',
         'contact_period' => 'We respond during normal business hours.',
         'privacy' => [
-            'lead' => 'This Privacy Policy explains how Car Rental Morocco handles personal information when you use our website, create an account, request support, or book a vehicle.',
+            'lead' => 'This Privacy Policy explains how Car Rental Morocco handles personal information when you use the website, create an account, submit driver verification information, request support, or book a vehicle.',
             'sections' => [
                 [
-                    'title' => 'Information we collect',
-                    'body' => 'We collect account details, contact information, booking details, driver verification documents, support messages, and technical data needed to operate the service securely.',
+                    'title' => 'Information We Collect',
+                    'body' => [
+                        'We collect account and contact details such as name, email address, phone number, address, city, country, postal code, account credentials, profile information, and profile photos when provided.',
+                        'We also collect booking records, selected vehicles, dates, pickup and return locations, invoices, payments, refunds, security deposit records, support tickets and messages, notifications, wishlist activity, and technical, session, and log data used to operate and protect the service.',
+                    ],
                 ],
                 [
-                    'title' => 'How we use information',
-                    'body' => 'We use this information to manage bookings, verify driver eligibility, process payments, provide customer support, send service notifications, and protect the platform from misuse.',
+                    'title' => 'Driver Verification Documents',
+                    'body' => [
+                        'When driver verification is submitted, the application may collect date of birth, driving-license number, license country, issue and expiry dates, and uploaded driving-license and identity document images or PDFs.',
+                        'Driver documents are stored on the application local disk under private customer document paths and are served through admin-only document routes for verification, rental readiness, and support review.',
+                    ],
                 ],
                 [
-                    'title' => 'Payments and deposits',
-                    'body' => 'Payment information is processed through secure payment providers. We store only the records needed for booking, invoice, refund, and security deposit follow-up.',
+                    'title' => 'How We Use Information',
+                    'body' => 'We use information to manage accounts and bookings, check vehicle availability, verify driver eligibility, process payment and cash-payment workflows, create invoices, manage security deposit records, provide support, send service notifications, and investigate misuse, damages, or disputes.',
                 ],
                 [
-                    'title' => 'Sharing and retention',
-                    'body' => 'We do not sell customer data. Information is shared only when needed to provide the service, comply with legal obligations, resolve disputes, or protect our rights. Records are retained only as long as necessary for those purposes.',
+                    'title' => 'Payments and Payment Providers',
+                    'body' => 'Card payment and security deposit authorization handling is delegated to Stripe or the configured payment provider. The application stores payment, invoice, refund, status, amount, and provider-reference records needed for rental administration, but does not store full card numbers or card security codes.',
                 ],
                 [
-                    'title' => 'Your choices',
-                    'body' => 'You may update your account information, contact us about privacy requests, and manage communications required for your bookings and support requests.',
+                    'title' => 'Sharing and Service Providers',
+                    'body' => 'We do not sell customer data. Information may be shared with service providers, payment providers, administrators, support staff, and other parties only when needed to provide the service, verify drivers, handle payments or deposits, comply with obligations, resolve disputes, or protect the platform.',
+                ],
+                [
+                    'title' => 'Data Security',
+                    'body' => 'The application uses authenticated account access and admin-only document routes for driver document review. No online system can be guaranteed perfectly secure, so customers should keep account credentials private and contact support if they suspect unauthorized access.',
+                ],
+                [
+                    'title' => 'Retention',
+                    'body' => 'Records are kept as needed for bookings, invoices, payments, refunds, security deposits, driver verification, support, disputes, legal obligations, and accounting or operational history. The implementation does not define a fixed public deletion period, and accounts with booking, payment, review, or support history may require support review instead of automatic deletion.',
+                ],
+                [
+                    'title' => 'User Choices / Requests',
+                    'body' => 'You may update account information in your profile where the feature is available, replace driver verification documents through the driver profile flow, and contact support about privacy, access, correction, deletion, or deactivation requests.',
                 ],
             ],
-            'contact_title' => 'Privacy contact',
+            'contact_title' => 'Privacy Contact',
             'contact_body' => 'For privacy questions or requests, contact us through the website',
         ],
         'terms' => [
-            'lead' => 'These Terms & Conditions describe the rules for using the Car Rental Morocco website and booking vehicles through our service.',
+            'lead' => 'These Terms & Conditions describe the rules for using the Car Rental Morocco website, creating bookings, paying invoices, completing driver verification, and renting vehicles through our service.',
             'sections' => [
                 [
-                    'title' => 'Use of the website',
+                    'title' => 'Use of the Website',
                     'body' => 'You agree to provide accurate information, keep your account secure, and use the website only for lawful booking and account management purposes.',
                 ],
                 [
-                    'title' => 'Bookings',
-                    'body' => 'Bookings depend on vehicle availability, valid customer information, driver verification where required, and acceptance of the prices, dates, locations, insurance choices, and conditions shown before payment.',
+                    'title' => 'Booking Eligibility and Availability',
+                    'body' => 'Bookings depend on vehicle availability, valid customer information, accepted pickup and return dates, selected locations, applicable pricing, and any insurance or protection choices shown before payment. A booking may remain pending until the required payment, cash advance, verification, or administrative confirmation is complete.',
                 ],
                 [
-                    'title' => 'Payments, invoices, and deposits',
-                    'body' => 'Payment, invoice, refund, and security deposit handling follows the amounts and conditions displayed during checkout and in the applicable booking records.',
+                    'title' => 'Driver Verification',
+                    'body' => 'Customers may be required to submit driver profile information, driving-license details, and identity or license documents. Rentals can be blocked or refused when the driver profile is incomplete, not verified, expired, rejected, or does not meet the applicable age and eligibility rules.',
                 ],
                 [
-                    'title' => 'Driver responsibilities',
-                    'body' => 'Customers must provide valid driver information and documents, respect pickup and return times, follow applicable traffic laws, and return the vehicle in the agreed condition.',
+                    'title' => 'Payments and Invoices',
+                    'body' => 'The platform creates booking invoices and payment records for rental charges, extras, refunds, and related adjustments. Card payments are handled through Stripe or the configured payment provider, and the system records provider references and payment status rather than full card details.',
                 ],
                 [
-                    'title' => 'Cancellations and refunds',
-                    'body' => 'Cancellation, refund, late return, damage, and fuel rules are applied according to the policy shown in the booking flow and the details attached to the booking.',
+                    'title' => 'Pay at Agency / Advance Payment',
+                    'body' => 'When pay-at-agency is available, the booking can require an advance payment by the configured deadline. Unpaid cash or advance-payment bookings may remain pending and can be cancelled if the required advance payment is not received in time.',
                 ],
                 [
-                    'title' => 'Support and disputes',
+                    'title' => 'Security Deposit',
+                    'body' => 'Where a security deposit applies, it is handled separately from rental revenue. It may be authorized or held through the payment provider and later released or charged according to the booking condition, inspection, damage, fuel, late-return, and dispute records.',
+                ],
+                [
+                    'title' => 'Cancellations and Refunds',
+                    'body' => 'Cancellation and refund handling follows the currently configured cancellation/refund policy displayed during the booking or payment flow and recorded by the platform. The Terms page does not replace the policy values configured by the agency at the time they are shown.',
+                ],
+                [
+                    'title' => 'Pickup, Return, Late Return and Fuel',
+                    'body' => 'Customers must respect the agreed pickup and return schedule and return the vehicle with the expected fuel level. The system can apply late-return and fuel charges based on configured business rules and inspection records.',
+                ],
+                [
+                    'title' => 'Vehicle Condition and Damage',
+                    'body' => 'Vehicle pickup and return inspections may record mileage, fuel level, notes, photos, and damages. Chargeable damage can update the related invoice and deposit handling according to the inspection and damage records.',
+                ],
+                [
+                    'title' => 'Customer Responsibilities',
+                    'body' => 'Customers are responsible for accurate account, booking, driver, and contact information, lawful vehicle use, traffic and parking obligations, timely support communication, and returning the vehicle in the agreed condition.',
+                ],
+                [
+                    'title' => 'Support and Disputes',
                     'body' => 'Customers can contact support through their account or the public contact details. We review requests using the booking, payment, and support records available in the system.',
                 ],
             ],

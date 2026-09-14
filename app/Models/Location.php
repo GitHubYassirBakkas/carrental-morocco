@@ -84,7 +84,7 @@ class Location extends Model
      */
     public function getHasCoordinatesAttribute(): bool
     {
-        return ! empty($this->latitude) && ! empty($this->longitude);
+        return $this->latitude !== null && $this->longitude !== null;
     }
 
     /**

@@ -258,7 +258,7 @@ test('legal pages have localized body copy in all public locales', function (str
         ->assertDontSee('Mekn?s')
         ->assertDontSee('messages.legal_content');
 })->with([
-    ['en', 'Information we collect', 'Driver responsibilities', 'Unavailable legal identifiers'],
+    ['en', 'Information We Collect', 'Driver Verification', 'Unavailable legal identifiers'],
     ['fr', 'Informations collectées', 'Responsabilités du conducteur', 'Identifiants légaux non disponibles'],
     ['ar', 'المعلومات التي نجمعها', 'مسؤوليات السائق', 'المعرفات القانونية غير المتاحة'],
 ]);

@@ -13,6 +13,7 @@ use App\Services\InvoiceService;
 use App\Services\NotificationService;
 use App\Services\PaymentService;
 use App\Services\PaymentWebhookMetrics;
+use App\Services\RentalBusinessRules;
 use App\Services\SecurityDepositService;
 use App\Services\StripePaymentIntentGateway;
 use Exception;
@@ -39,7 +40,8 @@ class PaymentController extends Controller
         private readonly SecurityDepositService $securityDeposits,
         private readonly InvoiceService $invoices,
         private readonly PaymentService $payments,
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly RentalBusinessRules $rentalRules
     ) {
         Stripe::setApiKey(config('services.stripe.secret'));
     }
@@ -460,10 +462,11 @@ class PaymentController extends Controller
                 }
             }
 
+            $deadlineHours = $this->rentalRules->advancePaymentDeadlineHours();
             $message = match (true) {
                 $result['already_paid'] => 'This booking is already paid. No cash payment request was created.',
-                $result['already_pending'] => 'Cash payment request already exists. Please visit our agency within 24 hours.',
-                default => 'Booking created! Please visit our agency within 24 hours.',
+                $result['already_pending'] => "Cash payment request already exists. Please visit our agency within {$deadlineHours} hours.",
+                default => "Booking created! Please visit our agency within {$deadlineHours} hours.",
             };
 
             return redirect()

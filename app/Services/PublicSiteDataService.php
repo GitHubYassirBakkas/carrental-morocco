@@ -116,6 +116,7 @@ class PublicSiteDataService
             'phone' => $this->firstNonBlank($settings['site_phone'] ?? null, $primaryLocation?->phone),
             'email' => $this->firstNonBlank($settings['site_email'] ?? null, $primaryLocation?->email),
             'address' => $this->firstNonBlank($settings['site_address'] ?? null, $primaryLocation?->full_address),
+            'name' => $this->firstNonBlank(Setting::get('site_name', null), 'Car Rental Morocco'),
         ];
     }
 

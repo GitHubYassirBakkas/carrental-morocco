@@ -485,6 +485,14 @@ test('scheduled overdue cancellation command still cancels overdue bookings', fu
         'advance_payment_status' => Booking::ADVANCE_PAYMENT_STATUS_PENDING,
         'advance_payment_due_at' => now()->subHour(),
     ]);
+    $invoice = phase5Invoice($booking);
+    phase5Payment($invoice, [
+        'amount' => 1000,
+        'method' => 'cash',
+        'status' => Payment::STATUS_PENDING,
+        'transaction_id' => null,
+        'paid_at' => null,
+    ]);
 
     $this->artisan('bookings:cancel-overdue')
         ->expectsOutput('Cancelled 1 overdue bookings')

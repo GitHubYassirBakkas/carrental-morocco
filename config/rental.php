@@ -8,4 +8,8 @@ return [
     'tax_percentage' => (float) env('RENTAL_TAX_PERCENTAGE', 0),
     'advance_payment_percentage' => (float) env('RENTAL_ADVANCE_PAYMENT_PERCENTAGE', 30),
     'advance_payment_deadline_hours' => (int) env('RENTAL_ADVANCE_PAYMENT_DEADLINE_HOURS', 24),
+    'min_driver_age' => (int) env('RENTAL_MIN_DRIVER_AGE', 21),
+    'min_days' => (int) env('RENTAL_MIN_DAYS', 1),
+    'max_days' => (int) env('RENTAL_MAX_DAYS', 30),
+    'max_advance_booking_days' => (int) env('RENTAL_MAX_ADVANCE_BOOKING_DAYS', 90),
 ];

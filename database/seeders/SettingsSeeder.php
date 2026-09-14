@@ -122,7 +122,7 @@ class SettingsSeeder extends Seeder
                 'type' => 'text',  // ← Changed
                 'group' => 'payment',
                 'label' => 'Currency',
-                'description' => 'Default currency used in system',
+                'description' => 'MAD - application currency',
                 'autoload' => true,
             ],
             [
@@ -155,14 +155,14 @@ class SettingsSeeder extends Seeder
                 'type' => 'number',  // ← Changed
                 'group' => 'payment',
                 'label' => 'Fuel Price Per Liter',
-                'description' => 'Fuel charge per liter if car not refueled',
+                'description' => 'Inactive until a real liter-based fuel calculation path exists',
             ],
             [
                 'key' => 'fuel_price_per_percent',
                 'value' => '5',
                 'type' => 'number',
                 'group' => 'payment',
-                'label' => 'Fuel Price Per Tank Percent',
+                'label' => 'Fuel Fee Per Missing Tank % (MAD)',
                 'description' => 'Fuel charge per missing tank percentage point (MAD)',
             ],
 
@@ -235,8 +235,17 @@ class SettingsSeeder extends Seeder
                 'value' => '48',
                 'type' => 'number',
                 'group' => 'refund',
-                'label' => 'Cancellation Window (Hours)',
-                'description' => 'Number of hours before pickup during which free cancellation is allowed',
+                'label' => 'Full Refund Before Pickup (Hours)',
+                'description' => 'Scheduled pickup must be at least this many hours away for a full rental payment refund',
+                'autoload' => true,
+            ],
+            [
+                'key' => 'refund_partial_refund_cutoff_hours',
+                'value' => '24',
+                'type' => 'number',
+                'group' => 'refund',
+                'label' => 'Partial Refund Until Pickup (Hours)',
+                'description' => 'Scheduled pickup must be at least this many hours away for the configured partial refund',
                 'autoload' => true,
             ],
             [
@@ -262,8 +271,8 @@ class SettingsSeeder extends Seeder
                 'value' => 'cash',
                 'type' => 'text',
                 'group' => 'refund',
-                'label' => 'Default Refund Method',
-                'description' => 'Preferred refund method for cancellations (cash or card)',
+                'label' => 'Fallback Refund Method',
+                'description' => 'Manual refund method used only when the original payment channel is unknown',
                 'autoload' => true,
             ],
         ];
@@ -277,7 +286,7 @@ class SettingsSeeder extends Seeder
 
         $this->command->info('Successfully seeded application settings:');
         $this->command->info('- General settings: Site name, contact info');
-        $this->command->info('- Payment settings: 20% tax rate, MAD currency');
+        $this->command->info('- Payment settings: configurable tax rate, MAD currency');
         $this->command->info('- Booking settings: 1-30 days rental period, min driver age 21');
     }
 }

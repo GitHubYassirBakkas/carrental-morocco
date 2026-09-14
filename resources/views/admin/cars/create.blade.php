@@ -113,6 +113,10 @@
                             <label>Luggage Bags</label>
                             <input type="number" name="luggage" value="{{ old('luggage') }}" placeholder="2" min="0">
                         </div>
+                        <div class="cf-field">
+                            <label>Mileage (km)</label>
+                            <input type="number" name="mileage" value="{{ old('mileage') }}" placeholder="42000" min="0" max="2000000">
+                        </div>
                     </div>
                 </div>
 
@@ -141,6 +145,25 @@
                                 @endforeach
                             </select>
                         </div>
+                    </div>
+                </div>
+
+                {{-- Rental Conditions --}}
+                <div class="cf-section">
+                    <div class="cf-section-head">
+                        <div class="cf-section-dot" style="background:#c084fc"></div>
+                        Rental Conditions
+                    </div>
+                    <div class="cf-field">
+                        <label>Fuel Policy</label>
+                        <select name="fuel_policy">
+                            <option value="">Select policy</option>
+                            @foreach(['Full to Full', 'Full to Empty', 'Same to Same'] as $fp)
+                                <option value="{{ $fp }}" {{ old('fuel_policy') == $fp ? 'selected' : '' }}>
+                                    {{ $fp }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
 

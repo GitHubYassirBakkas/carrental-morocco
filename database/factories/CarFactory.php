@@ -22,6 +22,7 @@ class CarFactory extends Factory
             'seats' => 5,
             'doors' => 4,
             'luggage' => 2,
+            'mileage' => null,
             'price_per_day' => 500,
             'image' => 'factory-car.jpg',
             'gallery' => null,

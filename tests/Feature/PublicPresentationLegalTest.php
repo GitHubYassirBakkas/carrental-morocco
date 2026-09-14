@@ -129,15 +129,26 @@ test('legal public routes render expected content', function () {
 
     $this->get(route('legal.privacy'))
         ->assertOk()
-        ->assertSee('driver verification documents')
-        ->assertSee('secure payment providers');
+        ->assertSee('Last updated: September 2026')
+        ->assertSee('Driver Verification Documents')
+        ->assertSee('admin-only document routes')
+        ->assertSee('does not store full card numbers')
+        ->assertSee('meknes@example.test')
+        ->assertSee('+212 5 35 52 00 00')
+        ->assertSee('Avenue Mohammed V, Meknes')
+        ->assertDontSee('This page provides public information only and does not replace a signed rental agreement or invoice.');
 
     $this->get(route('legal.terms'))
         ->assertOk()
-        ->assertSee('Bookings')
-        ->assertSee('security deposit')
-        ->assertSee('Cancellations and refunds')
-        ->assertSee('Driver responsibilities');
+        ->assertSee('Last updated: September 2026')
+        ->assertSee('Booking Eligibility and Availability')
+        ->assertSee('Driver Verification')
+        ->assertSee('Payments and Invoices')
+        ->assertSee('Pay at Agency / Advance Payment')
+        ->assertSee('Security Deposit')
+        ->assertSee('Cancellations and Refunds')
+        ->assertSee('currently configured cancellation/refund policy')
+        ->assertSee('This page provides public information only and does not replace a signed rental agreement or invoice.');
 
     $this->get(route('legal.notice'))
         ->assertOk()

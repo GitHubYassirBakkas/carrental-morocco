@@ -39,6 +39,12 @@
     margin-bottom: 2rem;
 }
 
+.legal-updated {
+    color: #8d857b;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+}
+
 .legal-content {
     border-top: 1px solid rgba(255,255,255,0.08);
     padding-top: 2rem;
@@ -62,6 +68,14 @@
 .legal-content strong { color: #fff; }
 .legal-content a { color: #C89D66; text-decoration: none; }
 .legal-content a:hover { color: #e7bf84; }
+
+.legal-contact-details {
+    margin-top: 1rem;
+}
+
+.legal-contact-details p {
+    margin-bottom: 0.35rem;
+}
 
 .legal-note {
     margin-top: 2rem;

@@ -131,13 +131,23 @@
 
             <!-- Email Content -->
             <div class="bg-[#1a2332] border border-gray-800 rounded-xl p-8">
-                <h2 class="text-xl font-bold text-white mb-6">Email Content</h2>
+                <h2 class="text-xl font-bold text-white mb-6">Email Preview</h2>
 
-                <div class="bg-white text-gray-900 p-6 rounded-lg">
-                    <div class="prose max-w-none">
-                        {!! nl2br(e($emailLog->content)) !!}
-                    </div>
-                </div>
+                <iframe
+                    class="w-full bg-white rounded-lg border border-gray-700"
+                    style="min-height: 520px;"
+                    title="Rendered email preview"
+                    sandbox=""
+                    referrerpolicy="no-referrer"
+                    srcdoc="{{ $emailPreviewSrcdoc }}"
+                ></iframe>
+
+                <details class="mt-5 rounded-lg border border-gray-700 bg-[#0a0e1a]">
+                    <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-300">
+                        View Source
+                    </summary>
+                    <pre class="max-h-96 overflow-auto border-t border-gray-800 p-4 text-xs text-gray-300 whitespace-pre-wrap">{{ $emailLog->content }}</pre>
+                </details>
             </div>
 
             <!-- Related Information -->

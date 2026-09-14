@@ -57,8 +57,7 @@
                     </svg>
                 </div>
                 <div>
-                    <span class="ft-logo-name">CarRental</span>
-                    <span class="ft-logo-sub">Morocco</span>
+                    <span class="ft-logo-name">{{ $footerContact['name'] ?? setting('site_name', 'Car Rental Morocco') }}</span>
                 </div>
             </a>
 
@@ -115,7 +114,7 @@
     </div>
 
     <div class="ft-bottom">
-        <p>&copy; {{ date('Y') }} CarRental Morocco. {{ __('messages.all_rights_reserved') }}</p>
+        <p>&copy; {{ date('Y') }} {{ $footerContact['name'] ?? setting('site_name', 'Car Rental Morocco') }}. {{ __('messages.all_rights_reserved') }}</p>
     </div>
 
 </footer>
