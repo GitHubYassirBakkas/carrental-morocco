@@ -14,17 +14,41 @@ Live Demo: Coming soon
 
 Final public screenshots are stored under `docs/screenshots/` and use clean demo data only.
 
-| Screenshot | Relative path |
-| --- | --- |
-| Home page | `docs/screenshots/home.jpeg` |
-| Cars page | `docs/screenshots/cars.jpeg` |
-| Car details | `docs/screenshots/car-details.jpeg` |
-| Insurance selection | `docs/screenshots/insurance.jpeg` |
-| Booking preview | `docs/screenshots/booking-preview.jpeg` |
-| Booking payment | `docs/screenshots/booking-payment.jpeg` |
-| Booking success | `docs/screenshots/booking-success.jpeg` |
-| Customer dashboard | `docs/screenshots/customer-dashboard.jpeg` |
-| Admin dashboard | `docs/screenshots/admin-dashboard.jpeg` |
+### Home Page
+
+![CarRental Morocco Home Page](docs/screenshots/home.jpeg)
+
+### Cars
+
+![CarRental Morocco Cars](docs/screenshots/cars.jpeg)
+
+### Car Details
+
+![CarRental Morocco Car Details](docs/screenshots/car-details.jpeg)
+
+### Insurance Selection
+
+![CarRental Morocco Insurance Selection](docs/screenshots/insurance.jpeg)
+
+### Booking Preview
+
+![CarRental Morocco Booking Preview](docs/screenshots/booking-preview.jpeg)
+
+### Booking Payment
+
+![CarRental Morocco Booking Payment](docs/screenshots/booking-payment.jpeg)
+
+### Booking Success
+
+![CarRental Morocco Booking Success](docs/screenshots/booking-success.jpeg)
+
+### Customer Dashboard
+
+![CarRental Morocco Customer Dashboard](docs/screenshots/customer-dashboard.jpeg)
+
+### Admin Dashboard
+
+![CarRental Morocco Admin Dashboard](docs/screenshots/admin-dashboard.jpeg)
 
 See `docs/screenshots/README.md` for the screenshot checklist and capture guidance.
 
